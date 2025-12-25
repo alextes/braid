@@ -18,3 +18,7 @@ format: `<type>[(scope)][!]: <description>`
 - `feat` → new feature (MINOR)
 - `!` or `BREAKING CHANGE:` footer → breaking change (MAJOR)
 - other types: `build`, `chore`, `ci`, `docs`, `style`, `refactor`, `perf`, `test`
+
+## writing style
+
+all lowercase for comments, tracing, docs, and other prose. exceptions: acronyms (CLI, API, ID, etc.).
