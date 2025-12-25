@@ -1,1 +1,5 @@
+# cargo build artifacts
 /target
+
+# claude local settings
+.claude/*.local.*
