@@ -65,6 +65,7 @@ fn run(cli: &Cli) -> Result<()> {
             ready,
             blocked,
             label,
+            all,
         } => cmd_ls(
             cli,
             &paths,
@@ -73,6 +74,7 @@ fn run(cli: &Cli) -> Result<()> {
             *ready,
             *blocked,
             label,
+            *all,
         ),
         Command::Show { id } => cmd_show(cli, &paths, id),
         Command::Ready => cmd_ready(cli, &paths),

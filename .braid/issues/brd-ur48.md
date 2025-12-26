@@ -3,11 +3,11 @@ brd: 1
 id: brd-ur48
 title: implement smart brd ls defaults
 priority: P2
-status: todo
+status: done
 deps:
 - brd-xho0
 created_at: 2025-12-26T19:06:49.983355Z
-updated_at: 2025-12-26T19:06:49.983355Z
+updated_at: 2025-12-26T19:23:05.316873Z
 acceptance:
 - todo/doing shown before done
 - max 10 done issues shown by default

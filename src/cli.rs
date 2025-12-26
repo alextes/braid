@@ -75,6 +75,10 @@ pub enum Command {
         /// filter by label (can be repeated)
         #[arg(long)]
         label: Vec<String>,
+
+        /// show all issues (no limit on done issues)
+        #[arg(long)]
+        all: bool,
     },
 
     /// show details of an issue

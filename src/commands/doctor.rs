@@ -37,8 +37,8 @@ pub fn cmd_doctor(cli: &Cli, paths: &RepoPaths) -> Result<()> {
     }
 
     // check 2: config.toml is valid
-    let config_valid = paths.config_path().exists()
-        && crate::config::Config::load(&paths.config_path()).is_ok();
+    let config_valid =
+        paths.config_path().exists() && crate::config::Config::load(&paths.config_path()).is_ok();
     record_check("config_valid", "config.toml is valid", config_valid);
     if !config_valid {
         errors.push(serde_json::json!({

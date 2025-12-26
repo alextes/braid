@@ -8,6 +8,10 @@ use crate::repo::RepoPaths;
 
 use super::{issue_to_json, load_all_issues};
 
+/// Maximum number of done issues to show by default
+const DEFAULT_DONE_LIMIT: usize = 10;
+
+#[allow(clippy::too_many_arguments)]
 pub fn cmd_ls(
     cli: &Cli,
     paths: &RepoPaths,
@@ -16,13 +20,14 @@ pub fn cmd_ls(
     ready_only: bool,
     blocked_only: bool,
     label_filter: &[String],
+    show_all: bool,
 ) -> Result<()> {
     let issues = load_all_issues(paths)?;
 
     let status_filter: Option<Status> = status_filter.map(|s| s.parse()).transpose()?;
     let priority_filter: Option<Priority> = priority_filter.map(|p| p.parse()).transpose()?;
 
-    let mut filtered: Vec<&Issue> = issues
+    let filtered: Vec<&Issue> = issues
         .values()
         .filter(|issue| {
             if let Some(s) = status_filter
@@ -58,8 +63,29 @@ pub fn cmd_ls(
         })
         .collect();
 
-    // sort by priority, created_at, id
-    filtered.sort_by(|a, b| a.cmp_by_priority(b));
+    // partition into non-done (todo/doing) and done issues
+    let (mut active, mut done): (Vec<&Issue>, Vec<&Issue>) = filtered
+        .into_iter()
+        .partition(|issue| issue.status() != Status::Done);
+
+    // sort active issues by priority, created_at, id
+    active.sort_by(|a, b| a.cmp_by_priority(b));
+
+    // sort done issues by updated_at (most recent first), then by id for stability
+    done.sort_by(|a, b| {
+        b.frontmatter
+            .updated_at
+            .cmp(&a.frontmatter.updated_at)
+            .then_with(|| a.id().cmp(b.id()))
+    });
+
+    // limit done issues unless --all is specified
+    if !show_all && done.len() > DEFAULT_DONE_LIMIT {
+        done.truncate(DEFAULT_DONE_LIMIT);
+    }
+
+    // combine: active first, then done
+    let filtered: Vec<&Issue> = active.into_iter().chain(done).collect();
 
     if cli.json {
         let json: Vec<_> = filtered
