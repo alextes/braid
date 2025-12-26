@@ -3,6 +3,7 @@ use braid::commands::{
     cmd_add, cmd_agent_init, cmd_completions, cmd_dep_add, cmd_dep_rm, cmd_doctor, cmd_done,
     cmd_init, cmd_ls, cmd_migrate, cmd_next, cmd_ready, cmd_ship, cmd_show, cmd_start, cmd_tui,
 };
+use braid::config::Config;
 use braid::error::Result;
 use braid::repo;
 use clap::Parser;
@@ -42,6 +43,10 @@ fn run(cli: &Cli) -> Result<()> {
 
     // all other commands need repo discovery
     let paths = repo::discover(cli.repo.as_deref())?;
+
+    // validate config schema version early to prevent old brd from modifying upgraded repos
+    let config = Config::load(&paths.config_path())?;
+    config.validate()?;
 
     match &cli.command {
         Command::Init => unreachable!(),

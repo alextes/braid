@@ -4,12 +4,13 @@ use serde::{Deserialize, Serialize};
 use std::path::Path;
 
 use crate::error::{BrdError, Result};
+use crate::migrate::CURRENT_SCHEMA;
 
 /// the braid configuration stored in `.braid/config.toml`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
-    /// schema version, must be 1 for v0.1
-    pub brd: u32,
+    /// schema version for the repo
+    pub schema_version: u32,
     /// prefix for issue IDs (e.g., "mevx")
     pub id_prefix: String,
     /// length of the random suffix (default 4, range 4-10)
@@ -19,7 +20,7 @@ pub struct Config {
 impl Default for Config {
     fn default() -> Self {
         Self {
-            brd: 1,
+            schema_version: CURRENT_SCHEMA,
             id_prefix: "brd".to_string(),
             id_len: 4,
         }
@@ -53,12 +54,13 @@ impl Config {
     }
 
     /// validate the config.
+    /// fails if the repo uses a newer schema than this brd version supports.
     pub fn validate(&self) -> Result<()> {
-        if self.brd != 1 {
-            return Err(BrdError::ParseError(
-                "config".to_string(),
-                format!("unsupported brd version: {}", self.brd),
-            ));
+        if self.schema_version > CURRENT_SCHEMA {
+            return Err(BrdError::Other(format!(
+                "this repo uses schema v{}, but this brd only supports up to v{}. please upgrade brd.",
+                self.schema_version, CURRENT_SCHEMA
+            )));
         }
         if self.id_len < 4 || self.id_len > 10 {
             return Err(BrdError::ParseError(
@@ -114,10 +116,19 @@ mod tests {
         let mut config = Config::default();
         assert!(config.validate().is_ok());
 
-        config.brd = 2;
+        // schema_version at current is ok
+        config.schema_version = CURRENT_SCHEMA;
+        assert!(config.validate().is_ok());
+
+        // schema_version below current is ok (old repo)
+        config.schema_version = 1;
+        assert!(config.validate().is_ok());
+
+        // schema_version above current should fail (repo newer than brd)
+        config.schema_version = CURRENT_SCHEMA + 1;
         assert!(config.validate().is_err());
 
-        config.brd = 1;
+        config.schema_version = CURRENT_SCHEMA;
         config.id_len = 3;
         assert!(config.validate().is_err());
 
