@@ -51,13 +51,24 @@ fn run(cli: &Cli) -> Result<()> {
             priority,
             dep,
             ac,
+            label,
             body,
-        } => cmd_add(cli, &paths, title, priority, dep, ac, body.as_deref()),
+        } => cmd_add(
+            cli,
+            &paths,
+            title,
+            priority,
+            dep,
+            ac,
+            label,
+            body.as_deref(),
+        ),
         Command::Ls {
             status,
             priority,
             ready,
             blocked,
+            label,
         } => cmd_ls(
             cli,
             &paths,
@@ -65,6 +76,7 @@ fn run(cli: &Cli) -> Result<()> {
             priority.as_deref(),
             *ready,
             *blocked,
+            label,
         ),
         Command::Show { id } => cmd_show(cli, &paths, id),
         Command::Ready { include_claimed } => cmd_ready(cli, &paths, *include_claimed),
@@ -178,6 +190,7 @@ fn cmd_add(
     priority_str: &str,
     deps: &[String],
     acceptance: &[String],
+    labels: &[String],
     body: Option<&str>,
 ) -> Result<()> {
     let config = Config::load(&paths.config_path())?;
@@ -196,6 +209,7 @@ fn cmd_add(
     // create issue
     let mut issue = Issue::new(id.clone(), title.to_string(), priority, resolved_deps);
     issue.frontmatter.acceptance = acceptance.to_vec();
+    issue.frontmatter.labels = labels.to_vec();
     if let Some(b) = body {
         issue.body = b.to_string();
     }
@@ -223,6 +237,7 @@ fn cmd_ls(
     priority_filter: Option<&str>,
     ready_only: bool,
     blocked_only: bool,
+    label_filter: &[String],
 ) -> Result<()> {
     let issues = load_all_issues(paths)?;
 
@@ -253,6 +268,13 @@ fn cmd_ls(
                 if !derived.is_blocked {
                     return false;
                 }
+            }
+            if !label_filter.is_empty()
+                && !label_filter
+                    .iter()
+                    .all(|label| issue.labels().contains(label))
+            {
+                return false;
             }
             true
         })
@@ -318,6 +340,10 @@ fn cmd_show(cli: &Cli, paths: &RepoPaths, id: &str) -> Result<()> {
 
         if !issue.deps().is_empty() {
             println!("Deps:     {}", issue.deps().join(", "));
+        }
+
+        if !issue.labels().is_empty() {
+            println!("Labels:   {}", issue.labels().join(", "));
         }
 
         if let Some(owner) = &issue.frontmatter.owner {
@@ -874,6 +900,7 @@ fn issue_to_json(
         "priority": issue.priority().to_string(),
         "status": issue.status().to_string(),
         "deps": issue.deps(),
+        "labels": issue.labels(),
         "owner": issue.frontmatter.owner,
         "created_at": issue.frontmatter.created_at.format(&time::format_description::well_known::Rfc3339).unwrap(),
         "updated_at": issue.frontmatter.updated_at.format(&time::format_description::well_known::Rfc3339).unwrap(),

@@ -45,6 +45,10 @@ pub enum Command {
         #[arg(long)]
         ac: Vec<String>,
 
+        /// add label (can be repeated)
+        #[arg(long)]
+        label: Vec<String>,
+
         /// issue description/body
         #[arg(long, short)]
         body: Option<String>,
@@ -67,6 +71,10 @@ pub enum Command {
         /// show only blocked issues
         #[arg(long)]
         blocked: bool,
+
+        /// filter by label (can be repeated)
+        #[arg(long)]
+        label: Vec<String>,
     },
 
     /// show details of an issue

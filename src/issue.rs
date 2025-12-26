@@ -88,6 +88,8 @@ pub struct IssueFrontmatter {
     pub status: Status,
     #[serde(default)]
     pub deps: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub labels: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub owner: Option<String>,
     #[serde(with = "time::serde::rfc3339")]
@@ -117,6 +119,7 @@ impl Issue {
                 priority,
                 status: Status::Todo,
                 deps,
+                labels: Vec::new(),
                 owner: None,
                 created_at: now,
                 updated_at: now,
@@ -210,6 +213,10 @@ impl Issue {
     pub fn deps(&self) -> &[String] {
         &self.frontmatter.deps
     }
+
+    pub fn labels(&self) -> &[String] {
+        &self.frontmatter.labels
+    }
 }
 
 /// split content into frontmatter and body.
@@ -261,6 +268,7 @@ This is the body.
         assert_eq!(issue.frontmatter.title, "Test issue");
         assert_eq!(issue.frontmatter.priority, Priority::P1);
         assert_eq!(issue.frontmatter.status, Status::Todo);
+        assert!(issue.frontmatter.labels.is_empty());
         assert!(issue.body.contains("This is the body"));
     }
 
