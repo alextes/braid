@@ -3,10 +3,10 @@ brd: 1
 id: brd-qo6j
 title: add integration tests for CLI commands
 priority: P1
-status: todo
+status: done
 deps: []
 created_at: 2025-12-26T19:15:13.156396Z
-updated_at: 2025-12-26T19:15:13.156396Z
+updated_at: 2025-12-26T20:23:27.190438Z
 acceptance:
 - create tests/ directory with integration test infrastructure
 - 'test full workflow: init → add → ls → start → done'
