@@ -11,7 +11,7 @@ takes inspiration from [beads](https://github.com/steveyegge/beads).
 - **issues as files** — markdown files with yaml frontmatter, versioned in git
 - **dependency graph** — issues can depend on other issues; `brd ready` shows what's unblocked
 - **deterministic selection** — `brd next` picks the highest priority ready issue, no ambiguity
-- **multi-agent coordination** — multiple agents work in parallel using git worktrees, with claims preventing collisions
+- **multi-agent coordination** — multiple agents work in parallel using git worktrees
 - **human-friendly** — simple CLI, partial ID matching, works like you'd expect
 
 ## quickstart

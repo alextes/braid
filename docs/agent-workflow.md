@@ -10,7 +10,6 @@ key concepts:
 
 - **control root**: the main worktree that owns the canonical `.braid/issues/` directory
 - **dual-write**: when agents modify issue status, changes go to both control root (for immediate visibility) and the local worktree (for git commits)
-- **claims**: machine-local coordination to prevent multiple agents picking the same issue (stored in git common dir)
 
 ## setup
 
@@ -23,6 +22,7 @@ brd agent init <agent-name>
 ```
 
 this creates:
+
 1. a git worktree at `../<agent-name>` with branch `<agent-name>`
 2. `.braid/agent.toml` with `agent_id = "<agent-name>"`
 
@@ -112,31 +112,3 @@ when you run `brd start` or `brd done` from a non-control-root worktree:
 2. writes to your local `.braid/issues/` (so you can commit it)
 
 this way, issue status changes flow through git like code changes.
-
-### claims (future)
-
-claims prevent multiple agents from picking the same issue. they're stored machine-locally in `<git-common-dir>/brd/claims/` and are visible to all worktrees on the same machine.
-
-## troubleshooting
-
-### "not a git repository"
-
-make sure you're in a valid git worktree. run `git status` to verify.
-
-### issues not showing
-
-check that the control root is set correctly:
-
-```bash
-cat $(git rev-parse --git-common-dir)/brd/control_root
-```
-
-this should point to your main worktree.
-
-### merge conflicts on issue files
-
-if multiple agents finished work on the same issue, you may get merge conflicts on the issue file. resolve by keeping the `done` status:
-
-```yaml
-status: done
-```
