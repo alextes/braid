@@ -16,13 +16,20 @@ useful commands:
 
 note: this repo is braid itself, so we're dogfooding it.
 
+## working in agent worktrees
+
+if you're working in a git worktree (created via `brd agent init`), read [docs/agent-workflow.md](docs/agent-workflow.md) for the full workflow including:
+- how issue visibility works across worktrees
+- the merge workflow (rebase + fast-forward)
+- how to mark issues done and push changes
+
 ## check, lint, test
 
 before committing anything, or when finishing a big chunk of work, consider running:
 
 - `cargo clippy`
 - `cargo test`
-- `carge fmt --all`
+- `cargo fmt --all`
 
 ## commits
 
