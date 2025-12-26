@@ -1,6 +1,6 @@
 //! git repository discovery and control root resolution.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use crate::error::{BrdError, Result};
 
@@ -103,7 +103,7 @@ fn git_rev_parse(cwd: &std::path::Path, arg: &str) -> Result<PathBuf> {
 /// 1. BRD_CONTROL_ROOT env var
 /// 2. <git-common-dir>/brd/control_root file
 /// 3. fallback to current worktree root (with warning)
-fn resolve_control_root(worktree_root: &PathBuf, brd_common_dir: &PathBuf) -> Result<PathBuf> {
+fn resolve_control_root(worktree_root: &Path, brd_common_dir: &Path) -> Result<PathBuf> {
     // 1. check env var
     if let Ok(env_root) = std::env::var("BRD_CONTROL_ROOT") {
         let path = PathBuf::from(&env_root);
@@ -125,7 +125,7 @@ fn resolve_control_root(worktree_root: &PathBuf, brd_common_dir: &PathBuf) -> Re
 
     // 3. fallback to current worktree root
     // note: in a real implementation, we'd emit a warning here
-    Ok(worktree_root.clone())
+    Ok(worktree_root.to_path_buf())
 }
 
 #[cfg(test)]

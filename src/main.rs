@@ -232,15 +232,15 @@ fn cmd_ls(
     let mut filtered: Vec<&Issue> = issues
         .values()
         .filter(|issue| {
-            if let Some(s) = status_filter {
-                if issue.status() != s {
-                    return false;
-                }
+            if let Some(s) = status_filter
+                && issue.status() != s
+            {
+                return false;
             }
-            if let Some(p) = priority_filter {
-                if issue.priority() != p {
-                    return false;
-                }
+            if let Some(p) = priority_filter
+                && issue.priority() != p
+            {
+                return false;
             }
             if ready_only {
                 let derived = compute_derived(issue, &issues);
@@ -272,30 +272,28 @@ fn cmd_ls(
             .map(|issue| issue_to_json(issue, &issues, None))
             .collect();
         println!("{}", serde_json::to_string_pretty(&json).unwrap());
+    } else if filtered.is_empty() {
+        println!("No issues found.");
     } else {
-        if filtered.is_empty() {
-            println!("No issues found.");
-        } else {
-            for issue in filtered {
-                let derived = compute_derived(issue, &issues);
-                let deps_info = if issue.deps().is_empty() {
-                    String::new()
-                } else {
-                    format!(
-                        " (deps:{} open:{})",
-                        issue.deps().len(),
-                        derived.open_deps.len()
-                    )
-                };
-                println!(
-                    "{}  {}  {}  {}{}",
-                    issue.id(),
-                    issue.priority(),
-                    issue.status(),
-                    issue.title(),
-                    deps_info
-                );
-            }
+        for issue in filtered {
+            let derived = compute_derived(issue, &issues);
+            let deps_info = if issue.deps().is_empty() {
+                String::new()
+            } else {
+                format!(
+                    " (deps:{} open:{})",
+                    issue.deps().len(),
+                    derived.open_deps.len()
+                )
+            };
+            println!(
+                "{}  {}  {}  {}{}",
+                issue.id(),
+                issue.priority(),
+                issue.status(),
+                issue.title(),
+                deps_info
+            );
         }
     }
 
@@ -366,13 +364,11 @@ fn cmd_ready(cli: &Cli, paths: &RepoPaths, _include_claimed: bool) -> Result<()>
             .map(|issue| issue_to_json(issue, &issues, None))
             .collect();
         println!("{}", serde_json::to_string_pretty(&json).unwrap());
+    } else if ready.is_empty() {
+        println!("No ready issues.");
     } else {
-        if ready.is_empty() {
-            println!("No ready issues.");
-        } else {
-            for issue in ready {
-                println!("{}  {}  {}", issue.id(), issue.priority(), issue.title());
-            }
+        for issue in ready {
+            println!("{}  {}  {}", issue.id(), issue.priority(), issue.title());
         }
     }
 
@@ -387,13 +383,13 @@ fn cmd_next(cli: &Cli, paths: &RepoPaths, claim: bool, _include_claimed: bool) -
 
     let next_issue = ready.first();
 
-    if claim {
-        if let Some(issue) = next_issue {
-            let _lock = LockGuard::acquire(&paths.lock_path())?;
-            // TODO: actually create claim
-            if !cli.json {
-                println!("Claimed: {}", issue.id());
-            }
+    if claim
+        && let Some(issue) = next_issue
+    {
+        let _lock = LockGuard::acquire(&paths.lock_path())?;
+        // TODO: actually create claim
+        if !cli.json {
+            println!("Claimed: {}", issue.id());
         }
     }
 
@@ -749,16 +745,14 @@ fn cmd_doctor(cli: &Cli, paths: &RepoPaths) -> Result<()> {
             "warnings": warnings
         });
         println!("{}", serde_json::to_string_pretty(&json).unwrap());
+    } else if ok && warnings.is_empty() {
+        println!("✓ All checks passed");
     } else {
-        if ok && warnings.is_empty() {
-            println!("✓ All checks passed");
-        } else {
-            for e in &errors {
-                eprintln!("error: {}", e);
-            }
-            for w in &warnings {
-                eprintln!("warning: {}", w);
-            }
+        for e in &errors {
+            eprintln!("error: {}", e);
+        }
+        for w in &warnings {
+            eprintln!("warning: {}", w);
         }
     }
 

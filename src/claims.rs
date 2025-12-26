@@ -95,12 +95,11 @@ pub fn get_agent_id(worktree_root: &Path) -> String {
 
     // 2. check .braid/agent.toml
     let agent_toml = worktree_root.join(".braid/agent.toml");
-    if let Ok(content) = std::fs::read_to_string(&agent_toml) {
-        if let Ok(parsed) = toml::from_str::<toml::Value>(&content) {
-            if let Some(id) = parsed.get("agent_id").and_then(|v| v.as_str()) {
-                return id.to_string();
-            }
-        }
+    if let Ok(content) = std::fs::read_to_string(&agent_toml)
+        && let Ok(parsed) = toml::from_str::<toml::Value>(&content)
+        && let Some(id) = parsed.get("agent_id").and_then(|v| v.as_str())
+    {
+        return id.to_string();
     }
 
     // 3. fallback to $USER
