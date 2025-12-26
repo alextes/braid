@@ -1,7 +1,7 @@
 ---
 brd: 1
 id: brd-mc5q
-title: Update outdated dependencies
+title: update outdated dependencies
 priority: P2
 status: done
 deps: []

@@ -1,7 +1,7 @@
 ---
 brd: 1
 id: brd-d42n
-title: Display design-type issues with visual distinction in brd ls
+title: display design-type issues with visual distinction in brd ls
 priority: P2
 status: todo
 deps:

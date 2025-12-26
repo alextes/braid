@@ -1,7 +1,7 @@
 ---
 brd: 1
 id: brd-6h0b
-title: Show progress indicator for meta issues in brd ls (e.g. 3/5 done)
+title: show progress indicator for meta issues in brd ls (e.g. 3/5 done)
 priority: P2
 status: todo
 deps:

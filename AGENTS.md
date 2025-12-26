@@ -50,4 +50,4 @@ format: `<type>[(scope)][!]: <description>`
 
 ## writing style
 
-all lowercase for comments, tracing, docs, and other prose. exceptions: acronyms (CLI, API, ID, etc.).
+all lowercase for comments, tracing, docs, issue titles, and other prose. exceptions: acronyms (CLI, API, ID, etc.).

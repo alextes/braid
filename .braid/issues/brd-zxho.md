@@ -1,7 +1,7 @@
 ---
 brd: 1
 id: brd-zxho
-title: Display meta-type issues with visual distinction in brd ls
+title: display meta-type issues with visual distinction in brd ls
 priority: P2
 status: todo
 deps:
