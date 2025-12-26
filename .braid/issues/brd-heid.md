@@ -6,7 +6,7 @@ priority: P2
 status: done
 deps: []
 created_at: 2025-12-26T16:49:09.344892Z
-updated_at: 2025-12-26T19:12:37.044257Z
+updated_at: 2025-12-26T20:10:04.108317Z
 acceptance:
 - brd migrate command exists
 - migrations are versioned and run in order
