@@ -125,6 +125,16 @@ pub enum Command {
         action: AgentAction,
     },
 
+    /// interactive TUI for issue management
+    Tui,
+
+    /// migrate issues to current schema version
+    Migrate {
+        /// dry run - show what would be migrated without changing files
+        #[arg(long)]
+        dry_run: bool,
+    },
+
     /// validate repository state
     Doctor,
 

@@ -5,4 +5,6 @@ pub mod error;
 pub mod graph;
 pub mod issue;
 pub mod lock;
+pub mod migrate;
 pub mod repo;
+pub mod tui;

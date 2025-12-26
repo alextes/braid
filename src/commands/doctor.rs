@@ -2,6 +2,7 @@
 
 use crate::cli::Cli;
 use crate::error::{BrdError, Result};
+use crate::migrate::{self, CURRENT_SCHEMA};
 use crate::repo::RepoPaths;
 
 use super::load_all_issues;
@@ -55,7 +56,31 @@ pub fn cmd_doctor(cli: &Cli, paths: &RepoPaths) -> Result<()> {
         true, // load_all_issues already warns on parse errors
     );
 
-    // check 4: no missing dependencies
+    // check 4: all issues at current schema version
+    let mut needs_migration = Vec::new();
+    for issue in issues.values() {
+        let version = issue.frontmatter.brd;
+        if migrate::needs_migration(version) {
+            needs_migration.push(issue.id().to_string());
+        }
+    }
+    let schema_ok = needs_migration.is_empty();
+    record_check(
+        "schema_current",
+        &format!("all issues at schema v{}", CURRENT_SCHEMA),
+        schema_ok,
+    );
+    if !schema_ok {
+        // This is a warning, not an error - issues still work
+        if !cli.json {
+            eprintln!(
+                "  warning: {} issue(s) need migration, run `brd migrate`",
+                needs_migration.len()
+            );
+        }
+    }
+
+    // check 5: no missing dependencies (renumbered from 4)
     let mut missing_deps = Vec::new();
     for (id, issue) in &issues {
         for dep in issue.deps() {
@@ -75,7 +100,7 @@ pub fn cmd_doctor(cli: &Cli, paths: &RepoPaths) -> Result<()> {
         missing_deps.is_empty(),
     );
 
-    // check 5: no dependency cycles
+    // check 6: no dependency cycles
     let cycles = crate::graph::find_cycles(&issues);
     for cycle in &cycles {
         errors.push(serde_json::json!({

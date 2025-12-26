@@ -1,0 +1,128 @@
+//! Issue schema migration system.
+//!
+//! Migrations transform issue files from older schema versions to newer ones.
+//! Each migration is a function that transforms schema version N to N+1.
+
+use serde_yaml::Value;
+
+use crate::error::{BrdError, Result};
+
+/// The current schema version. All new issues are created with this version.
+pub const CURRENT_SCHEMA: u32 = 1;
+
+/// Check if a schema version needs migration.
+pub fn needs_migration(schema_version: u32) -> bool {
+    schema_version < CURRENT_SCHEMA
+}
+
+/// Extract the schema version from frontmatter YAML.
+pub fn get_schema_version(frontmatter: &Value) -> Result<u32> {
+    // Try "schema_version" first (future), then "brd" (current)
+    if let Some(v) = frontmatter.get("schema_version") {
+        return v.as_u64().map(|n| n as u32).ok_or_else(|| {
+            BrdError::ParseError("schema_version".into(), "expected integer".into())
+        });
+    }
+
+    if let Some(v) = frontmatter.get("brd") {
+        return v
+            .as_u64()
+            .map(|n| n as u32)
+            .ok_or_else(|| BrdError::ParseError("brd".into(), "expected integer".into()));
+    }
+
+    // No version field - assume schema version 0 (pre-versioning)
+    Ok(0)
+}
+
+/// Migrate frontmatter from its current version to the target version.
+/// Returns the migrated frontmatter and whether any migration was applied.
+pub fn migrate_frontmatter(mut frontmatter: Value, target_version: u32) -> Result<(Value, bool)> {
+    let current = get_schema_version(&frontmatter)?;
+
+    if current >= target_version {
+        return Ok((frontmatter, false));
+    }
+
+    // Apply migrations sequentially
+    for version in current..target_version {
+        frontmatter = apply_migration(frontmatter, version)?;
+    }
+
+    Ok((frontmatter, true))
+}
+
+/// Apply a single migration step from `from_version` to `from_version + 1`.
+fn apply_migration(frontmatter: Value, from_version: u32) -> Result<Value> {
+    match from_version {
+        0 => migrate_v0_to_v1(frontmatter),
+        // Future migrations go here:
+        // 1 => migrate_v1_to_v2(frontmatter),
+        // 2 => migrate_v2_to_v3(frontmatter),
+        _ => {
+            // No migration needed for this version
+            Ok(frontmatter)
+        }
+    }
+}
+
+/// Migration from v0 (pre-versioning) to v1.
+/// - Adds `brd: 1` if missing
+fn migrate_v0_to_v1(mut frontmatter: Value) -> Result<Value> {
+    if let Value::Mapping(ref mut map) = frontmatter {
+        // Add brd: 1 if not present
+        let brd_key = Value::String("brd".to_string());
+        if !map.contains_key(&brd_key) {
+            map.insert(brd_key, Value::Number(1.into()));
+        }
+    }
+    Ok(frontmatter)
+}
+
+/// Summary of what migrations would be applied to get from one version to another.
+pub fn migration_summary(from_version: u32, to_version: u32) -> Vec<String> {
+    let mut summaries = Vec::new();
+
+    for version in from_version..to_version {
+        // Future migrations will be added here as additional `if` branches
+        if version == 0 {
+            summaries.push("v0→v1: add schema version field".to_string());
+        }
+        // 1 => "v1→v2: rename 'brd' to 'schema_version'"
+        // 2 => "v2→v3: make 'owner' required"
+    }
+
+    summaries
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_get_schema_version_brd() {
+        let yaml: Value = serde_yaml::from_str("brd: 1\nid: test").unwrap();
+        assert_eq!(get_schema_version(&yaml).unwrap(), 1);
+    }
+
+    #[test]
+    fn test_get_schema_version_missing() {
+        let yaml: Value = serde_yaml::from_str("id: test").unwrap();
+        assert_eq!(get_schema_version(&yaml).unwrap(), 0);
+    }
+
+    #[test]
+    fn test_migrate_v0_to_v1() {
+        let yaml: Value = serde_yaml::from_str("id: test\ntitle: Test").unwrap();
+        let (migrated, changed) = migrate_frontmatter(yaml, 1).unwrap();
+        assert!(changed);
+        assert_eq!(get_schema_version(&migrated).unwrap(), 1);
+    }
+
+    #[test]
+    fn test_no_migration_needed() {
+        let yaml: Value = serde_yaml::from_str("brd: 1\nid: test").unwrap();
+        let (_migrated, changed) = migrate_frontmatter(yaml, 1).unwrap();
+        assert!(!changed);
+    }
+}

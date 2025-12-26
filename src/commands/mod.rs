@@ -8,10 +8,12 @@ mod doctor;
 mod done;
 mod init;
 mod ls;
+mod migrate;
 mod next;
 mod ready;
 mod show;
 mod start;
+mod tui;
 
 pub use add::cmd_add;
 pub use agent::cmd_agent_init;
@@ -21,10 +23,12 @@ pub use doctor::cmd_doctor;
 pub use done::cmd_done;
 pub use init::cmd_init;
 pub use ls::cmd_ls;
+pub use migrate::cmd_migrate;
 pub use next::cmd_next;
 pub use ready::cmd_ready;
 pub use show::cmd_show;
 pub use start::cmd_start;
+pub use tui::cmd_tui;
 
 use std::collections::HashMap;
 
