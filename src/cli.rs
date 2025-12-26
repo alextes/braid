@@ -53,7 +53,7 @@ pub enum Command {
         status: Option<String>,
 
         /// filter by priority
-        #[arg(long)]
+        #[arg(long, short)]
         priority: Option<String>,
 
         /// show only ready issues
