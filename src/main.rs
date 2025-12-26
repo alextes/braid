@@ -45,25 +45,7 @@ fn run(cli: &Cli) -> Result<()> {
 
     match &cli.command {
         Command::Init => unreachable!(),
-        Command::Add {
-            title,
-            priority,
-            r#type,
-            dep,
-            ac,
-            label,
-            body,
-        } => cmd_add(
-            cli,
-            &paths,
-            title,
-            priority,
-            r#type.as_deref(),
-            dep,
-            ac,
-            label,
-            body.as_deref(),
-        ),
+        Command::Add(args) => cmd_add(cli, &paths, args),
         Command::Ls {
             status,
             priority,

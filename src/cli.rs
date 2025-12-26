@@ -1,6 +1,6 @@
 //! CLI command definitions and wiring.
 
-use clap::{Parser, Subcommand};
+use clap::{Args, Parser, Subcommand};
 
 #[derive(Parser)]
 #[command(name = "brd")]
@@ -29,34 +29,7 @@ pub enum Command {
     Init,
 
     /// add a new issue
-    Add {
-        /// issue title
-        title: String,
-
-        /// priority (P0-P3, default P2)
-        #[arg(long, short, default_value = "P2")]
-        priority: String,
-
-        /// issue type (design, meta)
-        #[arg(long, short = 't')]
-        r#type: Option<String>,
-
-        /// add dependency on another issue (can be repeated)
-        #[arg(long, short)]
-        dep: Vec<String>,
-
-        /// add acceptance criterion (can be repeated)
-        #[arg(long)]
-        ac: Vec<String>,
-
-        /// add label (can be repeated)
-        #[arg(long)]
-        label: Vec<String>,
-
-        /// issue description/body
-        #[arg(long, short)]
-        body: Option<String>,
-    },
+    Add(AddArgs),
 
     /// list issues
     Ls {
@@ -181,4 +154,35 @@ pub enum DepAction {
         /// the dependency to remove
         parent: String,
     },
+}
+
+/// arguments for the add command.
+#[derive(Args)]
+pub struct AddArgs {
+    /// issue title
+    pub title: String,
+
+    /// priority (P0-P3, default P2)
+    #[arg(long, short, default_value = "P2")]
+    pub priority: String,
+
+    /// issue type (design, meta)
+    #[arg(long, short = 't')]
+    pub r#type: Option<String>,
+
+    /// add dependency on another issue (can be repeated)
+    #[arg(long, short)]
+    pub dep: Vec<String>,
+
+    /// add acceptance criterion (can be repeated)
+    #[arg(long)]
+    pub ac: Vec<String>,
+
+    /// add label (can be repeated)
+    #[arg(long)]
+    pub label: Vec<String>,
+
+    /// issue description/body
+    #[arg(long, short)]
+    pub body: Option<String>,
 }

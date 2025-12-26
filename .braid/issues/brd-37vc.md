@@ -1,12 +1,12 @@
 ---
-brd: 1
+schema_version: 2
 id: brd-37vc
 title: refactor cmd_add to fix clippy::too_many_arguments
 priority: P3
-status: todo
+status: done
 deps: []
 created_at: 2025-12-26T19:03:19.008249Z
-updated_at: 2025-12-26T19:03:19.008249Z
+updated_at: 2025-12-26T21:54:36.241215Z
 acceptance:
 - cmd_add takes 7 or fewer arguments
 - 'remove #[allow(clippy::too_many_arguments)]'

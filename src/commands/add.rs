@@ -1,6 +1,6 @@
 //! brd add command.
 
-use crate::cli::Cli;
+use crate::cli::{AddArgs, Cli};
 use crate::config::Config;
 use crate::error::Result;
 use crate::issue::{Issue, IssueType, Priority};
@@ -9,25 +9,15 @@ use crate::repo::RepoPaths;
 
 use super::{generate_issue_id, issue_to_json, load_all_issues, resolve_issue_id};
 
-#[allow(clippy::too_many_arguments)]
-pub fn cmd_add(
-    cli: &Cli,
-    paths: &RepoPaths,
-    title: &str,
-    priority_str: &str,
-    type_str: Option<&str>,
-    deps: &[String],
-    acceptance: &[String],
-    labels: &[String],
-    body: Option<&str>,
-) -> Result<()> {
+pub fn cmd_add(cli: &Cli, paths: &RepoPaths, args: &AddArgs) -> Result<()> {
     let config = Config::load(&paths.config_path())?;
-    let priority: Priority = priority_str.parse()?;
-    let issue_type: Option<IssueType> = type_str.map(|s| s.parse()).transpose()?;
+    let priority: Priority = args.priority.parse()?;
+    let issue_type: Option<IssueType> = args.r#type.as_deref().map(|s| s.parse()).transpose()?;
 
     // resolve deps to full IDs
     let all_issues = load_all_issues(paths)?;
-    let resolved_deps: Vec<String> = deps
+    let resolved_deps: Vec<String> = args
+        .dep
         .iter()
         .map(|d| resolve_issue_id(d, &all_issues))
         .collect::<Result<Vec<_>>>()?;
@@ -36,12 +26,12 @@ pub fn cmd_add(
     let id = generate_issue_id(&config, &paths.issues_dir())?;
 
     // create issue
-    let mut issue = Issue::new(id.clone(), title.to_string(), priority, resolved_deps);
+    let mut issue = Issue::new(id.clone(), args.title.clone(), priority, resolved_deps);
     issue.frontmatter.issue_type = issue_type;
-    issue.frontmatter.acceptance = acceptance.to_vec();
-    issue.frontmatter.labels = labels.to_vec();
-    if let Some(b) = body {
-        issue.body = b.to_string();
+    issue.frontmatter.acceptance = args.ac.clone();
+    issue.frontmatter.labels = args.label.clone();
+    if let Some(ref b) = args.body {
+        issue.body = b.clone();
     }
 
     // save with lock
