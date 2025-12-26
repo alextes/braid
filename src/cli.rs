@@ -144,6 +144,12 @@ pub enum Command {
         force: bool,
     },
 
+    /// manage agent worktrees
+    Agent {
+        #[command(subcommand)]
+        action: AgentAction,
+    },
+
     /// validate repository state
     Doctor,
 
@@ -151,6 +157,19 @@ pub enum Command {
     Completions {
         /// shell to generate completions for
         shell: clap_complete::Shell,
+    },
+}
+
+#[derive(Subcommand)]
+pub enum AgentAction {
+    /// set up a new agent worktree
+    Init {
+        /// agent name (used for worktree directory and branch)
+        name: String,
+
+        /// base branch to create worktree from (default: current branch)
+        #[arg(long)]
+        base: Option<String>,
     },
 }
 
