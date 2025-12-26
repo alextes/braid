@@ -5,7 +5,7 @@ use crossterm::style::{Attribute, SetAttribute};
 use crate::cli::Cli;
 use crate::error::Result;
 use crate::graph::compute_derived;
-use crate::issue::{Issue, Priority, Status};
+use crate::issue::{Issue, IssueType, Priority, Status};
 use crate::repo::RepoPaths;
 
 use super::{issue_to_json, load_all_issues};
@@ -109,11 +109,23 @@ pub fn cmd_ls(
                     derived.open_deps.len()
                 )
             };
+
+            // apply styling based on status and type
             let is_done = issue.status() == Status::Done;
-            let use_dim = is_done && !cli.no_color;
-            if use_dim {
-                print!("{}", SetAttribute(Attribute::Dim));
+            let use_color = !cli.no_color;
+
+            if use_color {
+                if is_done {
+                    print!("{}", SetAttribute(Attribute::Dim));
+                } else {
+                    match issue.issue_type() {
+                        Some(IssueType::Design) => print!("{}", SetAttribute(Attribute::Italic)),
+                        Some(IssueType::Meta) => print!("{}", SetAttribute(Attribute::Bold)),
+                        None => {}
+                    }
+                }
             }
+
             print!(
                 "{}  {}  {}  {}{}",
                 issue.id(),
@@ -122,7 +134,8 @@ pub fn cmd_ls(
                 issue.title(),
                 deps_info
             );
-            if use_dim {
+
+            if use_color && (is_done || issue.issue_type().is_some()) {
                 print!("{}", SetAttribute(Attribute::Reset));
             }
             println!();
