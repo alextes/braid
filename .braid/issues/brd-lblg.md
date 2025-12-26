@@ -3,10 +3,10 @@ brd: 1
 id: brd-lblg
 title: design better agent ID fallback
 priority: P2
-status: todo
+status: done
 deps: []
 created_at: 2025-12-26T08:47:02.778179Z
-updated_at: 2025-12-26T08:47:02.778179Z
+updated_at: 2025-12-26T15:43:31.396192Z
 ---
 
 current fallback for agent ID is `<hostname>:<pid>` which is not great.

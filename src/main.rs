@@ -134,6 +134,20 @@ fn cmd_init(cli: &Cli) -> Result<()> {
     let gitignore_content = "agent.toml\nruntime/\n";
     std::fs::write(&gitignore_path, gitignore_content)?;
 
+    // create agent.toml if missing (with $USER as default agent_id)
+    let agent_toml_path = braid_dir.join("agent.toml");
+    if !agent_toml_path.exists() {
+        let user = match std::env::var("USER") {
+            Ok(u) => u,
+            Err(_) => {
+                eprintln!("warning: $USER not set, using 'default-user' as agent_id");
+                "default-user".to_string()
+            }
+        };
+        let agent_toml_content = format!("agent_id = \"{}\"\n", user);
+        std::fs::write(&agent_toml_path, agent_toml_content)?;
+    }
+
     // set control root if not already set
     if !control_root_file.exists() {
         std::fs::write(&control_root_file, worktree_root.to_string_lossy().as_ref())?;

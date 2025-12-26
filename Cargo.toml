@@ -31,6 +31,3 @@ time = { version = "0.3", features = ["serde", "formatting", "parsing"] }
 # Errors
 anyhow = "1"
 thiserror = "1"
-
-# Misc
-hostname = "0.4"
