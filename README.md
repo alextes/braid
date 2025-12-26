@@ -40,7 +40,7 @@ brd start
 ### issue management
 
 - `brd init` — initialize braid in current repo
-- `brd add "<title>" [-p P0-P3] [--dep <id>]` — create a new issue
+- `brd add "<title>" [-p P0-P3] [-b "<body>"] [--dep <id>]` — create a new issue
 - `brd ls [--status todo|doing|done] [-p P0-P3] [--ready] [--blocked]` — list issues
 - `brd show <id>` — show issue details
 

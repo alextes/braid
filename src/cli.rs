@@ -44,6 +44,10 @@ pub enum Command {
         /// add acceptance criterion (can be repeated)
         #[arg(long)]
         ac: Vec<String>,
+
+        /// issue description/body
+        #[arg(long, short)]
+        body: Option<String>,
     },
 
     /// list issues

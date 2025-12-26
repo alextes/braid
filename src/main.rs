@@ -51,7 +51,8 @@ fn run(cli: &Cli) -> Result<()> {
             priority,
             dep,
             ac,
-        } => cmd_add(cli, &paths, title, priority, dep, ac),
+            body,
+        } => cmd_add(cli, &paths, title, priority, dep, ac, body.as_deref()),
         Command::Ls {
             status,
             priority,
@@ -177,6 +178,7 @@ fn cmd_add(
     priority_str: &str,
     deps: &[String],
     acceptance: &[String],
+    body: Option<&str>,
 ) -> Result<()> {
     let config = Config::load(&paths.config_path())?;
     let priority: Priority = priority_str.parse()?;
@@ -194,6 +196,9 @@ fn cmd_add(
     // create issue
     let mut issue = Issue::new(id.clone(), title.to_string(), priority, resolved_deps);
     issue.frontmatter.acceptance = acceptance.to_vec();
+    if let Some(b) = body {
+        issue.body = b.to_string();
+    }
 
     // save with lock
     let _lock = LockGuard::acquire(&paths.lock_path())?;
