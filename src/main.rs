@@ -383,9 +383,7 @@ fn cmd_next(cli: &Cli, paths: &RepoPaths, claim: bool, _include_claimed: bool) -
 
     let next_issue = ready.first();
 
-    if claim
-        && let Some(issue) = next_issue
-    {
+    if claim && let Some(issue) = next_issue {
         let _lock = LockGuard::acquire(&paths.lock_path())?;
         // TODO: actually create claim
         if !cli.json {
