@@ -1,12 +1,12 @@
 ---
-brd: 1
+schema_version: 2
 id: brd-vcdg
 title: add unit tests for issue ID resolution
 priority: P2
-status: todo
+status: done
 deps: []
 created_at: 2025-12-26T19:15:38.163194Z
-updated_at: 2025-12-26T19:15:38.163194Z
+updated_at: 2025-12-26T21:44:12.567977Z
 acceptance:
 - test exact ID matching
 - test partial ID matching (suffix, contains)

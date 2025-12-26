@@ -358,4 +358,87 @@ This is the body.
         assert!(Priority::P1 < Priority::P2);
         assert!(Priority::P2 < Priority::P3);
     }
+
+    fn make_test_issues(ids: &[&str]) -> std::collections::HashMap<String, Issue> {
+        ids.iter()
+            .map(|id| {
+                let issue = Issue::new(
+                    id.to_string(),
+                    format!("test issue {}", id),
+                    Priority::P2,
+                    vec![],
+                );
+                (id.to_string(), issue)
+            })
+            .collect()
+    }
+
+    #[test]
+    fn test_resolve_issue_id_exact_match() {
+        let issues = make_test_issues(&["brd-abc1", "brd-abc2", "brd-xyz1"]);
+        let result = resolve_issue_id("brd-abc1", &issues);
+        assert_eq!(result.unwrap(), "brd-abc1");
+    }
+
+    #[test]
+    fn test_resolve_issue_id_exact_match_takes_precedence() {
+        // if "abc" is an exact match, it should be returned even if "abcd" also exists
+        let issues = make_test_issues(&["abc", "abcd", "abcde"]);
+        let result = resolve_issue_id("abc", &issues);
+        assert_eq!(result.unwrap(), "abc");
+    }
+
+    #[test]
+    fn test_resolve_issue_id_partial_suffix() {
+        let issues = make_test_issues(&["brd-abc1", "brd-xyz2"]);
+        // "abc1" is a suffix of "brd-abc1"
+        let result = resolve_issue_id("abc1", &issues);
+        assert_eq!(result.unwrap(), "brd-abc1");
+    }
+
+    #[test]
+    fn test_resolve_issue_id_partial_contains() {
+        let issues = make_test_issues(&["brd-abc1", "brd-xyz2"]);
+        // "abc" is contained in "brd-abc1"
+        let result = resolve_issue_id("abc", &issues);
+        assert_eq!(result.unwrap(), "brd-abc1");
+    }
+
+    #[test]
+    fn test_resolve_issue_id_ambiguous() {
+        let issues = make_test_issues(&["brd-abc1", "brd-abc2", "brd-xyz1"]);
+        // "abc" matches both brd-abc1 and brd-abc2
+        let result = resolve_issue_id("abc", &issues);
+        match result {
+            Err(crate::error::BrdError::AmbiguousId(partial, candidates)) => {
+                assert_eq!(partial, "abc");
+                assert_eq!(candidates.len(), 2);
+                assert!(candidates.contains(&"brd-abc1".to_string()));
+                assert!(candidates.contains(&"brd-abc2".to_string()));
+            }
+            _ => panic!("expected AmbiguousId error"),
+        }
+    }
+
+    #[test]
+    fn test_resolve_issue_id_not_found() {
+        let issues = make_test_issues(&["brd-abc1", "brd-xyz2"]);
+        let result = resolve_issue_id("nonexistent", &issues);
+        match result {
+            Err(crate::error::BrdError::IssueNotFound(id)) => {
+                assert_eq!(id, "nonexistent");
+            }
+            _ => panic!("expected IssueNotFound error"),
+        }
+    }
+
+    #[test]
+    fn test_resolve_issue_id_empty_issues() {
+        let issues: std::collections::HashMap<String, Issue> = std::collections::HashMap::new();
+        let result = resolve_issue_id("anything", &issues);
+        assert!(matches!(
+            result,
+            Err(crate::error::BrdError::IssueNotFound(_))
+        ));
+    }
 }
