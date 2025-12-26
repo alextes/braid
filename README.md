@@ -59,6 +59,7 @@ brd start
 ### multi-agent
 
 - `brd agent init <name>` — set up a new agent worktree
+- `brd agent ship` — push changes to main (rebase + fast-forward)
 
 ### utilities
 
@@ -90,14 +91,10 @@ brd start              # claims next ready issue
 # agent does the work and commits
 git add . && git commit -m "feat: implement the thing"
 
-# agent marks done and merges
+# agent marks done and ships
 brd done <id>
 git add .braid/issues/<id>.md && git commit -m "chore(braid): close <id>"
-git fetch origin main && git rebase origin/main
-git push origin <agent-branch>:main
-
-# agent resets for next issue
-git reset --hard origin/main
+brd agent ship         # rebase + push to main + reset
 ```
 
 see [docs/agent-workflow.md](docs/agent-workflow.md) for the full guide.

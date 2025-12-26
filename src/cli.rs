@@ -143,9 +143,6 @@ pub enum Command {
         /// shell to generate completions for
         shell: clap_complete::Shell,
     },
-
-    /// push changes to main (rebase + fast-forward push)
-    Ship,
 }
 
 #[derive(Subcommand)]
@@ -159,6 +156,9 @@ pub enum AgentAction {
         #[arg(long)]
         base: Option<String>,
     },
+
+    /// push changes to main (rebase + fast-forward push)
+    Ship,
 }
 
 #[derive(Subcommand)]

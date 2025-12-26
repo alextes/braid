@@ -87,11 +87,11 @@ fn run(cli: &Cli) -> Result<()> {
         Command::Done { id, force } => cmd_done(cli, &paths, id, *force),
         Command::Agent { action } => match action {
             AgentAction::Init { name, base } => cmd_agent_init(cli, &paths, name, base.as_deref()),
+            AgentAction::Ship => cmd_ship(cli, &paths),
         },
         Command::Doctor => cmd_doctor(cli, &paths),
         Command::Completions { shell } => cmd_completions(*shell),
         Command::Tui => cmd_tui(cli, &paths),
         Command::Migrate { dry_run } => cmd_migrate(cli, &paths, *dry_run),
-        Command::Ship => cmd_ship(cli, &paths),
     }
 }

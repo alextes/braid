@@ -68,26 +68,21 @@ git add .braid/issues/<issue-id>.md
 git commit -m "chore(braid): close <issue-id>"
 ```
 
-### 4. merge to main
+### 4. ship to main
 
-rebase onto main and push directly:
-
-```bash
-git fetch origin main
-git rebase origin/main
-git push origin <agent-branch>:main
-```
-
-this is a fast-forward push. if main has moved and it fails, rebase again and retry.
-
-### 5. prepare for next issue
-
-reset your branch to main:
+use `brd agent ship` to push your changes to main:
 
 ```bash
-git fetch origin main
-git reset --hard origin/main
+brd agent ship
 ```
+
+this command:
+1. fetches `origin main`
+2. rebases your branch onto `origin/main`
+3. pushes to main (fast-forward only)
+4. resets your branch to `origin/main`
+
+if main has moved and the push fails, just run `brd agent ship` again.
 
 now you're ready to pick up the next issue.
 

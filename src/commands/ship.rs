@@ -36,7 +36,19 @@ fn is_working_tree_clean(paths: &RepoPaths) -> Result<bool> {
     Ok(output.is_empty())
 }
 
+/// check if we're in an agent worktree (has .braid/agent.toml).
+fn is_agent_worktree(paths: &RepoPaths) -> bool {
+    paths.worktree_root.join(".braid/agent.toml").exists()
+}
+
 pub fn cmd_ship(cli: &Cli, paths: &RepoPaths) -> Result<()> {
+    // step 0: check we're in an agent worktree
+    if !is_agent_worktree(paths) {
+        return Err(BrdError::Other(
+            "not in an agent worktree - brd agent ship only works from agent worktrees".to_string(),
+        ));
+    }
+
     // step 1: check for clean working tree
     if !is_working_tree_clean(paths)? {
         return Err(BrdError::Other(
@@ -89,7 +101,7 @@ pub fn cmd_ship(cli: &Cli, paths: &RepoPaths) -> Result<()> {
             || stderr.contains("failed to push")
         {
             return Err(BrdError::Other(
-                "push rejected (not fast-forward) - main has moved, run `brd ship` again"
+                "push rejected (not fast-forward) - main has moved, run `brd agent ship` again"
                     .to_string(),
             ));
         }
