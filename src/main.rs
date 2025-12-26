@@ -32,9 +32,12 @@ fn main() {
 }
 
 fn run(cli: &Cli) -> Result<()> {
-    // handle init specially - it doesn't require existing repo
+    // handle commands that don't require existing repo
     if matches!(cli.command, Command::Init) {
         return cmd_init(cli);
+    }
+    if let Command::Completions { shell } = &cli.command {
+        return cmd_completions(*shell);
     }
 
     // all other commands need repo discovery
@@ -90,7 +93,7 @@ fn run(cli: &Cli) -> Result<()> {
             AgentAction::Ship => cmd_ship(cli, &paths),
         },
         Command::Doctor => cmd_doctor(cli, &paths),
-        Command::Completions { shell } => cmd_completions(*shell),
+        Command::Completions { .. } => unreachable!(),
         Command::Tui => cmd_tui(cli, &paths),
         Command::Migrate { dry_run } => cmd_migrate(cli, &paths, *dry_run),
     }
