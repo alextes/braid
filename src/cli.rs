@@ -84,60 +84,15 @@ pub enum Command {
     },
 
     /// list ready issues
-    Ready {
-        /// include issues claimed by other agents
-        #[arg(long)]
-        include_claimed: bool,
-    },
+    Ready,
 
     /// get the next issue to work on
-    Next {
-        /// claim the issue
-        #[arg(long)]
-        claim: bool,
-
-        /// include issues claimed by other agents
-        #[arg(long)]
-        include_claimed: bool,
-    },
+    Next,
 
     /// add or remove dependencies
     Dep {
         #[command(subcommand)]
         action: DepAction,
-    },
-
-    /// claim an issue
-    Claim {
-        /// issue ID
-        id: String,
-    },
-
-    /// release a claim on an issue
-    Release {
-        /// issue ID
-        id: String,
-
-        /// force release even if claimed by another agent
-        #[arg(long)]
-        force: bool,
-    },
-
-    /// reclaim an issue (steal expired claim)
-    Reclaim {
-        /// issue ID
-        id: String,
-
-        /// force reclaim even if not expired
-        #[arg(long)]
-        force: bool,
-    },
-
-    /// list all claims
-    Claims {
-        /// show all claims including expired
-        #[arg(long)]
-        all: bool,
     },
 
     /// start working on an issue (picks next ready issue if no id given)

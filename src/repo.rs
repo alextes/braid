@@ -43,9 +43,34 @@ impl RepoPaths {
         self.brd_common_dir.join("control_root")
     }
 
-    /// path to claims directory
-    pub fn claims_dir(&self) -> PathBuf {
-        self.brd_common_dir.join("claims")
+}
+
+/// get the current agent ID:
+/// 1. BRD_AGENT_ID env var
+/// 2. .braid/agent.toml in worktree
+/// 3. fallback: $USER
+pub fn get_agent_id(worktree_root: &Path) -> String {
+    // 1. check env var
+    if let Ok(id) = std::env::var("BRD_AGENT_ID") {
+        return id;
+    }
+
+    // 2. check .braid/agent.toml
+    let agent_toml = worktree_root.join(".braid/agent.toml");
+    if let Ok(content) = std::fs::read_to_string(&agent_toml)
+        && let Ok(parsed) = toml::from_str::<toml::Value>(&content)
+        && let Some(id) = parsed.get("agent_id").and_then(|v| v.as_str())
+    {
+        return id.to_string();
+    }
+
+    // 3. fallback to $USER
+    match std::env::var("USER") {
+        Ok(user) => user,
+        Err(_) => {
+            eprintln!("warning: $USER not set, using 'default-user' as agent_id");
+            "default-user".to_string()
+        }
     }
 }
 

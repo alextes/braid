@@ -79,19 +79,12 @@ fn run(cli: &Cli) -> Result<()> {
             label,
         ),
         Command::Show { id } => cmd_show(cli, &paths, id),
-        Command::Ready { include_claimed } => cmd_ready(cli, &paths, *include_claimed),
-        Command::Next {
-            claim,
-            include_claimed,
-        } => cmd_next(cli, &paths, *claim, *include_claimed),
+        Command::Ready => cmd_ready(cli, &paths),
+        Command::Next => cmd_next(cli, &paths),
         Command::Dep { action } => match action {
             DepAction::Add { child, parent } => cmd_dep_add(cli, &paths, child, parent),
             DepAction::Rm { child, parent } => cmd_dep_rm(cli, &paths, child, parent),
         },
-        Command::Claim { id } => cmd_claim(cli, &paths, id),
-        Command::Release { id, force } => cmd_release(cli, &paths, id, *force),
-        Command::Reclaim { id, force } => cmd_reclaim(cli, &paths, id, *force),
-        Command::Claims { all } => cmd_claims(cli, &paths, *all),
         Command::Start { id, force } => cmd_start(cli, &paths, id.as_deref(), *force),
         Command::Done { id, force } => cmd_done(cli, &paths, id, *force),
         Command::Agent { action } => match action {
@@ -126,12 +119,11 @@ fn cmd_init(cli: &Cli) -> Result<()> {
     let gitignore_path = braid_dir.join(".gitignore");
 
     let brd_common_dir = git_common_dir.join("brd");
-    let claims_dir = brd_common_dir.join("claims");
     let control_root_file = brd_common_dir.join("control_root");
 
     // create directories
     std::fs::create_dir_all(&issues_dir)?;
-    std::fs::create_dir_all(&claims_dir)?;
+    std::fs::create_dir_all(&brd_common_dir)?;
 
     // create config if missing
     if !config_path.exists() {
@@ -221,7 +213,7 @@ fn cmd_add(
     issue.save(&issue_path)?;
 
     if cli.json {
-        let json = issue_to_json(&issue, &all_issues, None);
+        let json = issue_to_json(&issue, &all_issues);
         println!("{}", serde_json::to_string_pretty(&json).unwrap());
     } else {
         println!("Created issue: {}", id);
@@ -292,7 +284,7 @@ fn cmd_ls(
     if cli.json {
         let json: Vec<_> = filtered
             .iter()
-            .map(|issue| issue_to_json(issue, &issues, None))
+            .map(|issue| issue_to_json(issue, &issues))
             .collect();
         println!("{}", serde_json::to_string_pretty(&json).unwrap());
     } else if filtered.is_empty() {
@@ -331,7 +323,7 @@ fn cmd_show(cli: &Cli, paths: &RepoPaths, id: &str) -> Result<()> {
         .ok_or_else(|| BrdError::IssueNotFound(id.to_string()))?;
 
     if cli.json {
-        let json = issue_to_json(issue, &issues, None);
+        let json = issue_to_json(issue, &issues);
         println!("{}", serde_json::to_string_pretty(&json).unwrap());
     } else {
         println!("ID:       {}", issue.id());
@@ -379,16 +371,14 @@ fn cmd_show(cli: &Cli, paths: &RepoPaths, id: &str) -> Result<()> {
     Ok(())
 }
 
-fn cmd_ready(cli: &Cli, paths: &RepoPaths, _include_claimed: bool) -> Result<()> {
+fn cmd_ready(cli: &Cli, paths: &RepoPaths) -> Result<()> {
     let issues = load_all_issues(paths)?;
     let ready = get_ready_issues(&issues);
-
-    // TODO: filter by claims when include_claimed is false
 
     if cli.json {
         let json: Vec<_> = ready
             .iter()
-            .map(|issue| issue_to_json(issue, &issues, None))
+            .map(|issue| issue_to_json(issue, &issues))
             .collect();
         println!("{}", serde_json::to_string_pretty(&json).unwrap());
     } else if ready.is_empty() {
@@ -402,34 +392,21 @@ fn cmd_ready(cli: &Cli, paths: &RepoPaths, _include_claimed: bool) -> Result<()>
     Ok(())
 }
 
-fn cmd_next(cli: &Cli, paths: &RepoPaths, claim: bool, _include_claimed: bool) -> Result<()> {
+fn cmd_next(cli: &Cli, paths: &RepoPaths) -> Result<()> {
     let issues = load_all_issues(paths)?;
     let ready = get_ready_issues(&issues);
-
-    // TODO: filter by claims
-
     let next_issue = ready.first();
-
-    if claim && let Some(issue) = next_issue {
-        let _lock = LockGuard::acquire(&paths.lock_path())?;
-        // TODO: actually create claim
-        if !cli.json {
-            println!("Claimed: {}", issue.id());
-        }
-    }
 
     if cli.json {
         match next_issue {
             Some(issue) => {
-                let json = issue_to_json(issue, &issues, None);
+                let json = issue_to_json(issue, &issues);
                 println!("{}", serde_json::to_string_pretty(&json).unwrap());
             }
             None => println!("null"),
         }
     } else if let Some(issue) = next_issue {
-        if !claim {
-            println!("{}  {}  {}", issue.id(), issue.priority(), issue.title());
-        }
+        println!("{}  {}  {}", issue.id(), issue.priority(), issue.title());
     } else {
         println!("No ready issues.");
     }
@@ -494,30 +471,6 @@ fn cmd_dep_rm(cli: &Cli, paths: &RepoPaths, child_id: &str, parent_id: &str) -> 
     Ok(())
 }
 
-fn cmd_claim(_cli: &Cli, _paths: &RepoPaths, _id: &str) -> Result<()> {
-    // TODO: implement claims
-    println!("claim not yet implemented");
-    Ok(())
-}
-
-fn cmd_release(_cli: &Cli, _paths: &RepoPaths, _id: &str, _force: bool) -> Result<()> {
-    // TODO: implement claims
-    println!("release not yet implemented");
-    Ok(())
-}
-
-fn cmd_reclaim(_cli: &Cli, _paths: &RepoPaths, _id: &str, _force: bool) -> Result<()> {
-    // TODO: implement claims
-    println!("reclaim not yet implemented");
-    Ok(())
-}
-
-fn cmd_claims(_cli: &Cli, _paths: &RepoPaths, _all: bool) -> Result<()> {
-    // TODO: implement claims
-    println!("claims not yet implemented");
-    Ok(())
-}
-
 fn cmd_start(cli: &Cli, paths: &RepoPaths, id: Option<&str>, force: bool) -> Result<()> {
     let _lock = LockGuard::acquire(&paths.lock_path())?;
 
@@ -535,7 +488,7 @@ fn cmd_start(cli: &Cli, paths: &RepoPaths, id: Option<&str>, force: bool) -> Res
         }
     };
 
-    let agent_id = braid::claims::get_agent_id(&paths.worktree_root);
+    let agent_id = repo::get_agent_id(&paths.worktree_root);
 
     {
         let issue = issues
@@ -570,7 +523,7 @@ fn cmd_start(cli: &Cli, paths: &RepoPaths, id: Option<&str>, force: bool) -> Res
 
     if cli.json {
         let issue = issues.get(&full_id).unwrap();
-        let json = issue_to_json(issue, &issues, None);
+        let json = issue_to_json(issue, &issues);
         println!("{}", serde_json::to_string_pretty(&json).unwrap());
     } else {
         println!("Started: {} (owner: {})", full_id, agent_id);
@@ -590,8 +543,6 @@ fn cmd_done(cli: &Cli, paths: &RepoPaths, id: &str, _force: bool) -> Result<()> 
             .get_mut(&full_id)
             .ok_or_else(|| BrdError::IssueNotFound(id.to_string()))?;
 
-        // TODO: check claim ownership unless force
-
         issue.frontmatter.status = Status::Done;
         issue.frontmatter.owner = None;
         issue.touch();
@@ -609,11 +560,9 @@ fn cmd_done(cli: &Cli, paths: &RepoPaths, id: &str, _force: bool) -> Result<()> 
         }
     }
 
-    // TODO: release claim
-
     if cli.json {
         let issue = issues.get(&full_id).unwrap();
-        let json = issue_to_json(issue, &issues, None);
+        let json = issue_to_json(issue, &issues);
         println!("{}", serde_json::to_string_pretty(&json).unwrap());
     } else {
         println!("Done: {}", full_id);
@@ -895,11 +844,7 @@ fn generate_issue_id(config: &Config, issues_dir: &std::path::Path) -> Result<St
     ))
 }
 
-fn issue_to_json(
-    issue: &Issue,
-    all_issues: &HashMap<String, Issue>,
-    _claim: Option<&braid::claims::Claim>,
-) -> serde_json::Value {
+fn issue_to_json(issue: &Issue, all_issues: &HashMap<String, Issue>) -> serde_json::Value {
     let derived = compute_derived(issue, all_issues);
 
     serde_json::json!({
@@ -918,11 +863,6 @@ fn issue_to_json(
             "open_deps": derived.open_deps,
             "missing_deps": derived.missing_deps,
             "is_blocked": derived.is_blocked
-        },
-        "claim": {
-            "state": "unclaimed",
-            "agent_id": null,
-            "lease_until": null
         }
     })
 }
