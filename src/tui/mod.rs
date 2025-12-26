@@ -46,8 +46,8 @@ pub fn run(paths: &RepoPaths) -> Result<()> {
     result
 }
 
-fn run_loop<B: Backend>(
-    terminal: &mut Terminal<B>,
+fn run_loop(
+    terminal: &mut Terminal<CrosstermBackend<io::Stdout>>,
     app: &mut App,
     paths: &RepoPaths,
 ) -> Result<()> {
