@@ -48,6 +48,7 @@ fn run(cli: &Cli) -> Result<()> {
         Command::Add {
             title,
             priority,
+            r#type,
             dep,
             ac,
             label,
@@ -57,6 +58,7 @@ fn run(cli: &Cli) -> Result<()> {
             &paths,
             title,
             priority,
+            r#type.as_deref(),
             dep,
             ac,
             label,

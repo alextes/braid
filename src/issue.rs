@@ -78,6 +78,38 @@ impl std::str::FromStr for Status {
     }
 }
 
+/// issue type for categorization (e.g. design docs, meta/epic issues).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum IssueType {
+    Design,
+    Meta,
+}
+
+impl std::fmt::Display for IssueType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            IssueType::Design => write!(f, "design"),
+            IssueType::Meta => write!(f, "meta"),
+        }
+    }
+}
+
+impl std::str::FromStr for IssueType {
+    type Err = BrdError;
+
+    fn from_str(s: &str) -> Result<Self> {
+        match s.to_lowercase().as_str() {
+            "design" => Ok(IssueType::Design),
+            "meta" => Ok(IssueType::Meta),
+            _ => Err(BrdError::ParseError(
+                "type".to_string(),
+                format!("invalid type: {s} (valid: design, meta)"),
+            )),
+        }
+    }
+}
+
 /// the frontmatter of an issue file.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IssueFrontmatter {
@@ -86,6 +118,8 @@ pub struct IssueFrontmatter {
     pub title: String,
     pub priority: Priority,
     pub status: Status,
+    #[serde(default, skip_serializing_if = "Option::is_none", rename = "type")]
+    pub issue_type: Option<IssueType>,
     #[serde(default)]
     pub deps: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -119,6 +153,7 @@ impl Issue {
                 title,
                 priority,
                 status: Status::Todo,
+                issue_type: None,
                 deps,
                 labels: Vec::new(),
                 owner: None,
@@ -220,6 +255,10 @@ impl Issue {
 
     pub fn status(&self) -> Status {
         self.frontmatter.status
+    }
+
+    pub fn issue_type(&self) -> Option<IssueType> {
+        self.frontmatter.issue_type
     }
 
     pub fn deps(&self) -> &[String] {

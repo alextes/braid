@@ -37,6 +37,10 @@ pub enum Command {
         #[arg(long, short, default_value = "P2")]
         priority: String,
 
+        /// issue type (design, meta)
+        #[arg(long, short = 't')]
+        r#type: Option<String>,
+
         /// add dependency on another issue (can be repeated)
         #[arg(long, short)]
         dep: Vec<String>,

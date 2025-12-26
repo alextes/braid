@@ -3,7 +3,7 @@
 use crate::cli::Cli;
 use crate::config::Config;
 use crate::error::Result;
-use crate::issue::{Issue, Priority};
+use crate::issue::{Issue, IssueType, Priority};
 use crate::lock::LockGuard;
 use crate::repo::RepoPaths;
 
@@ -15,6 +15,7 @@ pub fn cmd_add(
     paths: &RepoPaths,
     title: &str,
     priority_str: &str,
+    type_str: Option<&str>,
     deps: &[String],
     acceptance: &[String],
     labels: &[String],
@@ -22,6 +23,7 @@ pub fn cmd_add(
 ) -> Result<()> {
     let config = Config::load(&paths.config_path())?;
     let priority: Priority = priority_str.parse()?;
+    let issue_type: Option<IssueType> = type_str.map(|s| s.parse()).transpose()?;
 
     // resolve deps to full IDs
     let all_issues = load_all_issues(paths)?;
@@ -35,6 +37,7 @@ pub fn cmd_add(
 
     // create issue
     let mut issue = Issue::new(id.clone(), title.to_string(), priority, resolved_deps);
+    issue.frontmatter.issue_type = issue_type;
     issue.frontmatter.acceptance = acceptance.to_vec();
     issue.frontmatter.labels = labels.to_vec();
     if let Some(b) = body {
