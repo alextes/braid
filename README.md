@@ -64,3 +64,36 @@ brd start
 
 - `brd doctor` — validate repo state
 - `brd completions <shell>` — generate shell completions
+
+## multi-agent coordination
+
+braid enables multiple AI agents to work on the same codebase in parallel without stepping on each other's toes.
+
+**how it works:**
+
+1. each agent gets their own git worktree via `brd agent init <name>`
+2. all worktrees share the same issue state through a shared "control root"
+3. when an agent runs `brd start`, the issue is marked as "doing" with their agent ID
+4. issue status changes are written to both the shared state and the agent's local branch
+5. agents merge to main via rebase + fast-forward push
+
+**the workflow:**
+
+```bash
+# agent picks up work
+brd start              # claims next ready issue
+
+# agent does the work and commits
+git add . && git commit -m "feat: implement the thing"
+
+# agent marks done and merges
+brd done <id>
+git add .braid/issues/<id>.md && git commit -m "chore(braid): close <id>"
+git fetch origin main && git rebase origin/main
+git push origin <agent-branch>:main
+
+# agent resets for next issue
+git reset --hard origin/main
+```
+
+see [docs/agent-workflow.md](docs/agent-workflow.md) for the full guide.

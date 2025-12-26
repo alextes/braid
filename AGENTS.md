@@ -18,7 +18,13 @@ note: this repo is braid itself, so we're dogfooding it.
 
 ## working in agent worktrees
 
-if you're working in a git worktree (created via `brd agent init`), read [docs/agent-workflow.md](docs/agent-workflow.md) for the full workflow including:
+**quick check — am i in a worktree?**
+
+```bash
+cat .braid/agent.toml 2>/dev/null && echo "yes, worktree" || echo "no, main"
+```
+
+if you see `agent_id = "..."`, you're in a worktree. read [docs/agent-workflow.md](docs/agent-workflow.md) for the full workflow including:
 - how issue visibility works across worktrees
 - the merge workflow (rebase + fast-forward)
 - how to mark issues done and push changes
