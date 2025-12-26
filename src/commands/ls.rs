@@ -102,6 +102,11 @@ pub fn cmd_ls(
             let derived = compute_derived(issue, &issues);
             let deps_info = if issue.deps().is_empty() {
                 String::new()
+            } else if issue.issue_type() == Some(IssueType::Meta) {
+                // meta issues show progress as "done/total"
+                let total = issue.deps().len();
+                let done = total - derived.open_deps.len();
+                format!(" ({}/{})", done, total)
             } else {
                 format!(
                     " (deps:{} open:{})",
