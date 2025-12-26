@@ -183,6 +183,7 @@ fn cmd_init(cli: &Cli) -> Result<()> {
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 fn cmd_add(
     cli: &Cli,
     paths: &RepoPaths,
@@ -830,7 +831,14 @@ fn load_all_issues(paths: &RepoPaths) -> Result<HashMap<String, Issue>> {
                     issues.insert(issue.id().to_string(), issue);
                 }
                 Err(e) => {
+                    let err_str = e.to_string();
                     eprintln!("warning: failed to load {}: {}", path.display(), e);
+                    // provide helpful hint for common YAML parsing issues
+                    if err_str.contains("invalid type: map, expected a string") {
+                        eprintln!(
+                            "  hint: strings containing colons must be quoted, e.g. '- \"foo: bar\"'"
+                        );
+                    }
                 }
             }
         }

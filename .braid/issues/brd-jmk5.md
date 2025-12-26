@@ -1,0 +1,14 @@
+---
+brd: 1
+id: brd-jmk5
+title: add issue creation to TUI
+priority: P2
+status: todo
+deps: []
+created_at: 2025-12-26T18:12:09.428335Z
+updated_at: 2025-12-26T18:12:09.428335Z
+acceptance:
+- TUI has 'a' or 'n' key to add new issue
+- prompts for title and priority
+- creates issue and refreshes list
+---
