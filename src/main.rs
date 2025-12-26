@@ -79,7 +79,7 @@ fn run(cli: &Cli) -> Result<()> {
         Command::Release { id, force } => cmd_release(cli, &paths, id, *force),
         Command::Reclaim { id, force } => cmd_reclaim(cli, &paths, id, *force),
         Command::Claims { all } => cmd_claims(cli, &paths, *all),
-        Command::Start { id } => cmd_start(cli, &paths, id),
+        Command::Start { id, force } => cmd_start(cli, &paths, id.as_deref(), *force),
         Command::Done { id, force } => cmd_done(cli, &paths, id, *force),
         Command::Agent { action } => match action {
             AgentAction::Init { name, base } => cmd_agent_init(cli, &paths, name, base.as_deref()),
@@ -478,18 +478,38 @@ fn cmd_claims(_cli: &Cli, _paths: &RepoPaths, _all: bool) -> Result<()> {
     Ok(())
 }
 
-fn cmd_start(cli: &Cli, paths: &RepoPaths, id: &str) -> Result<()> {
+fn cmd_start(cli: &Cli, paths: &RepoPaths, id: Option<&str>, force: bool) -> Result<()> {
     let _lock = LockGuard::acquire(&paths.lock_path())?;
 
     let mut issues = load_all_issues(paths)?;
-    let full_id = resolve_issue_id(id, &issues)?;
+
+    // resolve issue id: either from argument or pick next ready
+    let full_id = match id {
+        Some(partial) => resolve_issue_id(partial, &issues)?,
+        None => {
+            let ready = get_ready_issues(&issues);
+            ready
+                .first()
+                .map(|i| i.id().to_string())
+                .ok_or_else(|| BrdError::Other("no ready issues".to_string()))?
+        }
+    };
 
     let agent_id = braid::claims::get_agent_id(&paths.worktree_root);
 
     {
         let issue = issues
             .get_mut(&full_id)
-            .ok_or_else(|| BrdError::IssueNotFound(id.to_string()))?;
+            .ok_or_else(|| BrdError::IssueNotFound(full_id.clone()))?;
+
+        // check if already being worked on
+        if issue.status() == Status::Doing && !force {
+            let owner = issue.frontmatter.owner.as_deref().unwrap_or("unknown");
+            return Err(BrdError::Other(format!(
+                "issue {} is already being worked on by '{}' (use --force to reassign)",
+                full_id, owner
+            )));
+        }
 
         issue.frontmatter.status = Status::Doing;
         issue.frontmatter.owner = Some(agent_id.clone());
@@ -498,8 +518,6 @@ fn cmd_start(cli: &Cli, paths: &RepoPaths, id: &str) -> Result<()> {
         let issue_path = paths.issues_dir().join(format!("{}.md", full_id));
         issue.save(&issue_path)?;
     }
-
-    // TODO: create claim
 
     if cli.json {
         let issue = issues.get(&full_id).unwrap();

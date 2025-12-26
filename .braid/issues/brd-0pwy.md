@@ -6,7 +6,7 @@ priority: P3
 status: todo
 deps: []
 created_at: 2025-12-26T12:01:59.561764Z
-updated_at: 2025-12-26T13:36:16.870513Z
+updated_at: 2025-12-26T14:50:57.882877Z
 ---
 
 the "To use this agent" instructions after `brd agent init` should mention starting an agent before running `brd next`.

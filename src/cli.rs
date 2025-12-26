@@ -128,10 +128,14 @@ pub enum Command {
         all: bool,
     },
 
-    /// start working on an issue
+    /// start working on an issue (picks next ready issue if no id given)
     Start {
-        /// issue ID
-        id: String,
+        /// issue ID (optional - picks next ready if omitted)
+        id: Option<String>,
+
+        /// force start even if already being worked on
+        #[arg(long)]
+        force: bool,
     },
 
     /// mark an issue as done
