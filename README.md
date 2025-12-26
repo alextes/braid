@@ -69,6 +69,10 @@ brd start
 
 braid enables multiple AI agents to work on the same codebase in parallel without stepping on each other's toes.
 
+**getting started:** we recommend starting with a single agent in your main worktree. once you're comfortable with the braid workflow and find yourself waiting for your agent to finish, set up a second agent in its own worktree with `brd agent init`.
+
+**model recommendations:** we've found braid works best with Claude Opus 4.5, but GPT-5.2 Codex also performs acceptably.
+
 **how it works:**
 
 1. each agent gets their own git worktree via `brd agent init <name>`
