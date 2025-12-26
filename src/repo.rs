@@ -42,7 +42,6 @@ impl RepoPaths {
     pub fn control_root_file(&self) -> PathBuf {
         self.brd_common_dir.join("control_root")
     }
-
 }
 
 /// get the current agent ID:
