@@ -3,11 +3,10 @@ brd: 1
 id: brd-mc5q
 title: Update outdated dependencies
 priority: P2
-status: doing
+status: done
 deps: []
-owner: agent-two
 created_at: 2025-12-26T18:46:47.133569Z
-updated_at: 2025-12-26T18:50:36.313888Z
+updated_at: 2025-12-26T18:54:43.752163Z
 ---
 
 Several dependencies have newer versions available:
