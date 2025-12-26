@@ -115,12 +115,7 @@ pub fn get_ready_issues(issues: &HashMap<String, Issue>) -> Vec<&Issue> {
         .collect();
 
     // sort by priority (P0 first), then created_at (oldest first), then id (lexicographic)
-    ready.sort_by(|a, b| {
-        a.priority()
-            .cmp(&b.priority())
-            .then_with(|| a.frontmatter.created_at.cmp(&b.frontmatter.created_at))
-            .then_with(|| a.id().cmp(b.id()))
-    });
+    ready.sort_by(|a, b| a.cmp_by_priority(b));
 
     ready
 }

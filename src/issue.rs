@@ -217,6 +217,19 @@ impl Issue {
     pub fn labels(&self) -> &[String] {
         &self.frontmatter.labels
     }
+
+    /// compare two issues by priority, then created_at, then id.
+    /// this is the canonical sort order for issue listings.
+    pub fn cmp_by_priority(&self, other: &Self) -> std::cmp::Ordering {
+        self.priority()
+            .cmp(&other.priority())
+            .then_with(|| {
+                self.frontmatter
+                    .created_at
+                    .cmp(&other.frontmatter.created_at)
+            })
+            .then_with(|| self.id().cmp(other.id()))
+    }
 }
 
 /// split content into frontmatter and body.

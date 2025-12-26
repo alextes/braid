@@ -59,12 +59,7 @@ pub fn cmd_ls(
         .collect();
 
     // sort by priority, created_at, id
-    filtered.sort_by(|a, b| {
-        a.priority()
-            .cmp(&b.priority())
-            .then_with(|| a.frontmatter.created_at.cmp(&b.frontmatter.created_at))
-            .then_with(|| a.id().cmp(b.id()))
-    });
+    filtered.sort_by(|a, b| a.cmp_by_priority(b));
 
     if cli.json {
         let json: Vec<_> = filtered
