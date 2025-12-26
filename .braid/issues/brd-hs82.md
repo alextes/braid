@@ -3,10 +3,10 @@ brd: 1
 id: brd-hs82
 title: design installation method for braid
 priority: P1
-status: todo
+status: done
 deps: []
 created_at: 2025-12-26T08:40:04.791448Z
-updated_at: 2025-12-26T08:40:04.791448Z
+updated_at: 2025-12-26T15:55:13.594916Z
 ---
 
 design how users will install braid. options to consider:
