@@ -8,13 +8,13 @@ deps: []
 created_at: 2025-12-26T16:34:03.391298Z
 updated_at: 2025-12-26T16:34:03.391298Z
 acceptance:
-- command exists: brd ship
+- brd ship command exists
 - refuses to run with dirty working tree (uncommitted changes)
 - fetches origin main
 - rebases current branch onto origin/main
 - pushes current branch to main (FF only)
-- on success: fetches and resets to origin/main
-- on failure: leaves state intact, prints helpful message
+- on success, fetches and resets to origin/main
+- on failure, leaves state intact with helpful message
 ---
 
 add a `brd ship` command that handles the end of the agent workflow:
