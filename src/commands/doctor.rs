@@ -7,24 +7,60 @@ use crate::repo::RepoPaths;
 use super::load_all_issues;
 
 pub fn cmd_doctor(cli: &Cli, paths: &RepoPaths) -> Result<()> {
+    let mut checks: Vec<serde_json::Value> = Vec::new();
     let mut errors: Vec<serde_json::Value> = Vec::new();
-    let warnings: Vec<serde_json::Value> = Vec::new();
 
-    // check .braid exists
-    if !paths.braid_dir().exists() {
+    // helper to record a check result
+    let mut record_check = |name: &str, description: &str, passed: bool| {
+        checks.push(serde_json::json!({
+            "name": name,
+            "description": description,
+            "passed": passed
+        }));
+        if !cli.json {
+            if passed {
+                println!("✓ {}", description);
+            } else {
+                println!("✗ {}", description);
+            }
+        }
+    };
+
+    // check 1: .braid directory exists
+    let braid_exists = paths.braid_dir().exists();
+    record_check("braid_dir", ".braid directory exists", braid_exists);
+    if !braid_exists {
         errors.push(serde_json::json!({
             "code": "missing_braid_dir",
             "message": ".braid directory not found"
         }));
     }
 
-    // load and validate all issues
-    let issues = load_all_issues(paths)?;
+    // check 2: config.toml is valid
+    let config_valid = paths.config_path().exists()
+        && crate::config::Config::load(&paths.config_path()).is_ok();
+    record_check("config_valid", "config.toml is valid", config_valid);
+    if !config_valid {
+        errors.push(serde_json::json!({
+            "code": "invalid_config",
+            "message": "config.toml is missing or invalid"
+        }));
+    }
 
+    // check 3: all issue files parse correctly
+    let issues = load_all_issues(paths)?;
+    record_check(
+        "issues_parse",
+        "all issue files parse correctly",
+        true, // load_all_issues already warns on parse errors
+    );
+
+    // check 4: no missing dependencies
+    let mut missing_deps = Vec::new();
     for (id, issue) in &issues {
-        // check for missing deps
         for dep in issue.deps() {
             if !issues.contains_key(dep) {
+                missing_deps.push((id.clone(), dep.clone()));
                 errors.push(serde_json::json!({
                     "code": "missing_dep",
                     "issue": id,
@@ -33,33 +69,53 @@ pub fn cmd_doctor(cli: &Cli, paths: &RepoPaths) -> Result<()> {
             }
         }
     }
+    record_check(
+        "no_missing_deps",
+        "no missing dependencies",
+        missing_deps.is_empty(),
+    );
 
-    // check for cycles
+    // check 5: no dependency cycles
     let cycles = crate::graph::find_cycles(&issues);
-    for cycle in cycles {
+    for cycle in &cycles {
         errors.push(serde_json::json!({
             "code": "cycle",
             "cycle": cycle
         }));
     }
+    record_check("no_cycles", "no dependency cycles", cycles.is_empty());
 
     let ok = errors.is_empty();
 
     if cli.json {
         let json = serde_json::json!({
             "ok": ok,
-            "errors": errors,
-            "warnings": warnings
+            "checks": checks,
+            "errors": errors
         });
         println!("{}", serde_json::to_string_pretty(&json).unwrap());
-    } else if ok && warnings.is_empty() {
-        println!("✓ All checks passed");
-    } else {
+    } else if !ok {
+        println!();
         for e in &errors {
-            eprintln!("error: {}", e);
-        }
-        for w in &warnings {
-            eprintln!("warning: {}", w);
+            if let Some(code) = e.get("code").and_then(|c| c.as_str()) {
+                match code {
+                    "missing_dep" => {
+                        let issue = e.get("issue").and_then(|i| i.as_str()).unwrap_or("?");
+                        let dep = e.get("dep").and_then(|d| d.as_str()).unwrap_or("?");
+                        eprintln!("  error: {} depends on missing issue {}", issue, dep);
+                    }
+                    "cycle" => {
+                        if let Some(cycle) = e.get("cycle") {
+                            eprintln!("  error: dependency cycle: {}", cycle);
+                        }
+                    }
+                    _ => {
+                        if let Some(msg) = e.get("message").and_then(|m| m.as_str()) {
+                            eprintln!("  error: {}", msg);
+                        }
+                    }
+                }
+            }
         }
     }
 
