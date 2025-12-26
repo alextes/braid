@@ -35,7 +35,11 @@ impl TestEnv {
 
         // initialize braid
         let output = Self::run_brd_in(&dir.path().to_path_buf(), &["init"]);
-        assert!(output.status.success(), "brd init failed: {}", Self::stderr(&output));
+        assert!(
+            output.status.success(),
+            "brd init failed: {}",
+            Self::stderr(&output)
+        );
 
         Self { dir }
     }
@@ -100,7 +104,11 @@ fn test_full_workflow_add_start_done() {
 
     // add an issue
     let output = env.brd(&["add", "test issue", "-p", "P1"]);
-    assert!(output.status.success(), "add failed: {}", TestEnv::stderr(&output));
+    assert!(
+        output.status.success(),
+        "add failed: {}",
+        TestEnv::stderr(&output)
+    );
     let stdout = TestEnv::stdout(&output);
     assert!(stdout.contains("Created issue:"));
 
@@ -126,7 +134,11 @@ fn test_full_workflow_add_start_done() {
 
     // start the issue
     let output = env.brd(&["start", id]);
-    assert!(output.status.success(), "start failed: {}", TestEnv::stderr(&output));
+    assert!(
+        output.status.success(),
+        "start failed: {}",
+        TestEnv::stderr(&output)
+    );
     assert!(TestEnv::stdout(&output).contains("Started:"));
 
     // ls should show status as doing
@@ -141,7 +153,11 @@ fn test_full_workflow_add_start_done() {
 
     // done the issue
     let output = env.brd(&["done", id]);
-    assert!(output.status.success(), "done failed: {}", TestEnv::stderr(&output));
+    assert!(
+        output.status.success(),
+        "done failed: {}",
+        TestEnv::stderr(&output)
+    );
 
     // ls should show status as done
     let output = env.brd(&["ls", "--status", "done"]);
@@ -267,7 +283,12 @@ fn test_json_output_show() {
     assert_eq!(json["title"], "test issue");
     assert_eq!(json["priority"], "P2");
     assert_eq!(json["status"], "todo");
-    assert!(json["acceptance"].as_array().unwrap().contains(&serde_json::json!("do the thing")));
+    assert!(
+        json["acceptance"]
+            .as_array()
+            .unwrap()
+            .contains(&serde_json::json!("do the thing"))
+    );
 }
 
 #[test]
@@ -293,7 +314,10 @@ fn test_error_issue_not_found() {
 
     let output = env.brd(&["show", "nonexistent-id"]);
     assert!(!output.status.success());
-    assert!(TestEnv::stderr(&output).contains("not found") || TestEnv::stderr(&output).contains("error"));
+    assert!(
+        TestEnv::stderr(&output).contains("not found")
+            || TestEnv::stderr(&output).contains("error")
+    );
 }
 
 #[test]

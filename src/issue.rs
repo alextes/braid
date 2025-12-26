@@ -132,7 +132,7 @@ impl Issue {
 
     /// parse an issue from a markdown file with YAML frontmatter.
     pub fn parse(content: &str) -> Result<Self> {
-        use crate::migrate::{migrate_frontmatter, CURRENT_SCHEMA};
+        use crate::migrate::{CURRENT_SCHEMA, migrate_frontmatter};
 
         let (frontmatter_str, body) = split_frontmatter(content)?;
 

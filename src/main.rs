@@ -1,7 +1,7 @@
 use braid::cli::{AgentAction, Cli, Command, DepAction};
 use braid::commands::{
     cmd_add, cmd_agent_init, cmd_completions, cmd_dep_add, cmd_dep_rm, cmd_doctor, cmd_done,
-    cmd_init, cmd_ls, cmd_migrate, cmd_next, cmd_ready, cmd_show, cmd_start, cmd_tui,
+    cmd_init, cmd_ls, cmd_migrate, cmd_next, cmd_ready, cmd_ship, cmd_show, cmd_start, cmd_tui,
 };
 use braid::error::Result;
 use braid::repo;
@@ -92,5 +92,6 @@ fn run(cli: &Cli) -> Result<()> {
         Command::Completions { shell } => cmd_completions(*shell),
         Command::Tui => cmd_tui(cli, &paths),
         Command::Migrate { dry_run } => cmd_migrate(cli, &paths, *dry_run),
+        Command::Ship => cmd_ship(cli, &paths),
     }
 }
