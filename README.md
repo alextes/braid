@@ -1,6 +1,6 @@
 # braid
 
-<img width="800" height="306" alt="1b1ccb1f-c624-401a-a20e-6cc89e82a72a" src="https://github.com/user-attachments/assets/07982e37-5b97-41d8-b75a-14a0babd6c1d" />
+<img width="800" height="356" alt="braid logo, showing a terminal with the command `brd add` and a robot holding a new issue" src="https://github.com/user-attachments/assets/47b3681b-d108-400c-a299-e89fa8ee86e2" />
 
 a lightweight, repo-local, multi-agent capable issue tracker.
 
