@@ -1,13 +1,13 @@
 ---
-brd: 1
+schema_version: 2
 id: brd-c48z
 title: rename brd frontmatter key to schema_version
 priority: P2
-status: todo
+status: done
 deps:
 - brd-heid
 created_at: 2025-12-26T16:47:51.781453Z
-updated_at: 2025-12-26T16:51:04.791551Z
+updated_at: 2025-12-26T20:54:58.906382Z
 acceptance:
 - frontmatter uses schema_version instead of brd
 - migration handles old brd key

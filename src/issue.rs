@@ -81,7 +81,7 @@ impl std::str::FromStr for Status {
 /// the frontmatter of an issue file.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IssueFrontmatter {
-    pub brd: u32,
+    pub schema_version: u32,
     pub id: String,
     pub title: String,
     pub priority: Priority,
@@ -110,10 +110,11 @@ pub struct Issue {
 impl Issue {
     /// create a new issue with the given parameters.
     pub fn new(id: String, title: String, priority: Priority, deps: Vec<String>) -> Self {
+        use crate::migrate::CURRENT_SCHEMA;
         let now = OffsetDateTime::now_utc();
         Self {
             frontmatter: IssueFrontmatter {
-                brd: 1,
+                schema_version: CURRENT_SCHEMA,
                 id,
                 title,
                 priority,
@@ -131,8 +132,19 @@ impl Issue {
 
     /// parse an issue from a markdown file with YAML frontmatter.
     pub fn parse(content: &str) -> Result<Self> {
+        use crate::migrate::{migrate_frontmatter, CURRENT_SCHEMA};
+
         let (frontmatter_str, body) = split_frontmatter(content)?;
-        let frontmatter: IssueFrontmatter = serde_yaml::from_str(frontmatter_str)
+
+        // Parse as generic YAML first to check version and migrate if needed
+        let yaml_value: serde_yaml::Value = serde_yaml::from_str(frontmatter_str)
+            .map_err(|e| BrdError::ParseError("issue frontmatter".to_string(), e.to_string()))?;
+
+        // Migrate in-memory if needed
+        let (migrated, _) = migrate_frontmatter(yaml_value, CURRENT_SCHEMA)?;
+
+        // Now deserialize into strongly-typed struct
+        let frontmatter: IssueFrontmatter = serde_yaml::from_value(migrated)
             .map_err(|e| BrdError::ParseError("issue frontmatter".to_string(), e.to_string()))?;
 
         Ok(Self {
@@ -318,7 +330,7 @@ mod tests {
     #[test]
     fn test_parse_issue() {
         let content = r#"---
-brd: 1
+schema_version: 2
 id: "test-abc123"
 title: "Test issue"
 priority: P1

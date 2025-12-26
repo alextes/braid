@@ -59,7 +59,7 @@ pub fn cmd_doctor(cli: &Cli, paths: &RepoPaths) -> Result<()> {
     // check 4: all issues at current schema version
     let mut needs_migration = Vec::new();
     for issue in issues.values() {
-        let version = issue.frontmatter.brd;
+        let version = issue.frontmatter.schema_version;
         if migrate::needs_migration(version) {
             needs_migration.push(issue.id().to_string());
         }
