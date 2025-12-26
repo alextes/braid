@@ -264,12 +264,12 @@ pub fn resolve_issue_id(partial: &str, issues: &HashMap<String, Issue>) -> Resul
 /// generate a unique issue ID.
 pub fn generate_issue_id(config: &Config, issues_dir: &Path) -> Result<String> {
     let charset: &[u8] = b"0123456789abcdefghijklmnopqrstuvwxyz";
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
 
     for _ in 0..20 {
         let suffix: String = (0..config.id_len)
             .map(|_| {
-                let idx = rng.gen_range(0..charset.len());
+                let idx = rng.random_range(0..charset.len());
                 charset[idx] as char
             })
             .collect();
