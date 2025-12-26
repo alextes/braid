@@ -1,5 +1,7 @@
 //! brd ls command.
 
+use crossterm::style::{Attribute, SetAttribute};
+
 use crate::cli::Cli;
 use crate::error::Result;
 use crate::graph::compute_derived;
@@ -107,7 +109,12 @@ pub fn cmd_ls(
                     derived.open_deps.len()
                 )
             };
-            println!(
+            let is_done = issue.status() == Status::Done;
+            let use_dim = is_done && !cli.no_color;
+            if use_dim {
+                print!("{}", SetAttribute(Attribute::Dim));
+            }
+            print!(
                 "{}  {}  {}  {}{}",
                 issue.id(),
                 issue.priority(),
@@ -115,6 +122,10 @@ pub fn cmd_ls(
                 issue.title(),
                 deps_info
             );
+            if use_dim {
+                print!("{}", SetAttribute(Attribute::Reset));
+            }
+            println!();
         }
     }
 
