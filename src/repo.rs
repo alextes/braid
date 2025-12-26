@@ -108,7 +108,7 @@ pub fn discover(from: Option<&std::path::Path>) -> Result<RepoPaths> {
 }
 
 /// run `git rev-parse <arg>` and return the result as a PathBuf.
-fn git_rev_parse(cwd: &std::path::Path, arg: &str) -> Result<PathBuf> {
+pub fn git_rev_parse(cwd: &std::path::Path, arg: &str) -> Result<PathBuf> {
     let output = std::process::Command::new("git")
         .arg("rev-parse")
         .arg(arg)

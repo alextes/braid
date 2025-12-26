@@ -232,6 +232,61 @@ impl Issue {
     }
 }
 
+use std::collections::HashMap;
+
+use crate::config::Config;
+use rand::Rng;
+
+/// resolve a partial issue ID to a full ID.
+pub fn resolve_issue_id(partial: &str, issues: &HashMap<String, Issue>) -> Result<String> {
+    // exact match
+    if issues.contains_key(partial) {
+        return Ok(partial.to_string());
+    }
+
+    // partial match
+    let matches: Vec<&str> = issues
+        .keys()
+        .filter(|id| id.contains(partial) || id.ends_with(partial))
+        .map(|s| s.as_str())
+        .collect();
+
+    match matches.len() {
+        0 => Err(BrdError::IssueNotFound(partial.to_string())),
+        1 => Ok(matches[0].to_string()),
+        _ => Err(BrdError::AmbiguousId(
+            partial.to_string(),
+            matches.into_iter().map(String::from).collect(),
+        )),
+    }
+}
+
+/// generate a unique issue ID.
+pub fn generate_issue_id(config: &Config, issues_dir: &Path) -> Result<String> {
+    let charset: &[u8] = b"0123456789abcdefghijklmnopqrstuvwxyz";
+    let mut rng = rand::thread_rng();
+
+    for _ in 0..20 {
+        let suffix: String = (0..config.id_len)
+            .map(|_| {
+                let idx = rng.gen_range(0..charset.len());
+                charset[idx] as char
+            })
+            .collect();
+
+        let id = format!("{}-{}", config.id_prefix, suffix);
+        let path = issues_dir.join(format!("{}.md", id));
+
+        if !path.exists() {
+            return Ok(id);
+        }
+    }
+
+    Err(BrdError::Other(
+        "failed to generate unique ID after 20 attempts".to_string(),
+    ))
+}
+
 /// split content into frontmatter and body.
 fn split_frontmatter(content: &str) -> Result<(&str, &str)> {
     let content = content.trim_start();

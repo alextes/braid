@@ -3,8 +3,7 @@
 use crate::cli::Cli;
 use crate::config::Config;
 use crate::error::Result;
-
-use super::git_rev_parse;
+use crate::repo::git_rev_parse;
 
 pub fn cmd_init(cli: &Cli) -> Result<()> {
     let cwd = std::env::current_dir()?;

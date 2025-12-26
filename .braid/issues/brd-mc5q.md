@@ -1,0 +1,26 @@
+---
+brd: 1
+id: brd-mc5q
+title: Update outdated dependencies
+priority: P2
+status: doing
+deps: []
+owner: agent-two
+created_at: 2025-12-26T18:46:47.133569Z
+updated_at: 2025-12-26T18:50:36.313888Z
+---
+
+Several dependencies have newer versions available:
+
+- crossterm: 0.28.1 → 0.29.0
+- rand: 0.8.5 → 0.9.2
+- ratatui: 0.29.0 → 0.30.0
+- thiserror: 1.0.69 → 2.0.17
+- toml: 0.8.23 → 0.9.10
+- unicode-width: 0.2.0 → 0.2.2
+
+Tasks:
+- [ ] Review changelog/breaking changes for each dependency
+- [ ] Update Cargo.toml with new versions
+- [ ] Run tests to verify compatibility
+- [ ] Fix any breaking changes
