@@ -90,16 +90,16 @@ pub fn cmd_doctor(cli: &Cli, paths: &RepoPaths) -> Result<()> {
             }
 
             let content = std::fs::read_to_string(&path)?;
-            if let Ok((frontmatter_str, _)) = parse_frontmatter(&content) {
-                if let Ok(yaml) = serde_yaml::from_str::<serde_yaml::Value>(&frontmatter_str) {
-                    let version = migrate::get_schema_version(&yaml).unwrap_or(0);
-                    if migrate::needs_migration(version) {
-                        let id = path
-                            .file_stem()
-                            .and_then(|s| s.to_str())
-                            .unwrap_or("unknown");
-                        needs_migration.push(id.to_string());
-                    }
+            if let Ok((frontmatter_str, _)) = parse_frontmatter(&content)
+                && let Ok(yaml) = serde_yaml::from_str::<serde_yaml::Value>(&frontmatter_str)
+            {
+                let version = migrate::get_schema_version(&yaml).unwrap_or(0);
+                if migrate::needs_migration(version) {
+                    let id = path
+                        .file_stem()
+                        .and_then(|s| s.to_str())
+                        .unwrap_or("unknown");
+                    needs_migration.push(id.to_string());
                 }
             }
         }
