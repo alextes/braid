@@ -3,12 +3,11 @@ schema_version: 2
 id: brd-hs82
 title: design installation method for braid
 priority: P1
-status: doing
+status: done
 type: design
 deps: []
-owner: agent-one
 created_at: 2025-12-26T08:40:04.791448Z
-updated_at: 2025-12-27T08:27:11.479286Z
+updated_at: 2025-12-27T08:29:15.89801Z
 ---
 
 design how users will install braid. options to consider:
