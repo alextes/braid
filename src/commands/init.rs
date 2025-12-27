@@ -76,6 +76,10 @@ pub fn cmd_init(cli: &Cli) -> Result<()> {
         println!("Initialized braid in {}", braid_dir.display());
         println!("  control root: {}", worktree_root.display());
         println!("  common dir:   {}", brd_common_dir.display());
+        println!();
+        println!("next steps:");
+        println!("  brd add \"my first task\"     # create an issue");
+        println!("  brd agents inject           # add agent instructions to AGENTS.md");
     }
 
     Ok(())
