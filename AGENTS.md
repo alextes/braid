@@ -51,3 +51,14 @@ format: `<type>[(scope)][!]: <description>`
 ## writing style
 
 all lowercase for comments, tracing, docs, issue titles, and other prose. exceptions: acronyms (CLI, API, ID, etc.).
+
+## design issues
+
+issues with `type: design` require special handling:
+
+- **don't close autonomously** — discuss with the human first unless the design is obvious
+- **research and present options** — write up trade-offs in the issue body
+- **produce output before closing** — create implementation issues or a concrete plan
+- **closing = approval received** — only mark done after human signs off
+
+see [docs/design-issues.md](docs/design-issues.md) for the full workflow.

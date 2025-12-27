@@ -14,16 +14,33 @@ takes inspiration from [beads](https://github.com/steveyegge/beads).
 - **multi-agent coordination** — multiple agents work in parallel using git worktrees
 - **human-friendly** — simple CLI, partial ID matching, works like you'd expect
 
-## quickstart
+## installation
 
-currently, compiling from source is the only installation option. more options coming soon.
+### from crates.io (recommended)
 
 ```bash
-# clone and install
-git clone https://github.com/alextes/braid.git
-cd braid
-cargo install --path .
+cargo install braid
+```
 
+requires rust 1.85+.
+
+### install script
+
+```bash
+curl -sSL https://raw.githubusercontent.com/alextes/braid/main/install.sh | bash
+```
+
+downloads a prebuilt binary (no rust required).
+
+### from source
+
+```bash
+cargo install --git https://github.com/alextes/braid.git
+```
+
+## quickstart
+
+```bash
 # initialize in your repo
 cd your-project
 brd init
