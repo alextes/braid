@@ -19,15 +19,7 @@ takes inspiration from [beads](https://github.com/steveyegge/beads).
 
 ## installation
 
-### from crates.io (recommended)
-
-```bash
-cargo install braid
-```
-
-requires rust 1.85+.
-
-### install script
+### install script (recommended)
 
 ```bash
 curl -sSL https://raw.githubusercontent.com/alextes/braid/main/install.sh | bash
@@ -35,11 +27,17 @@ curl -sSL https://raw.githubusercontent.com/alextes/braid/main/install.sh | bash
 
 downloads a prebuilt binary (no rust required).
 
-### from source
+### from crates.io
 
 ```bash
-cargo install --git https://github.com/alextes/braid.git
+cargo install braid
 ```
+
+requires rust 1.85+.
+
+### prebuilt binaries
+
+download the latest release from [GitHub Releases](https://github.com/alextes/braid/releases).
 
 ## quickstart
 
