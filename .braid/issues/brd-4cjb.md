@@ -1,7 +1,7 @@
 ---
 schema_version: 3
 id: brd-4cjb
-title: 'design: implement full-text search for issues'
+title: implement full-text search for issues
 priority: P3
 status: todo
 type: design
