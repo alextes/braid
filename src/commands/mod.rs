@@ -15,6 +15,7 @@ mod ready;
 mod rm;
 mod search;
 mod ship;
+mod skip;
 mod show;
 mod start;
 mod tui;
@@ -35,6 +36,7 @@ pub use rm::cmd_rm;
 pub use search::cmd_search;
 pub use ship::cmd_ship;
 pub use show::cmd_show;
+pub use skip::cmd_skip;
 pub use start::cmd_start;
 pub use tui::cmd_tui;
 

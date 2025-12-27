@@ -25,7 +25,8 @@ pub fn compute_derived(issue: &Issue, all_issues: &HashMap<String, Issue>) -> De
     for dep_id in issue.deps() {
         match all_issues.get(dep_id) {
             Some(dep_issue) => {
-                if dep_issue.status() != Status::Done {
+                // skip and done both count as "resolved" for dependency purposes
+                if !matches!(dep_issue.status(), Status::Done | Status::Skip) {
                     open_deps.push(dep_id.clone());
                 }
             }

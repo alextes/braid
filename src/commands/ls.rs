@@ -61,29 +61,29 @@ pub fn cmd_ls(
         })
         .collect();
 
-    // partition into non-done (todo/doing) and done issues
-    let (mut active, mut done): (Vec<&Issue>, Vec<&Issue>) = filtered
+    // partition into active (todo/doing) and resolved (done/skip) issues
+    let (mut active, mut resolved): (Vec<&Issue>, Vec<&Issue>) = filtered
         .into_iter()
-        .partition(|issue| issue.status() != Status::Done);
+        .partition(|issue| !matches!(issue.status(), Status::Done | Status::Skip));
 
     // sort active issues by priority, created_at, id
     active.sort_by(|a, b| a.cmp_by_priority(b));
 
-    // sort done issues by updated_at (most recent first), then by id for stability
-    done.sort_by(|a, b| {
+    // sort resolved issues by updated_at (most recent first), then by id for stability
+    resolved.sort_by(|a, b| {
         b.frontmatter
             .updated_at
             .cmp(&a.frontmatter.updated_at)
             .then_with(|| a.id().cmp(b.id()))
     });
 
-    // limit done issues unless --all is specified
-    if !show_all && done.len() > DEFAULT_DONE_LIMIT {
-        done.truncate(DEFAULT_DONE_LIMIT);
+    // limit resolved issues unless --all is specified
+    if !show_all && resolved.len() > DEFAULT_DONE_LIMIT {
+        resolved.truncate(DEFAULT_DONE_LIMIT);
     }
 
-    // combine: active first, then done
-    let filtered: Vec<&Issue> = active.into_iter().chain(done).collect();
+    // combine: active first, then resolved
+    let filtered: Vec<&Issue> = active.into_iter().chain(resolved).collect();
 
     if cli.json {
         let json: Vec<_> = filtered
@@ -112,14 +112,14 @@ pub fn cmd_ls(
             };
 
             // apply styling based on status, priority, and type
-            let is_done = issue.status() == Status::Done;
+            let is_resolved = matches!(issue.status(), Status::Done | Status::Skip);
             let is_doing = issue.status() == Status::Doing;
             let is_high_priority =
                 issue.priority() == Priority::P0 || issue.priority() == Priority::P1;
             let use_color = !cli.no_color;
 
             if use_color {
-                if is_done {
+                if is_resolved {
                     print!("{}", SetAttribute(Attribute::Dim));
                 } else {
                     // priority styling: P0/P1 get bold
@@ -157,7 +157,7 @@ pub fn cmd_ls(
             );
 
             if use_color
-                && (is_done || is_doing || is_high_priority || issue.issue_type().is_some())
+                && (is_resolved || is_doing || is_high_priority || issue.issue_type().is_some())
             {
                 print!("{}", SetAttribute(Attribute::Reset));
             }

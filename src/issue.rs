@@ -50,6 +50,7 @@ pub enum Status {
     Todo,
     Doing,
     Done,
+    Skip,
 }
 
 impl std::fmt::Display for Status {
@@ -58,6 +59,7 @@ impl std::fmt::Display for Status {
             Status::Todo => write!(f, "todo"),
             Status::Doing => write!(f, "doing"),
             Status::Done => write!(f, "done"),
+            Status::Skip => write!(f, "skip"),
         }
     }
 }
@@ -70,6 +72,7 @@ impl std::str::FromStr for Status {
             "todo" => Ok(Status::Todo),
             "doing" => Ok(Status::Doing),
             "done" => Ok(Status::Done),
+            "skip" => Ok(Status::Skip),
             _ => Err(BrdError::ParseError(
                 "status".to_string(),
                 format!("invalid status: {s}"),

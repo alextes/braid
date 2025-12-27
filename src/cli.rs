@@ -96,6 +96,12 @@ pub enum Command {
         force: bool,
     },
 
+    /// mark an issue as skipped (won't do)
+    Skip {
+        /// issue ID
+        id: String,
+    },
+
     /// delete an issue
     Rm {
         /// issue ID

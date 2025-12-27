@@ -146,6 +146,7 @@ fn draw_all_list(f: &mut Frame, area: Rect, app: &App) {
                 crate::issue::Status::Todo => ' ',
                 crate::issue::Status::Doing => '→',
                 crate::issue::Status::Done => '✓',
+                crate::issue::Status::Skip => '⊘',
             };
             let text = format!(
                 "{} {} {} {}",
@@ -161,7 +162,9 @@ fn draw_all_list(f: &mut Frame, area: Rect, app: &App) {
                     .add_modifier(Modifier::BOLD)
             } else {
                 match issue.status() {
-                    crate::issue::Status::Done => Style::default().fg(Color::DarkGray),
+                    crate::issue::Status::Done | crate::issue::Status::Skip => {
+                        Style::default().fg(Color::DarkGray)
+                    }
                     crate::issue::Status::Doing => Style::default().fg(Color::Green),
                     crate::issue::Status::Todo => Style::default(),
                 }
@@ -209,6 +212,7 @@ fn draw_detail(f: &mut Frame, area: Rect, app: &App) {
                     crate::issue::Status::Done => Style::default().fg(Color::Green),
                     crate::issue::Status::Doing => Style::default().fg(Color::Yellow),
                     crate::issue::Status::Todo => Style::default(),
+                    crate::issue::Status::Skip => Style::default().fg(Color::DarkGray),
                 },
             ),
         ]),
@@ -244,12 +248,12 @@ fn draw_detail(f: &mut Frame, area: Rect, app: &App) {
             Style::default().fg(Color::DarkGray),
         )));
         for dep in issue.deps() {
-            let is_done = app
+            let is_resolved = app
                 .issues
                 .get(dep)
-                .map(|d| d.status() == crate::issue::Status::Done)
+                .map(|d| matches!(d.status(), crate::issue::Status::Done | crate::issue::Status::Skip))
                 .unwrap_or(false);
-            let style = if is_done {
+            let style = if is_resolved {
                 Style::default().fg(Color::Green)
             } else {
                 Style::default().fg(Color::Red)
