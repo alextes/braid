@@ -1,5 +1,5 @@
 ---
-schema_version: 3
+schema_version: 4
 id: brd-vp1p
 title: extend doctor to print passing checks with descriptions
 priority: P2

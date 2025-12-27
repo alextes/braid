@@ -1,5 +1,5 @@
 ---
-schema_version: 3
+schema_version: 4
 id: brd-d9f5
 title: add auto-commit helpers
 priority: P3

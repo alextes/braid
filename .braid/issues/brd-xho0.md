@@ -1,12 +1,12 @@
 ---
-schema_version: 3
+schema_version: 4
 id: brd-xho0
 title: manage growing brd ls output
 priority: P1
 status: done
 type: design
 deps: []
-labels:
+tags:
 - visual
 owner: null
 created_at: 2025-12-26T19:00:09.808782Z

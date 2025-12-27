@@ -1,5 +1,5 @@
 ---
-schema_version: 3
+schema_version: 4
 id: brd-gndf
 title: set up github actions workflow for ci
 priority: P2

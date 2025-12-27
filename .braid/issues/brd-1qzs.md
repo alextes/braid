@@ -1,11 +1,11 @@
 ---
-schema_version: 3
+schema_version: 4
 id: brd-1qzs
 title: prevent old brd versions from creating issues in upgraded repos
 priority: P2
 status: done
 deps: []
-labels:
+tags:
 - design
 owner: null
 created_at: 2025-12-26T21:19:28.81185Z

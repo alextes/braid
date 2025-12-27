@@ -1,12 +1,12 @@
 ---
-schema_version: 3
+schema_version: 4
 id: brd-d42n
 title: display design-type issues with visual distinction in brd ls
 priority: P2
 status: done
 deps:
 - brd-20qi
-labels:
+tags:
 - visual
 owner: null
 created_at: 2025-12-26T14:16:10.670121Z

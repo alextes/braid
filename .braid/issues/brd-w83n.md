@@ -1,5 +1,5 @@
 ---
-schema_version: 3
+schema_version: 4
 id: brd-w83n
 title: 'Design: meta/theme issues - naming and mechanics for grouping related issues'
 priority: P2

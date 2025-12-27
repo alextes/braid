@@ -1,5 +1,5 @@
 ---
-schema_version: 3
+schema_version: 4
 id: brd-37vc
 title: refactor cmd_add to fix clippy::too_many_arguments
 priority: P3

@@ -1,5 +1,5 @@
 ---
-schema_version: 3
+schema_version: 4
 id: brd-fvg3
 title: simplify main.rs
 priority: P2

@@ -1,5 +1,5 @@
 ---
-schema_version: 3
+schema_version: 4
 id: brd-bhx0
 title: v1.0 release
 priority: P2

@@ -1,5 +1,5 @@
 ---
-schema_version: 3
+schema_version: 4
 id: brd-20qi
 title: 'Add type field support to issue frontmatter (e.g. type: design)'
 priority: P2

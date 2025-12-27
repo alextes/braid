@@ -1,5 +1,5 @@
 ---
-schema_version: 3
+schema_version: 4
 id: brd-8kbe
 title: check whether fs2 dep is still needed or can be dropped
 priority: P3

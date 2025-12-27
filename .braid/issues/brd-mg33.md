@@ -1,11 +1,11 @@
 ---
-schema_version: 3
+schema_version: 4
 id: brd-mg33
 title: 'TUI: slim down issue creation dialog'
 priority: P3
 status: todo
 deps: []
-labels:
+tags:
 - TUI
 owner: null
 created_at: 2025-12-27T13:49:23.88335Z

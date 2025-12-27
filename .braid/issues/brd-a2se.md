@@ -1,5 +1,5 @@
 ---
-schema_version: 3
+schema_version: 4
 id: brd-a2se
 title: automatic cleanup/housekeeping command
 priority: P3

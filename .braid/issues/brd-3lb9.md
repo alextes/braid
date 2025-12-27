@@ -1,5 +1,5 @@
 ---
-schema_version: 3
+schema_version: 4
 id: brd-3lb9
 title: fix doctor schema check to read raw file version
 priority: P2

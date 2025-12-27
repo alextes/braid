@@ -1,5 +1,5 @@
 ---
-schema_version: 3
+schema_version: 4
 id: brd-ywk8
 title: set up npm release with cargo-dist
 priority: P3

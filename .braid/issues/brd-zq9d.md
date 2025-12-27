@@ -1,5 +1,5 @@
 ---
-schema_version: 3
+schema_version: 4
 id: brd-zq9d
 title: add labels support to issues
 priority: P1

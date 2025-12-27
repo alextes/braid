@@ -1,5 +1,5 @@
 ---
-schema_version: 3
+schema_version: 4
 id: brd-l318
 title: allow specifying description right away when using `brd add`
 priority: P2

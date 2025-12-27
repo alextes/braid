@@ -1,11 +1,11 @@
 ---
-schema_version: 3
+schema_version: 4
 id: brd-oc6m
 title: print done issues in gray/dim color in brd ls output
 priority: P2
 status: done
 deps: []
-labels:
+tags:
 - visual
 owner: null
 created_at: 2025-12-26T10:02:45.209079Z

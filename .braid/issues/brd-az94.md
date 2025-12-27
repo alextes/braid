@@ -1,11 +1,11 @@
 ---
-schema_version: 3
+schema_version: 4
 id: brd-az94
 title: show issue age in brd ls output
 priority: P3
 status: todo
 deps: []
-labels:
+tags:
 - visual
 owner: null
 created_at: 2025-12-27T13:45:22.047962Z

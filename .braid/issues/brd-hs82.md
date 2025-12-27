@@ -1,5 +1,5 @@
 ---
-schema_version: 3
+schema_version: 4
 id: brd-hs82
 title: design installation method for braid
 priority: P1

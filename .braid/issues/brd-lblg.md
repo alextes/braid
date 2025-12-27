@@ -1,5 +1,5 @@
 ---
-schema_version: 3
+schema_version: 4
 id: brd-lblg
 title: design better agent ID fallback
 priority: P2

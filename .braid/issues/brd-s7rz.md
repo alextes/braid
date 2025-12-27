@@ -1,11 +1,11 @@
 ---
-schema_version: 3
+schema_version: 4
 id: brd-s7rz
 title: add visual distinction for status and priority in brd ls/ready output
 priority: P1
 status: done
 deps: []
-labels:
+tags:
 - visual
 owner: null
 created_at: 2025-12-26T21:36:20.892142Z
