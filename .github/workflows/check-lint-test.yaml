@@ -3,7 +3,7 @@ on: push
 env:
   CARGO_TERM_COLOR: always
 
-name: ci
+name: check-lint-test
 
 jobs:
   check:
