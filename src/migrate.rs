@@ -8,7 +8,7 @@ use serde_yaml::Value;
 use crate::error::{BrdError, Result};
 
 /// The current schema version. All new issues are created with this version.
-pub const CURRENT_SCHEMA: u32 = 2;
+pub const CURRENT_SCHEMA: u32 = 3;
 
 /// Check if a schema version needs migration.
 pub fn needs_migration(schema_version: u32) -> bool {
@@ -57,8 +57,7 @@ fn apply_migration(frontmatter: Value, from_version: u32) -> Result<Value> {
     match from_version {
         0 => migrate_v0_to_v1(frontmatter),
         1 => migrate_v1_to_v2(frontmatter),
-        // Future migrations go here:
-        // 2 => migrate_v2_to_v3(frontmatter),
+        2 => migrate_v2_to_v3(frontmatter),
         _ => {
             // No migration needed for this version
             Ok(frontmatter)
@@ -93,6 +92,24 @@ fn migrate_v1_to_v2(mut frontmatter: Value) -> Result<Value> {
     Ok(frontmatter)
 }
 
+/// Migration from v2 to v3.
+/// - Adds `owner: null` if missing (owner field is now required)
+fn migrate_v2_to_v3(mut frontmatter: Value) -> Result<Value> {
+    if let Value::Mapping(ref mut map) = frontmatter {
+        let owner_key = Value::String("owner".to_string());
+        let schema_key = Value::String("schema_version".to_string());
+
+        // Add owner: null if not present
+        if !map.contains_key(&owner_key) {
+            map.insert(owner_key, Value::Null);
+        }
+
+        // Update schema version
+        map.insert(schema_key, Value::Number(3.into()));
+    }
+    Ok(frontmatter)
+}
+
 /// Summary of what migrations would be applied to get from one version to another.
 pub fn migration_summary(from_version: u32, to_version: u32) -> Vec<String> {
     let mut summaries = Vec::new();
@@ -101,7 +118,7 @@ pub fn migration_summary(from_version: u32, to_version: u32) -> Vec<String> {
         match version {
             0 => summaries.push("v0→v1: add schema version field".to_string()),
             1 => summaries.push("v1→v2: rename 'brd' to 'schema_version'".to_string()),
-            // Future migrations go here
+            2 => summaries.push("v2→v3: add required 'owner' field".to_string()),
             _ => {}
         }
     }
