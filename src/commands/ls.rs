@@ -143,10 +143,18 @@ pub fn cmd_ls(
                 }
             }
 
+            // type column: "design", "meta", or padded empty
+            let type_col = match issue.issue_type() {
+                Some(IssueType::Design) => "design  ",
+                Some(IssueType::Meta) => "meta    ",
+                None => "",
+            };
+
             print!(
-                "{}  {}  {}  {}{}",
+                "{}  {}  {}{}  {}{}",
                 issue.id(),
                 issue.priority(),
+                type_col,
                 issue.status(),
                 issue.title(),
                 deps_info

@@ -46,7 +46,20 @@ pub fn cmd_ready(cli: &Cli, paths: &RepoPaths) -> Result<()> {
                 }
             }
 
-            print!("{}  {}  {}", issue.id(), issue.priority(), issue.title());
+            // type column: "design", "meta", or empty
+            let type_col = match issue.issue_type() {
+                Some(IssueType::Design) => "design  ",
+                Some(IssueType::Meta) => "meta    ",
+                None => "",
+            };
+
+            print!(
+                "{}  {}  {}{}",
+                issue.id(),
+                issue.priority(),
+                type_col,
+                issue.title()
+            );
 
             if use_color && (is_doing || is_high_priority || issue.issue_type().is_some()) {
                 print!("{}", SetAttribute(Attribute::Reset));
