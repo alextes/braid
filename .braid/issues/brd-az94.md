@@ -5,6 +5,8 @@ title: show issue age in brd ls output
 priority: P3
 status: todo
 deps: []
+labels:
+- visual
 owner: null
 created_at: 2025-12-27T13:45:22.047962Z
 updated_at: 2025-12-27T13:45:22.047962Z
