@@ -150,16 +150,34 @@ pub fn cmd_doctor(cli: &Cli, paths: &RepoPaths) -> Result<()> {
     }
     record_check("no_cycles", "no dependency cycles", cycles.is_empty());
 
-    // check 7: AGENTS.md block version (informational, only if block exists)
-    if let Some(version) = check_agents_block(paths) {
-        let agents_ok = version >= AGENTS_BLOCK_VERSION;
-        record_check(
-            "agents_block",
-            &format!("AGENTS.md braid block at v{}", AGENTS_BLOCK_VERSION),
-            agents_ok,
-        );
-        if !agents_ok && !cli.json {
-            eprintln!("  hint: run `brd agents inject` to update the braid block in AGENTS.md");
+    // check 7: AGENTS.md block version (informational)
+    let agents_block_version = check_agents_block(paths);
+    match agents_block_version {
+        Some(version) if version >= AGENTS_BLOCK_VERSION => {
+            record_check(
+                "agents_block",
+                &format!("AGENTS.md braid block at v{}", AGENTS_BLOCK_VERSION),
+                true,
+            );
+        }
+        Some(version) => {
+            record_check(
+                "agents_block",
+                &format!(
+                    "AGENTS.md braid block outdated (v{} < v{})",
+                    version, AGENTS_BLOCK_VERSION
+                ),
+                false,
+            );
+            if !cli.json {
+                eprintln!("  hint: run `brd agents inject` to update");
+            }
+        }
+        None => {
+            record_check("agents_block", "AGENTS.md braid block not found", false);
+            if !cli.json {
+                eprintln!("  hint: run `brd agents inject` to add");
+            }
         }
     }
 
