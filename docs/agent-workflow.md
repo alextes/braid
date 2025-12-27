@@ -77,6 +77,7 @@ brd agent ship
 ```
 
 this command:
+
 1. fetches `origin main`
 2. rebases your branch onto `origin/main`
 3. pushes to main (fast-forward only)
@@ -107,3 +108,11 @@ when you run `brd start` or `brd done` from a non-control-root worktree:
 2. writes to your local `.braid/issues/` (so you can commit it)
 
 this way, issue status changes flow through git like code changes.
+
+## troubleshooting
+
+**schema mismatch errors:** if you see "this repo uses schema vN, but this brd only supports up to vM", rebase onto the latest main:
+
+```bash
+git fetch origin main && git rebase origin/main && cargo build --release
+```
