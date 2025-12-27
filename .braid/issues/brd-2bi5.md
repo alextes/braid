@@ -5,7 +5,7 @@ title: add unit tests for issue parsing edge cases
 priority: P2
 status: done
 deps: []
-owner: agent-two
+owner: null
 created_at: 2025-12-26T19:16:45.860751Z
 updated_at: 2025-12-27T22:12:58.108103Z
 acceptance:
