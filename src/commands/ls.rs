@@ -1,6 +1,6 @@
 //! brd ls command.
 
-use crossterm::style::{Attribute, SetAttribute};
+use crossterm::style::{Attribute, Color, SetAttribute, SetForegroundColor};
 
 use crate::cli::Cli;
 use crate::error::Result;
@@ -162,20 +162,33 @@ pub fn cmd_ls(
             };
 
             print!(
-                "{}  {}  {}{}  {}{}{}",
+                "{}  {}  {}{}  {}{}",
                 issue.id(),
                 issue.priority(),
                 type_col,
                 issue.status(),
                 issue.title(),
-                deps_info,
-                owner_info
+                deps_info
             );
 
             if use_color
                 && (is_resolved || is_doing || is_high_priority || issue.issue_type().is_some())
             {
                 print!("{}", SetAttribute(Attribute::Reset));
+            }
+
+            // print owner in magenta
+            if !owner_info.is_empty() {
+                if use_color {
+                    print!(
+                        "{}{}{}",
+                        SetForegroundColor(Color::Magenta),
+                        owner_info,
+                        SetAttribute(Attribute::Reset)
+                    );
+                } else {
+                    print!("{}", owner_info);
+                }
             }
             println!();
         }
