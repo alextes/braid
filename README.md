@@ -85,6 +85,15 @@ brd start
 - `brd doctor` — validate repo state
 - `brd completions <shell>` — generate shell completions
 
+## configuration
+
+braid is configured via `.braid/config.toml`. key options:
+
+- `id_prefix` — prefix for issue IDs (default: derived from repo name)
+- `id_len` — length of random suffix, 4-10 (default: 4)
+
+see [docs/configuration.md](docs/configuration.md) for full details.
+
 ## multi-agent coordination
 
 braid enables multiple AI agents to work on the same codebase in parallel without stepping on each other's toes.
