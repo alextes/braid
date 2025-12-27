@@ -3,13 +3,13 @@ schema_version: 4
 id: brd-isol
 title: style priority column for visual distinction
 priority: P3
-status: todo
+status: doing
 deps: []
 tags:
 - visual
-owner: null
+owner: agent-two
 created_at: 2025-12-27T15:37:19.641113Z
-updated_at: 2025-12-27T15:37:19.641113Z
+updated_at: 2025-12-27T16:37:51.806455Z
 acceptance:
 - P0/P1 priority text styled differently from P2/P3
 - styling applies only to priority column, not whole line

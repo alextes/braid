@@ -7,6 +7,7 @@ status: done
 deps: []
 tags:
 - visual
+owner: null
 created_at: 2025-12-27T15:16:06.742891Z
 updated_at: 2025-12-27T16:31:54.84227Z
 acceptance:
