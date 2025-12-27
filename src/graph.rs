@@ -2,7 +2,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use crate::issue::{Issue, Status};
+use crate::issue::{Issue, IssueType, Status};
 
 /// derived information about an issue's dependency state.
 #[derive(Debug, Clone)]
@@ -105,10 +105,15 @@ fn find_cycles_dfs(
 }
 
 /// get all ready issues, sorted by priority, created_at, then id.
+/// excludes meta issues since they are tracking containers, not actionable work.
 pub fn get_ready_issues(issues: &HashMap<String, Issue>) -> Vec<&Issue> {
     let mut ready: Vec<&Issue> = issues
         .values()
         .filter(|issue| {
+            // skip meta issues - they're tracking containers, not actionable work
+            if issue.issue_type() == Some(IssueType::Meta) {
+                return false;
+            }
             let derived = compute_derived(issue, issues);
             derived.is_ready
         })
