@@ -1,10 +1,11 @@
 ---
-schema_version: 2
+schema_version: 3
 id: brd-o815
 title: improve error message for acceptance criteria with colons
 priority: P1
 status: done
 deps: []
+owner: null
 created_at: 2025-12-26T16:44:10.732419Z
 updated_at: 2025-12-26T16:44:10.732419Z
 acceptance:

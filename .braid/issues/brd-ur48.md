@@ -1,11 +1,12 @@
 ---
-schema_version: 2
+schema_version: 3
 id: brd-ur48
 title: implement smart brd ls defaults
 priority: P2
 status: done
 deps:
 - brd-xho0
+owner: null
 created_at: 2025-12-26T19:06:49.983355Z
 updated_at: 2025-12-26T19:23:05.316873Z
 acceptance:

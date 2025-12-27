@@ -1,10 +1,11 @@
 ---
-schema_version: 2
+schema_version: 3
 id: brd-cb1g
 title: add dual-write support to brd add command
 priority: P2
 status: done
 deps: []
+owner: null
 created_at: 2025-12-26T20:11:16.560141Z
 updated_at: 2025-12-26T21:31:54.947749Z
 acceptance:

@@ -1,10 +1,11 @@
 ---
-schema_version: 2
+schema_version: 3
 id: brd-zife
 title: update outdated dependencies (crossterm, ratatui)
 priority: P3
 status: done
 deps: []
+owner: null
 created_at: 2025-12-26T20:49:56.61196Z
 updated_at: 2025-12-26T20:53:11.293573Z
 ---

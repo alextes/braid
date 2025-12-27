@@ -1,10 +1,11 @@
 ---
-schema_version: 2
+schema_version: 3
 id: brd-vp1p
 title: extend doctor to print passing checks with descriptions
 priority: P2
 status: done
 deps: []
+owner: null
 created_at: 2025-12-26T07:42:40.025085Z
 updated_at: 2025-12-26T18:43:50.993222Z
 ---

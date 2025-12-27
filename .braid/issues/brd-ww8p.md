@@ -1,10 +1,11 @@
 ---
-schema_version: 2
+schema_version: 3
 id: brd-ww8p
 title: implement brd v0.1 CLI
 priority: P0
 status: done
 deps: []
+owner: null
 created_at: 2025-12-25T22:06:30.190214Z
 updated_at: 2025-12-25T22:06:44.997826Z
 ---

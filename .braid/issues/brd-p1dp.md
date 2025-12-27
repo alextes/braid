@@ -1,10 +1,11 @@
 ---
-schema_version: 2
+schema_version: 3
 id: brd-p1dp
 title: implement claims system for multi-agent coordination
 priority: P3
 status: todo
 deps: []
+owner: null
 created_at: 2025-12-25T21:46:27.951363Z
 updated_at: 2025-12-26T16:44:10Z
 acceptance:

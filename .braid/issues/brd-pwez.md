@@ -1,5 +1,5 @@
 ---
-schema_version: 2
+schema_version: 3
 id: brd-pwez
 title: add verbose logging flag for debugging
 priority: P2
@@ -7,6 +7,7 @@ status: todo
 deps: []
 labels:
 - design
+owner: null
 created_at: 2025-12-26T20:35:50.61416Z
 updated_at: 2025-12-26T20:35:50.61416Z
 ---

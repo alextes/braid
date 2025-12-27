@@ -1,10 +1,11 @@
 ---
-schema_version: 2
+schema_version: 3
 id: brd-9luu
 title: add -p shorthand for --priority flag
 priority: P3
 status: done
 deps: []
+owner: null
 created_at: 2025-12-26T08:53:15.981035Z
 updated_at: 2025-12-26T08:56:29.00914Z
 ---

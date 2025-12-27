@@ -1,10 +1,11 @@
 ---
-schema_version: 2
+schema_version: 3
 id: brd-vcdg
 title: add unit tests for issue ID resolution
 priority: P2
 status: done
 deps: []
+owner: null
 created_at: 2025-12-26T19:15:38.163194Z
 updated_at: 2025-12-26T21:44:12.567977Z
 acceptance:

@@ -1,10 +1,11 @@
 ---
-schema_version: 2
+schema_version: 3
 id: brd-fm0l
 title: add unit tests for issue ID generation
 priority: P3
 status: todo
 deps: []
+owner: null
 created_at: 2025-12-26T19:17:29.029972Z
 updated_at: 2025-12-26T19:17:29.029972Z
 acceptance:

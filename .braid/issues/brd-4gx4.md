@@ -1,10 +1,11 @@
 ---
-schema_version: 2
+schema_version: 3
 id: brd-4gx4
 title: set up cargo-dist for automated releases
 priority: P2
 status: todo
 deps: []
+owner: null
 created_at: 2025-12-27T08:47:34.679392Z
 updated_at: 2025-12-27T08:47:34.679392Z
 acceptance:

@@ -1,13 +1,14 @@
 ---
-schema_version: 2
+schema_version: 3
 id: brd-2wbe
 title: make owner field required in issue frontmatter
 priority: P2
-status: todo
+status: done
 deps:
 - brd-heid
+owner: null
 created_at: 2025-12-26T16:44:10.840206Z
-updated_at: 2025-12-26T16:50:17.79961Z
+updated_at: 2025-12-27T12:51:17.522367Z
 acceptance:
 - owner field is always present in issue frontmatter (null if unset)
 - migration adds owner field to old issues

@@ -1,10 +1,11 @@
 ---
-schema_version: 2
+schema_version: 3
 id: brd-8kbe
 title: check whether fs2 dep is still needed or can be dropped
 priority: P3
 status: done
 deps: []
+owner: null
 created_at: 2025-12-26T19:21:01.108756Z
 updated_at: 2025-12-26T21:55:15.869234Z
 ---

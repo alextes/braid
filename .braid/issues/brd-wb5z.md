@@ -1,5 +1,5 @@
 ---
-schema_version: 2
+schema_version: 3
 id: brd-wb5z
 title: extensive readme
 priority: P2
@@ -8,6 +8,7 @@ deps:
 - brd-3vzu
 - brd-rlyx
 - brd-3r5n
+owner: null
 created_at: 2025-12-26T08:41:01.402258Z
 updated_at: 2025-12-26T15:55:46.156844Z
 ---

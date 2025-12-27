@@ -1,10 +1,11 @@
 ---
-schema_version: 2
+schema_version: 3
 id: brd-qo6j
 title: add integration tests for CLI commands
 priority: P1
 status: done
 deps: []
+owner: null
 created_at: 2025-12-26T19:15:13.156396Z
 updated_at: 2025-12-26T20:23:27.190438Z
 acceptance:

@@ -1,11 +1,12 @@
 ---
-schema_version: 2
+schema_version: 3
 id: brd-4cjb
 title: 'design: implement full-text search for issues'
 priority: P3
 status: todo
 type: design
 deps: []
+owner: null
 created_at: 2025-12-27T08:14:33.487622Z
 updated_at: 2025-12-27T08:14:33.487622Z
 acceptance:
