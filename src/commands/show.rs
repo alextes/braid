@@ -27,8 +27,8 @@ pub fn cmd_show(cli: &Cli, paths: &RepoPaths, id: &str) -> Result<()> {
             println!("Deps:     {}", issue.deps().join(", "));
         }
 
-        if !issue.labels().is_empty() {
-            println!("Labels:   {}", issue.labels().join(", "));
+        if !issue.tags().is_empty() {
+            println!("Tags:     {}", issue.tags().join(", "));
         }
 
         if let Some(owner) = &issue.frontmatter.owner {

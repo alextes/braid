@@ -21,7 +21,7 @@ pub fn cmd_ls(
     priority_filter: Option<&str>,
     ready_only: bool,
     blocked_only: bool,
-    label_filter: &[String],
+    tag_filter: &[String],
     show_all: bool,
 ) -> Result<()> {
     let issues = load_all_issues(paths)?;
@@ -54,10 +54,10 @@ pub fn cmd_ls(
                     return false;
                 }
             }
-            if !label_filter.is_empty()
-                && !label_filter
+            if !tag_filter.is_empty()
+                && !tag_filter
                     .iter()
-                    .all(|label| issue.labels().contains(label))
+                    .all(|tag| issue.tags().contains(tag))
             {
                 return false;
             }

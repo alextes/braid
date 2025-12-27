@@ -91,7 +91,7 @@ pub(crate) fn issue_to_json(
         "priority": issue.priority().to_string(),
         "status": issue.status().to_string(),
         "deps": issue.deps(),
-        "labels": issue.labels(),
+        "tags": issue.tags(),
         "owner": issue.frontmatter.owner,
         "created_at": issue.frontmatter.created_at.format(&time::format_description::well_known::Rfc3339).unwrap(),
         "updated_at": issue.frontmatter.updated_at.format(&time::format_description::well_known::Rfc3339).unwrap(),

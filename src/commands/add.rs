@@ -29,7 +29,7 @@ pub fn cmd_add(cli: &Cli, paths: &RepoPaths, args: &AddArgs) -> Result<()> {
     let mut issue = Issue::new(id.clone(), args.title.clone(), priority, resolved_deps);
     issue.frontmatter.issue_type = issue_type;
     issue.frontmatter.acceptance = args.ac.clone();
-    issue.frontmatter.labels = args.label.clone();
+    issue.frontmatter.tags = args.tag.clone();
     if let Some(ref b) = args.body {
         issue.body = b.clone();
     }

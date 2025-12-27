@@ -57,7 +57,7 @@ fn run(cli: &Cli) -> Result<()> {
             priority,
             ready,
             blocked,
-            label,
+            tag,
             all,
         } => cmd_ls(
             cli,
@@ -66,7 +66,7 @@ fn run(cli: &Cli) -> Result<()> {
             priority.as_deref(),
             *ready,
             *blocked,
-            label,
+            tag,
             *all,
         ),
         Command::Show { id } => cmd_show(cli, &paths, id),

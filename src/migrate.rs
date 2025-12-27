@@ -8,7 +8,7 @@ use serde_yaml::Value;
 use crate::error::{BrdError, Result};
 
 /// The current schema version. All new issues are created with this version.
-pub const CURRENT_SCHEMA: u32 = 3;
+pub const CURRENT_SCHEMA: u32 = 4;
 
 /// Check if a schema version needs migration.
 pub fn needs_migration(schema_version: u32) -> bool {
@@ -58,6 +58,7 @@ fn apply_migration(frontmatter: Value, from_version: u32) -> Result<Value> {
         0 => migrate_v0_to_v1(frontmatter),
         1 => migrate_v1_to_v2(frontmatter),
         2 => migrate_v2_to_v3(frontmatter),
+        3 => migrate_v3_to_v4(frontmatter),
         _ => {
             // No migration needed for this version
             Ok(frontmatter)
@@ -110,6 +111,25 @@ fn migrate_v2_to_v3(mut frontmatter: Value) -> Result<Value> {
     Ok(frontmatter)
 }
 
+/// Migration from v3 to v4.
+/// - Renames `labels` to `tags`
+fn migrate_v3_to_v4(mut frontmatter: Value) -> Result<Value> {
+    if let Value::Mapping(ref mut map) = frontmatter {
+        let labels_key = Value::String("labels".to_string());
+        let tags_key = Value::String("tags".to_string());
+        let schema_key = Value::String("schema_version".to_string());
+
+        // Rename labels to tags if present
+        if let Some(labels_value) = map.remove(&labels_key) {
+            map.insert(tags_key, labels_value);
+        }
+
+        // Update schema version
+        map.insert(schema_key, Value::Number(4.into()));
+    }
+    Ok(frontmatter)
+}
+
 /// Summary of what migrations would be applied to get from one version to another.
 pub fn migration_summary(from_version: u32, to_version: u32) -> Vec<String> {
     let mut summaries = Vec::new();
@@ -119,6 +139,7 @@ pub fn migration_summary(from_version: u32, to_version: u32) -> Vec<String> {
             0 => summaries.push("v0→v1: add schema version field".to_string()),
             1 => summaries.push("v1→v2: rename 'brd' to 'schema_version'".to_string()),
             2 => summaries.push("v2→v3: add required 'owner' field".to_string()),
+            3 => summaries.push("v3→v4: rename 'labels' to 'tags'".to_string()),
             _ => {}
         }
     }

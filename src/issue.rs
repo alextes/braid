@@ -123,7 +123,7 @@ pub struct IssueFrontmatter {
     #[serde(default)]
     pub deps: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub labels: Vec<String>,
+    pub tags: Vec<String>,
     #[serde(default)]
     pub owner: Option<String>,
     #[serde(with = "time::serde::rfc3339")]
@@ -155,7 +155,7 @@ impl Issue {
                 status: Status::Todo,
                 issue_type: None,
                 deps,
-                labels: Vec::new(),
+                tags: Vec::new(),
                 owner: None,
                 created_at: now,
                 updated_at: now,
@@ -265,8 +265,8 @@ impl Issue {
         &self.frontmatter.deps
     }
 
-    pub fn labels(&self) -> &[String] {
-        &self.frontmatter.labels
+    pub fn tags(&self) -> &[String] {
+        &self.frontmatter.tags
     }
 
     /// compare two issues by priority, then created_at, then id.
@@ -387,7 +387,7 @@ This is the body.
         assert_eq!(issue.frontmatter.title, "Test issue");
         assert_eq!(issue.frontmatter.priority, Priority::P1);
         assert_eq!(issue.frontmatter.status, Status::Todo);
-        assert!(issue.frontmatter.labels.is_empty());
+        assert!(issue.frontmatter.tags.is_empty());
         assert!(issue.body.contains("This is the body"));
     }
 

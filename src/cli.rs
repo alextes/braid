@@ -49,9 +49,9 @@ pub enum Command {
         #[arg(long)]
         blocked: bool,
 
-        /// filter by label (can be repeated)
+        /// filter by tag (can be repeated)
         #[arg(long)]
-        label: Vec<String>,
+        tag: Vec<String>,
 
         /// show all issues (no limit on done issues)
         #[arg(long)]
@@ -181,9 +181,9 @@ pub struct AddArgs {
     #[arg(long)]
     pub ac: Vec<String>,
 
-    /// add label (can be repeated)
+    /// add tag (can be repeated)
     #[arg(long)]
-    pub label: Vec<String>,
+    pub tag: Vec<String>,
 
     /// issue description/body
     #[arg(long, short)]
