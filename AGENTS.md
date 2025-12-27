@@ -29,6 +29,11 @@ if you see `agent_id = "..."`, you're in a worktree. read [docs/agent-workflow.m
 - the merge workflow (rebase + fast-forward)
 - how to mark issues done and push changes
 
+**schema mismatch errors:** if you see "this repo uses schema vN, but this brd only supports up to vM", rebase onto the latest main to get the schema migration code:
+```bash
+git fetch origin main && git rebase origin/main && cargo build --release
+```
+
 ## check, lint, test
 
 before committing anything, or when finishing a big chunk of work, consider running:
