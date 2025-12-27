@@ -120,6 +120,9 @@ pub enum Command {
         /// shell to generate completions for
         shell: clap_complete::Shell,
     },
+
+    /// search issues (prints instructions for using grep/rg)
+    Search,
 }
 
 #[derive(Subcommand)]

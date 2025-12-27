@@ -63,6 +63,7 @@ brd start
 
 ### utilities
 
+- `brd search` — show how to search issues with grep/rg
 - `brd doctor` — validate repo state
 - `brd completions <shell>` — generate shell completions
 
