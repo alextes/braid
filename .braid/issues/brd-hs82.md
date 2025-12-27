@@ -2,6 +2,7 @@
 schema_version: 2
 id: brd-hs82
 title: design installation method for braid
+type: design
 priority: P1
 status: done
 type: design
@@ -73,10 +74,12 @@ categories = ["command-line-utilities", "development-tools"]
 ### prerequisites to document
 
 for cargo install:
+
 - rust 1.85+ (edition 2024)
 - git (for repo operations)
 
 for prebuilt binaries:
+
 - git only
 
 ### implementation tasks
