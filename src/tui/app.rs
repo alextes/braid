@@ -264,7 +264,7 @@ impl App {
             }
             self.input_mode = InputMode::Priority {
                 title: title.clone(),
-                selected: 1, // default to P2
+                selected: 2, // default to P2
             };
         }
     }
@@ -277,9 +277,10 @@ impl App {
         };
 
         let priority = match priority_idx {
-            0 => Priority::P1,
-            1 => Priority::P2,
-            2 => Priority::P3,
+            0 => Priority::P0,
+            1 => Priority::P1,
+            2 => Priority::P2,
+            3 => Priority::P3,
             _ => Priority::P2,
         };
 

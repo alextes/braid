@@ -357,7 +357,7 @@ fn draw_input_dialog(f: &mut Frame, app: &App) {
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(Color::Yellow));
 
-            let priorities = ["P1 (high)", "P2 (normal)", "P3 (low)"];
+            let priorities = ["P0 (critical)", "P1 (high)", "P2 (normal)", "P3 (low)"];
             let items: Vec<ListItem> = priorities
                 .iter()
                 .enumerate()
