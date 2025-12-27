@@ -7,6 +7,27 @@ use crate::repo::RepoPaths;
 
 use super::load_all_issues;
 
+/// Parse frontmatter from markdown content.
+fn parse_frontmatter(content: &str) -> Result<(String, String)> {
+    let content = content.trim_start();
+    if !content.starts_with("---") {
+        return Err(BrdError::ParseError(
+            "frontmatter".into(),
+            "missing opening ---".into(),
+        ));
+    }
+
+    let rest = &content[3..];
+    let end = rest.find("\n---").ok_or_else(|| {
+        BrdError::ParseError("frontmatter".into(), "missing closing ---".into())
+    })?;
+
+    let frontmatter = rest[..end].trim().to_string();
+    let body = rest[end + 4..].trim().to_string();
+
+    Ok((frontmatter, body))
+}
+
 pub fn cmd_doctor(cli: &Cli, paths: &RepoPaths) -> Result<()> {
     let mut checks: Vec<serde_json::Value> = Vec::new();
     let mut errors: Vec<serde_json::Value> = Vec::new();
@@ -56,12 +77,31 @@ pub fn cmd_doctor(cli: &Cli, paths: &RepoPaths) -> Result<()> {
         true, // load_all_issues already warns on parse errors
     );
 
-    // check 4: all issues at current schema version
+    // check 4: all issues at current schema version (check raw files, not migrated structs)
     let mut needs_migration = Vec::new();
-    for issue in issues.values() {
-        let version = issue.frontmatter.schema_version;
-        if migrate::needs_migration(version) {
-            needs_migration.push(issue.id().to_string());
+    let issues_dir = paths.issues_dir();
+    if issues_dir.exists() {
+        for entry in std::fs::read_dir(&issues_dir)? {
+            let entry = entry?;
+            let path = entry.path();
+
+            if path.extension().is_none_or(|e| e != "md") {
+                continue;
+            }
+
+            let content = std::fs::read_to_string(&path)?;
+            if let Ok((frontmatter_str, _)) = parse_frontmatter(&content) {
+                if let Ok(yaml) = serde_yaml::from_str::<serde_yaml::Value>(&frontmatter_str) {
+                    let version = migrate::get_schema_version(&yaml).unwrap_or(0);
+                    if migrate::needs_migration(version) {
+                        let id = path
+                            .file_stem()
+                            .and_then(|s| s.to_str())
+                            .unwrap_or("unknown");
+                        needs_migration.push(id.to_string());
+                    }
+                }
+            }
         }
     }
     let schema_ok = needs_migration.is_empty();
