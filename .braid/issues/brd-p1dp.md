@@ -27,3 +27,7 @@ the claims system would add:
 - **`brd reclaim`** — steal expired claims
 
 reconsider whether this complexity is needed before implementing. for small-scale multi-agent setups, the owner-based system is sufficient.
+
+**known edge case with current system:**
+
+if both main worktree and an agent worktree commit changes to the same issue file (via dual-write), and each commit also contains other unrelated changes they want to keep, rebasing will require manual merge resolution. the dual-write design assumes the agent will rebase onto main and handle conflicts then, but this could be confusing. a proper claims system with locking could prevent this scenario.
