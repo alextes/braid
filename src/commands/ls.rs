@@ -139,11 +139,11 @@ pub fn cmd_ls(
                 }
             }
 
-            // type column: "design", "meta", or padded empty
+            // type column: "design", "meta", or padded empty (8 chars)
             let type_col = match issue.issue_type() {
                 Some(IssueType::Design) => "design  ",
                 Some(IssueType::Meta) => "meta    ",
-                None => "",
+                None => "        ",
             };
 
             print!(
