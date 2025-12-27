@@ -115,14 +115,26 @@ pub fn cmd_ls(
                 )
             };
 
-            // apply styling based on status and type
+            // apply styling based on status, priority, and type
             let is_done = issue.status() == Status::Done;
+            let is_doing = issue.status() == Status::Doing;
+            let is_high_priority =
+                issue.priority() == Priority::P0 || issue.priority() == Priority::P1;
             let use_color = !cli.no_color;
 
             if use_color {
                 if is_done {
                     print!("{}", SetAttribute(Attribute::Dim));
                 } else {
+                    // priority styling: P0/P1 get bold
+                    if is_high_priority {
+                        print!("{}", SetAttribute(Attribute::Bold));
+                    }
+                    // status styling: doing gets underline
+                    if is_doing {
+                        print!("{}", SetAttribute(Attribute::Underlined));
+                    }
+                    // type styling
                     match issue.issue_type() {
                         Some(IssueType::Design) => print!("{}", SetAttribute(Attribute::Italic)),
                         Some(IssueType::Meta) => print!("{}", SetAttribute(Attribute::Bold)),
@@ -140,7 +152,9 @@ pub fn cmd_ls(
                 deps_info
             );
 
-            if use_color && (is_done || issue.issue_type().is_some()) {
+            if use_color
+                && (is_done || is_doing || is_high_priority || issue.issue_type().is_some())
+            {
                 print!("{}", SetAttribute(Attribute::Reset));
             }
             println!();
