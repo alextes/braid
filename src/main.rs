@@ -1,8 +1,8 @@
 use braid::cli::{AgentAction, Cli, Command, DepAction};
 use braid::commands::{
     cmd_add, cmd_agent_init, cmd_completions, cmd_dep_add, cmd_dep_rm, cmd_doctor, cmd_done,
-    cmd_init, cmd_ls, cmd_migrate, cmd_next, cmd_ready, cmd_search, cmd_ship, cmd_show, cmd_start,
-    cmd_tui,
+    cmd_init, cmd_ls, cmd_migrate, cmd_next, cmd_ready, cmd_rm, cmd_search, cmd_ship, cmd_show,
+    cmd_start, cmd_tui,
 };
 use braid::config::Config;
 use braid::error::Result;
@@ -78,6 +78,7 @@ fn run(cli: &Cli) -> Result<()> {
         },
         Command::Start { id, force } => cmd_start(cli, &paths, id.as_deref(), *force),
         Command::Done { id, force } => cmd_done(cli, &paths, id, *force),
+        Command::Rm { id, force } => cmd_rm(cli, &paths, id, *force),
         Command::Agent { action } => match action {
             AgentAction::Init { name, base } => cmd_agent_init(cli, &paths, name, base.as_deref()),
             AgentAction::Ship => cmd_ship(cli, &paths),

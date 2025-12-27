@@ -96,6 +96,16 @@ pub enum Command {
         force: bool,
     },
 
+    /// delete an issue
+    Rm {
+        /// issue ID
+        id: String,
+
+        /// force deletion even if issue is in progress
+        #[arg(long)]
+        force: bool,
+    },
+
     /// manage agent worktrees
     Agent {
         #[command(subcommand)]
