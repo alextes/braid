@@ -27,7 +27,7 @@ requires rust 1.85+.
 ### install script
 
 ```bash
-curl --proto '=https' --tlsv1.2 -LsSf https://github.com/alextes/braid/releases/latest/download/braid-installer.sh | sh
+curl -sSL https://raw.githubusercontent.com/alextes/braid/main/install.sh | bash
 ```
 
 downloads a prebuilt binary (no rust required).
