@@ -1,6 +1,7 @@
 //! brd ls command.
 
 use crossterm::style::{Attribute, Color, SetAttribute, SetForegroundColor};
+use time::OffsetDateTime;
 
 use crate::cli::Cli;
 use crate::error::Result;
@@ -9,6 +10,30 @@ use crate::issue::{Issue, IssueType, Priority, Status};
 use crate::repo::RepoPaths;
 
 use super::{issue_to_json, load_all_issues};
+
+/// Format an age duration in short human format (e.g., "5m", "2h", "3d", "1w", "3mo", "1y").
+fn format_age(created_at: OffsetDateTime) -> String {
+    let now = OffsetDateTime::now_utc();
+    let duration = now - created_at;
+    let minutes = duration.whole_minutes();
+
+    if minutes < 0 {
+        // Future date (shouldn't happen, but handle gracefully)
+        "0m".to_string()
+    } else if minutes < 60 {
+        format!("{}m", minutes.max(1))
+    } else if minutes < 60 * 24 {
+        format!("{}h", minutes / 60)
+    } else if minutes < 60 * 24 * 7 {
+        format!("{}d", minutes / (60 * 24))
+    } else if minutes < 60 * 24 * 30 {
+        format!("{}w", minutes / (60 * 24 * 7))
+    } else if minutes < 60 * 24 * 365 {
+        format!("{}mo", minutes / (60 * 24 * 30))
+    } else {
+        format!("{}y", minutes / (60 * 24 * 365))
+    }
+}
 
 /// Maximum number of done issues to show by default
 const DEFAULT_DONE_LIMIT: usize = 10;
@@ -154,6 +179,10 @@ pub fn cmd_ls(
                 }
             }
 
+            // age column: padded to 4 chars (max is "99mo")
+            let age = format_age(issue.frontmatter.created_at);
+            let age_col = format!("{:>4}", age);
+
             // type column: "design", "meta", or padded empty (8 chars)
             let type_col = match issue.issue_type() {
                 Some(IssueType::Design) => "design  ",
@@ -170,9 +199,10 @@ pub fn cmd_ls(
             };
 
             print!(
-                "{}  {}  {}{}  {}{}",
+                "{}  {}  {}  {}{}  {}{}",
                 issue.id(),
                 issue.priority(),
+                age_col,
                 type_col,
                 status_col,
                 issue.title(),
@@ -203,4 +233,95 @@ pub fn cmd_ls(
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use time::Duration;
+
+    #[test]
+    fn test_format_age_minutes() {
+        let now = OffsetDateTime::now_utc();
+
+        // Just now shows as 1m (minimum)
+        assert_eq!(format_age(now), "1m");
+
+        // 30 minutes ago
+        assert_eq!(format_age(now - Duration::minutes(30)), "30m");
+
+        // 59 minutes ago
+        assert_eq!(format_age(now - Duration::minutes(59)), "59m");
+    }
+
+    #[test]
+    fn test_format_age_hours() {
+        let now = OffsetDateTime::now_utc();
+
+        // 1 hour ago
+        assert_eq!(format_age(now - Duration::hours(1)), "1h");
+
+        // 12 hours ago
+        assert_eq!(format_age(now - Duration::hours(12)), "12h");
+
+        // 23 hours ago
+        assert_eq!(format_age(now - Duration::hours(23)), "23h");
+    }
+
+    #[test]
+    fn test_format_age_days() {
+        let now = OffsetDateTime::now_utc();
+
+        // 1 day ago
+        assert_eq!(format_age(now - Duration::days(1)), "1d");
+
+        // 6 days ago
+        assert_eq!(format_age(now - Duration::days(6)), "6d");
+    }
+
+    #[test]
+    fn test_format_age_weeks() {
+        let now = OffsetDateTime::now_utc();
+
+        // 7 days = 1 week
+        assert_eq!(format_age(now - Duration::days(7)), "1w");
+
+        // 14 days = 2 weeks
+        assert_eq!(format_age(now - Duration::days(14)), "2w");
+
+        // 29 days = 4 weeks
+        assert_eq!(format_age(now - Duration::days(29)), "4w");
+    }
+
+    #[test]
+    fn test_format_age_months() {
+        let now = OffsetDateTime::now_utc();
+
+        // 30 days = 1 month
+        assert_eq!(format_age(now - Duration::days(30)), "1mo");
+
+        // 60 days = 2 months
+        assert_eq!(format_age(now - Duration::days(60)), "2mo");
+
+        // 364 days = 12 months
+        assert_eq!(format_age(now - Duration::days(364)), "12mo");
+    }
+
+    #[test]
+    fn test_format_age_years() {
+        let now = OffsetDateTime::now_utc();
+
+        // 365 days = 1 year
+        assert_eq!(format_age(now - Duration::days(365)), "1y");
+
+        // 730 days = 2 years
+        assert_eq!(format_age(now - Duration::days(730)), "2y");
+    }
+
+    #[test]
+    fn test_format_age_future_date() {
+        let now = OffsetDateTime::now_utc();
+        // Future date shows as 0m
+        assert_eq!(format_age(now + Duration::days(2)), "0m");
+    }
 }
