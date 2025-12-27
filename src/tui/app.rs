@@ -2,9 +2,10 @@
 
 use std::collections::HashMap;
 
+use crate::config::Config;
 use crate::error::{BrdError, Result};
 use crate::graph::{DerivedState, compute_derived, get_ready_issues};
-use crate::issue::{Issue, Status};
+use crate::issue::{Issue, Priority, Status};
 use crate::lock::LockGuard;
 use crate::repo::RepoPaths;
 
@@ -13,6 +14,17 @@ use crate::repo::RepoPaths;
 pub enum ActivePane {
     Ready,
     All,
+}
+
+/// input mode for creating new issues.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum InputMode {
+    /// normal mode - no input active
+    Normal,
+    /// entering issue title
+    Title(String),
+    /// selecting priority
+    Priority { title: String, selected: usize },
 }
 
 /// TUI application state.
@@ -35,6 +47,8 @@ pub struct App {
     pub message: Option<String>,
     /// whether to show help
     pub show_help: bool,
+    /// current input mode
+    pub input_mode: InputMode,
 }
 
 impl App {
@@ -51,6 +65,7 @@ impl App {
             agent_id,
             message: None,
             show_help: false,
+            input_mode: InputMode::Normal,
         };
         app.reload_issues(paths)?;
         Ok(app)
@@ -227,6 +242,99 @@ impl App {
         self.reload_issues(paths)?;
         Ok(())
     }
+
+    /// start adding a new issue (enter title input mode).
+    pub fn start_add_issue(&mut self) {
+        self.input_mode = InputMode::Title(String::new());
+        self.message = None;
+    }
+
+    /// cancel adding an issue.
+    pub fn cancel_add_issue(&mut self) {
+        self.input_mode = InputMode::Normal;
+        self.message = Some("cancelled".to_string());
+    }
+
+    /// confirm title and move to priority selection.
+    pub fn confirm_title(&mut self) {
+        if let InputMode::Title(title) = &self.input_mode {
+            if title.trim().is_empty() {
+                self.message = Some("title cannot be empty".to_string());
+                return;
+            }
+            self.input_mode = InputMode::Priority {
+                title: title.clone(),
+                selected: 1, // default to P2
+            };
+        }
+    }
+
+    /// create the issue with the given title and priority.
+    pub fn create_issue(&mut self, paths: &RepoPaths) -> Result<()> {
+        let (title, priority_idx) = match &self.input_mode {
+            InputMode::Priority { title, selected } => (title.clone(), *selected),
+            _ => return Ok(()),
+        };
+
+        let priority = match priority_idx {
+            0 => Priority::P1,
+            1 => Priority::P2,
+            2 => Priority::P3,
+            _ => Priority::P2,
+        };
+
+        let config = Config::load(&paths.config_path())?;
+        let id = generate_issue_id(&config, &paths.issues_dir())?;
+        let issue = Issue::new(id.clone(), title, priority, vec![]);
+
+        let _lock = LockGuard::acquire(&paths.lock_path())?;
+
+        // save to control root
+        let issue_path = paths.issues_dir().join(format!("{}.md", id));
+        issue.save(&issue_path)?;
+
+        // dual-write to local worktree if different
+        if paths.worktree_root != paths.control_root {
+            let local_path = paths
+                .worktree_root
+                .join(".braid/issues")
+                .join(format!("{}.md", id));
+            issue.save(&local_path)?;
+        }
+
+        self.input_mode = InputMode::Normal;
+        self.message = Some(format!("created {}", id));
+        self.reload_issues(paths)?;
+        Ok(())
+    }
+}
+
+/// generate a unique issue ID.
+fn generate_issue_id(config: &Config, issues_dir: &std::path::Path) -> Result<String> {
+    use rand::Rng;
+
+    let prefix = &config.id_prefix;
+    let mut rng = rand::rng();
+
+    for _ in 0..100 {
+        let suffix: String = (0..4)
+            .map(|_| {
+                let idx = rng.random_range(0..36);
+                if idx < 10 {
+                    (b'0' + idx) as char
+                } else {
+                    (b'a' + idx - 10) as char
+                }
+            })
+            .collect();
+        let id = format!("{}-{}", prefix, suffix);
+        let path = issues_dir.join(format!("{}.md", id));
+        if !path.exists() {
+            return Ok(id);
+        }
+    }
+
+    Err(BrdError::Other("failed to generate unique ID".to_string()))
 }
 
 /// load all issues from the issues directory.

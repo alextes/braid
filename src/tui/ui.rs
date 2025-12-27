@@ -5,10 +5,10 @@ use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span, Text},
-    widgets::{Block, Borders, List, ListItem, Paragraph, Wrap},
+    widgets::{Block, Borders, Clear, List, ListItem, Paragraph, Wrap},
 };
 
-use super::app::{ActivePane, App};
+use super::app::{ActivePane, App, InputMode};
 
 /// draw the entire UI.
 pub fn draw(f: &mut Frame, app: &App) {
@@ -29,6 +29,11 @@ pub fn draw(f: &mut Frame, app: &App) {
     draw_header(f, chunks[0], app);
     draw_main(f, chunks[1], app);
     draw_footer(f, chunks[2], app);
+
+    // draw input dialog on top if active
+    if !matches!(app.input_mode, InputMode::Normal) {
+        draw_input_dialog(f, app);
+    }
 }
 
 fn draw_header(f: &mut Frame, area: Rect, app: &App) {
@@ -39,7 +44,7 @@ fn draw_header(f: &mut Frame, area: Rect, app: &App) {
 
 fn draw_footer(f: &mut Frame, area: Rect, app: &App) {
     let msg = app.message.as_deref().unwrap_or("");
-    let help = "[s]tart [d]one [r]efresh [↑↓/jk]nav [Tab]switch [?]help [q]uit";
+    let help = "[a]dd [s]tart [d]one [r]efresh [↑↓/jk]nav [Tab]switch [?]help [q]uit";
     let text = if msg.is_empty() {
         help.to_string()
     } else {
@@ -302,6 +307,7 @@ fn draw_help(f: &mut Frame, area: Rect) {
             "Actions",
             Style::default().add_modifier(Modifier::BOLD),
         )),
+        Line::from("  a / n      Add new issue"),
         Line::from("  s          Start selected issue"),
         Line::from("  d          Mark selected issue as done"),
         Line::from("  r          Refresh issues from disk"),
@@ -324,4 +330,87 @@ fn truncate(s: &str, max_len: usize) -> String {
     } else {
         format!("{}…", &s[..max_len - 1])
     }
+}
+
+fn draw_input_dialog(f: &mut Frame, app: &App) {
+    let area = centered_rect(50, 8, f.area());
+
+    // clear the area behind the dialog
+    f.render_widget(Clear, area);
+
+    match &app.input_mode {
+        InputMode::Title(title) => {
+            let block = Block::default()
+                .title(" New Issue - Title (Enter to confirm, Esc to cancel) ")
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::Yellow));
+
+            let input = Paragraph::new(format!("{}_", title))
+                .block(block)
+                .style(Style::default().fg(Color::White));
+
+            f.render_widget(input, area);
+        }
+        InputMode::Priority { title, selected } => {
+            let block = Block::default()
+                .title(" New Issue - Priority (Enter to create, Esc to cancel) ")
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::Yellow));
+
+            let priorities = ["P1 (high)", "P2 (normal)", "P3 (low)"];
+            let items: Vec<ListItem> = priorities
+                .iter()
+                .enumerate()
+                .map(|(i, p)| {
+                    let style = if i == *selected {
+                        Style::default()
+                            .bg(Color::Yellow)
+                            .fg(Color::Black)
+                            .add_modifier(Modifier::BOLD)
+                    } else {
+                        Style::default()
+                    };
+                    ListItem::new(format!("  {}", p)).style(style)
+                })
+                .collect();
+
+            // show title at top of dialog
+            let inner = block.inner(area);
+            f.render_widget(block, area);
+
+            let chunks = Layout::default()
+                .direction(Direction::Vertical)
+                .constraints([Constraint::Length(1), Constraint::Min(0)])
+                .split(inner);
+
+            let title_line =
+                Paragraph::new(format!("Title: {}", title)).style(Style::default().fg(Color::Cyan));
+            f.render_widget(title_line, chunks[0]);
+
+            let list = List::new(items);
+            f.render_widget(list, chunks[1]);
+        }
+        InputMode::Normal => {}
+    }
+}
+
+/// create a centered rect of given percentage width and fixed height.
+fn centered_rect(percent_x: u16, height: u16, r: Rect) -> Rect {
+    let popup_layout = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length((r.height.saturating_sub(height)) / 2),
+            Constraint::Length(height),
+            Constraint::Min(0),
+        ])
+        .split(r);
+
+    Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([
+            Constraint::Percentage((100 - percent_x) / 2),
+            Constraint::Percentage(percent_x),
+            Constraint::Percentage((100 - percent_x) / 2),
+        ])
+        .split(popup_layout[1])[1]
 }

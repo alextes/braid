@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use crossterm::event::{self, Event, KeyCode, KeyModifiers};
 
-use super::app::App;
+use super::app::{App, InputMode};
 use crate::error::Result;
 use crate::repo::RepoPaths;
 
@@ -22,6 +22,58 @@ pub fn handle_events(app: &mut App, paths: &RepoPaths) -> Result<bool> {
             return Ok(false);
         }
 
+        // handle input modes
+        match &app.input_mode {
+            InputMode::Title(current) => {
+                match key.code {
+                    KeyCode::Esc => app.cancel_add_issue(),
+                    KeyCode::Enter => app.confirm_title(),
+                    KeyCode::Backspace => {
+                        let mut s = current.clone();
+                        s.pop();
+                        app.input_mode = InputMode::Title(s);
+                    }
+                    KeyCode::Char(c) => {
+                        let mut s = current.clone();
+                        s.push(c);
+                        app.input_mode = InputMode::Title(s);
+                    }
+                    _ => {}
+                }
+                return Ok(false);
+            }
+            InputMode::Priority { title, selected } => {
+                match key.code {
+                    KeyCode::Esc => app.cancel_add_issue(),
+                    KeyCode::Enter => {
+                        if let Err(e) = app.create_issue(paths) {
+                            app.message = Some(format!("error: {}", e));
+                            app.input_mode = InputMode::Normal;
+                        }
+                    }
+                    KeyCode::Up | KeyCode::Char('k') => {
+                        if *selected > 0 {
+                            app.input_mode = InputMode::Priority {
+                                title: title.clone(),
+                                selected: selected - 1,
+                            };
+                        }
+                    }
+                    KeyCode::Down | KeyCode::Char('j') => {
+                        if *selected < 2 {
+                            app.input_mode = InputMode::Priority {
+                                title: title.clone(),
+                                selected: selected + 1,
+                            };
+                        }
+                    }
+                    _ => {}
+                }
+                return Ok(false);
+            }
+            InputMode::Normal => {}
+        }
+
         match key.code {
             // quit
             KeyCode::Char('q') => return Ok(true),
@@ -33,6 +85,7 @@ pub fn handle_events(app: &mut App, paths: &RepoPaths) -> Result<bool> {
             KeyCode::Tab => app.switch_pane(),
 
             // actions
+            KeyCode::Char('a') | KeyCode::Char('n') => app.start_add_issue(),
             KeyCode::Char('s') => {
                 if let Err(e) = app.start_selected(paths) {
                     app.message = Some(format!("error: {}", e));
