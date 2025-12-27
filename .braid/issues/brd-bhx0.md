@@ -2,7 +2,7 @@
 schema_version: 3
 id: brd-bhx0
 title: v1.0 release
-priority: P1
+priority: P2
 status: todo
 type: meta
 deps:

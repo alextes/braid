@@ -3,13 +3,13 @@ schema_version: 3
 id: brd-wpqs
 title: 'TUI: priority picker missing P0'
 priority: P2
-status: doing
+status: done
 deps: []
 labels:
 - TUI
-owner: agent-two
+owner: null
 created_at: 2025-12-27T13:49:24.325755Z
-updated_at: 2025-12-27T14:00:33.57238Z
+updated_at: 2025-12-27T14:02:06.332721Z
 acceptance:
 - priority selection includes P0, P1, P2, P3
 ---

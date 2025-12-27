@@ -1,7 +1,7 @@
 ---
 schema_version: 3
 id: brd-a2se
-title: 'design: automatic cleanup/housekeeping command'
+title: automatic cleanup/housekeeping command
 priority: P3
 status: todo
 type: design
