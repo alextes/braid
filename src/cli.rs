@@ -2,6 +2,15 @@
 
 use clap::{Args, Parser, Subcommand};
 
+/// Parse boolean from env var, accepting "1", "true", "yes" as truthy.
+fn parse_bool_env(s: &str) -> Result<bool, String> {
+    match s.to_lowercase().as_str() {
+        "1" | "true" | "yes" | "on" => Ok(true),
+        "0" | "false" | "no" | "off" | "" => Ok(false),
+        _ => Err(format!("invalid boolean value: {}", s)),
+    }
+}
+
 #[derive(Parser)]
 #[command(name = "brd")]
 #[command(about = "a lightweight, repo-local issue tracker")]
@@ -18,6 +27,10 @@ pub struct Cli {
     /// disable ANSI colors
     #[arg(long, global = true)]
     pub no_color: bool,
+
+    /// enable verbose output
+    #[arg(short, long, global = true, env = "BRD_VERBOSE", value_parser = parse_bool_env)]
+    pub verbose: bool,
 
     #[command(subcommand)]
     pub command: Command,

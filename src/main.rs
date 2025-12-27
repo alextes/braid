@@ -7,6 +7,7 @@ use braid::commands::{
 use braid::config::Config;
 use braid::error::Result;
 use braid::repo;
+use braid::verbose;
 use clap::Parser;
 
 fn main() {
@@ -44,10 +45,18 @@ fn run(cli: &Cli) -> Result<()> {
 
     // all other commands need repo discovery
     let paths = repo::discover(cli.repo.as_deref())?;
+    verbose!(cli, "found .braid at {}", paths.braid_dir().display());
 
     // validate config schema version early to prevent old brd from modifying upgraded repos
     let config = Config::load(&paths.config_path())?;
     config.validate()?;
+    verbose!(
+        cli,
+        "config: prefix={}, id_len={}, schema=v{}",
+        config.id_prefix,
+        config.id_len,
+        config.schema_version
+    );
 
     match &cli.command {
         Command::Init => unreachable!(),
