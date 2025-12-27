@@ -111,6 +111,21 @@ pub fn cmd_ls(
                 )
             };
 
+            // show owner for doing issues (max 12 chars)
+            let owner_info = if issue.status() == Status::Doing {
+                issue
+                    .frontmatter
+                    .owner
+                    .as_ref()
+                    .map(|o| {
+                        let truncated: String = o.chars().take(12).collect();
+                        format!(" ({})", truncated)
+                    })
+                    .unwrap_or_default()
+            } else {
+                String::new()
+            };
+
             // apply styling based on status, priority, and type
             let is_resolved = matches!(issue.status(), Status::Done | Status::Skip);
             let is_doing = issue.status() == Status::Doing;
@@ -147,13 +162,14 @@ pub fn cmd_ls(
             };
 
             print!(
-                "{}  {}  {}{}  {}{}",
+                "{}  {}  {}{}  {}{}{}",
                 issue.id(),
                 issue.priority(),
                 type_col,
                 issue.status(),
                 issue.title(),
-                deps_info
+                deps_info,
+                owner_info
             );
 
             if use_color
