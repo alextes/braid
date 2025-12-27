@@ -44,7 +44,7 @@ fn draw_header(f: &mut Frame, area: Rect, app: &App) {
 
 fn draw_footer(f: &mut Frame, area: Rect, app: &App) {
     let msg = app.message.as_deref().unwrap_or("");
-    let help = "[a]dd [s]tart [d]one [r]efresh [↑↓/jk]nav [Tab]switch [?]help [q]uit";
+    let help = "[a]dd [e]dit [s]tart [d]one [r]efresh [↑↓/jk]nav [Tab]switch [?]help [q]uit";
     let text = if msg.is_empty() {
         help.to_string()
     } else {
@@ -312,6 +312,7 @@ fn draw_help(f: &mut Frame, area: Rect) {
             Style::default().add_modifier(Modifier::BOLD),
         )),
         Line::from("  a / n      Add new issue"),
+        Line::from("  e          Edit selected issue"),
         Line::from("  s          Start selected issue"),
         Line::from("  d          Mark selected issue as done"),
         Line::from("  r          Refresh issues from disk"),
@@ -390,6 +391,142 @@ fn draw_input_dialog(f: &mut Frame, app: &App) {
             let title_line =
                 Paragraph::new(format!("Title: {}", title)).style(Style::default().fg(Color::Cyan));
             f.render_widget(title_line, chunks[0]);
+
+            let list = List::new(items);
+            f.render_widget(list, chunks[1]);
+        }
+        InputMode::EditSelect { issue_id, selected } => {
+            let block = Block::default()
+                .title(" Edit Issue - Select Field (Enter to edit, Esc to cancel) ")
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::Yellow));
+
+            let fields = ["Title", "Priority", "Status"];
+            let items: Vec<ListItem> = fields
+                .iter()
+                .enumerate()
+                .map(|(i, field)| {
+                    let style = if i == *selected {
+                        Style::default()
+                            .bg(Color::Yellow)
+                            .fg(Color::Black)
+                            .add_modifier(Modifier::BOLD)
+                    } else {
+                        Style::default()
+                    };
+                    ListItem::new(format!("  {}", field)).style(style)
+                })
+                .collect();
+
+            let inner = block.inner(area);
+            f.render_widget(block, area);
+
+            let chunks = Layout::default()
+                .direction(Direction::Vertical)
+                .constraints([Constraint::Length(1), Constraint::Min(0)])
+                .split(inner);
+
+            let id_line = Paragraph::new(format!("Editing: {}", issue_id))
+                .style(Style::default().fg(Color::Cyan));
+            f.render_widget(id_line, chunks[0]);
+
+            let list = List::new(items);
+            f.render_widget(list, chunks[1]);
+        }
+        InputMode::EditTitle { issue_id, current } => {
+            let block = Block::default()
+                .title(" Edit Title (Enter to save, Esc to cancel) ")
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::Yellow));
+
+            let inner = block.inner(area);
+            f.render_widget(block, area);
+
+            let chunks = Layout::default()
+                .direction(Direction::Vertical)
+                .constraints([Constraint::Length(1), Constraint::Min(0)])
+                .split(inner);
+
+            let id_line = Paragraph::new(format!("Issue: {}", issue_id))
+                .style(Style::default().fg(Color::Cyan));
+            f.render_widget(id_line, chunks[0]);
+
+            let input =
+                Paragraph::new(format!("{}_", current)).style(Style::default().fg(Color::White));
+            f.render_widget(input, chunks[1]);
+        }
+        InputMode::EditPriority { issue_id, selected } => {
+            let block = Block::default()
+                .title(" Edit Priority (Enter to save, Esc to cancel) ")
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::Yellow));
+
+            let priorities = ["P0 (critical)", "P1 (high)", "P2 (normal)", "P3 (low)"];
+            let items: Vec<ListItem> = priorities
+                .iter()
+                .enumerate()
+                .map(|(i, p)| {
+                    let style = if i == *selected {
+                        Style::default()
+                            .bg(Color::Yellow)
+                            .fg(Color::Black)
+                            .add_modifier(Modifier::BOLD)
+                    } else {
+                        Style::default()
+                    };
+                    ListItem::new(format!("  {}", p)).style(style)
+                })
+                .collect();
+
+            let inner = block.inner(area);
+            f.render_widget(block, area);
+
+            let chunks = Layout::default()
+                .direction(Direction::Vertical)
+                .constraints([Constraint::Length(1), Constraint::Min(0)])
+                .split(inner);
+
+            let id_line = Paragraph::new(format!("Issue: {}", issue_id))
+                .style(Style::default().fg(Color::Cyan));
+            f.render_widget(id_line, chunks[0]);
+
+            let list = List::new(items);
+            f.render_widget(list, chunks[1]);
+        }
+        InputMode::EditStatus { issue_id, selected } => {
+            let block = Block::default()
+                .title(" Edit Status (Enter to save, Esc to cancel) ")
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::Yellow));
+
+            let statuses = ["Todo", "Doing", "Done"];
+            let items: Vec<ListItem> = statuses
+                .iter()
+                .enumerate()
+                .map(|(i, s)| {
+                    let style = if i == *selected {
+                        Style::default()
+                            .bg(Color::Yellow)
+                            .fg(Color::Black)
+                            .add_modifier(Modifier::BOLD)
+                    } else {
+                        Style::default()
+                    };
+                    ListItem::new(format!("  {}", s)).style(style)
+                })
+                .collect();
+
+            let inner = block.inner(area);
+            f.render_widget(block, area);
+
+            let chunks = Layout::default()
+                .direction(Direction::Vertical)
+                .constraints([Constraint::Length(1), Constraint::Min(0)])
+                .split(inner);
+
+            let id_line = Paragraph::new(format!("Issue: {}", issue_id))
+                .style(Style::default().fg(Color::Cyan));
+            f.render_widget(id_line, chunks[0]);
 
             let list = List::new(items);
             f.render_widget(list, chunks[1]);

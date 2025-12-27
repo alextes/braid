@@ -16,15 +16,23 @@ pub enum ActivePane {
     All,
 }
 
-/// input mode for creating new issues.
+/// input mode for creating/editing issues.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum InputMode {
     /// normal mode - no input active
     Normal,
-    /// entering issue title
+    /// entering issue title (for new issue)
     Title(String),
-    /// selecting priority
+    /// selecting priority (for new issue)
     Priority { title: String, selected: usize },
+    /// selecting which field to edit
+    EditSelect { issue_id: String, selected: usize },
+    /// editing issue title
+    EditTitle { issue_id: String, current: String },
+    /// editing issue priority
+    EditPriority { issue_id: String, selected: usize },
+    /// editing issue status
+    EditStatus { issue_id: String, selected: usize },
 }
 
 /// TUI application state.
@@ -305,6 +313,149 @@ impl App {
 
         self.input_mode = InputMode::Normal;
         self.message = Some(format!("created {}", id));
+        self.reload_issues(paths)?;
+        Ok(())
+    }
+
+    /// start editing the selected issue.
+    pub fn start_edit_issue(&mut self) {
+        let Some(issue_id) = self.selected_issue_id().map(|s| s.to_string()) else {
+            self.message = Some("no issue selected".to_string());
+            return;
+        };
+        self.input_mode = InputMode::EditSelect {
+            issue_id,
+            selected: 0,
+        };
+        self.message = None;
+    }
+
+    /// cancel editing.
+    pub fn cancel_edit(&mut self) {
+        self.input_mode = InputMode::Normal;
+        self.message = Some("cancelled".to_string());
+    }
+
+    /// confirm field selection and enter field edit mode.
+    pub fn confirm_edit_field(&mut self) {
+        let (issue_id, selected) = match &self.input_mode {
+            InputMode::EditSelect { issue_id, selected } => (issue_id.clone(), *selected),
+            _ => return,
+        };
+
+        let Some(issue) = self.issues.get(&issue_id) else {
+            self.message = Some("issue not found".to_string());
+            self.input_mode = InputMode::Normal;
+            return;
+        };
+
+        match selected {
+            0 => {
+                // edit title
+                self.input_mode = InputMode::EditTitle {
+                    issue_id,
+                    current: issue.title().to_string(),
+                };
+            }
+            1 => {
+                // edit priority
+                let priority_idx = match issue.priority() {
+                    Priority::P0 => 0,
+                    Priority::P1 => 1,
+                    Priority::P2 => 2,
+                    Priority::P3 => 3,
+                };
+                self.input_mode = InputMode::EditPriority {
+                    issue_id,
+                    selected: priority_idx,
+                };
+            }
+            2 => {
+                // edit status
+                let status_idx = match issue.status() {
+                    Status::Todo => 0,
+                    Status::Doing => 1,
+                    Status::Done => 2,
+                };
+                self.input_mode = InputMode::EditStatus {
+                    issue_id,
+                    selected: status_idx,
+                };
+            }
+            _ => {}
+        }
+    }
+
+    /// save the edited issue.
+    pub fn save_edit(&mut self, paths: &RepoPaths) -> Result<()> {
+        let (issue_id, new_title, new_priority, new_status) = match &self.input_mode {
+            InputMode::EditTitle { issue_id, current } => {
+                if current.trim().is_empty() {
+                    self.message = Some("title cannot be empty".to_string());
+                    return Ok(());
+                }
+                (issue_id.clone(), Some(current.clone()), None, None)
+            }
+            InputMode::EditPriority { issue_id, selected } => {
+                let priority = match selected {
+                    0 => Priority::P0,
+                    1 => Priority::P1,
+                    2 => Priority::P2,
+                    3 => Priority::P3,
+                    _ => Priority::P2,
+                };
+                (issue_id.clone(), None, Some(priority), None)
+            }
+            InputMode::EditStatus { issue_id, selected } => {
+                let status = match selected {
+                    0 => Status::Todo,
+                    1 => Status::Doing,
+                    2 => Status::Done,
+                    _ => Status::Todo,
+                };
+                (issue_id.clone(), None, None, Some(status))
+            }
+            _ => return Ok(()),
+        };
+
+        let _lock = LockGuard::acquire(&paths.lock_path())?;
+
+        let issue = self
+            .issues
+            .get_mut(&issue_id)
+            .ok_or_else(|| BrdError::IssueNotFound(issue_id.clone()))?;
+
+        // apply changes
+        if let Some(title) = new_title {
+            issue.frontmatter.title = title;
+        }
+        if let Some(priority) = new_priority {
+            issue.frontmatter.priority = priority;
+        }
+        if let Some(status) = new_status {
+            issue.frontmatter.status = status;
+            // clear owner if marking as done or todo
+            if status != Status::Doing {
+                issue.frontmatter.owner = None;
+            }
+        }
+        issue.touch();
+
+        // save to control root
+        let issue_path = paths.issues_dir().join(format!("{}.md", issue_id));
+        issue.save(&issue_path)?;
+
+        // dual-write to local worktree if different
+        if paths.worktree_root != paths.control_root {
+            let local_path = paths
+                .worktree_root
+                .join(".braid/issues")
+                .join(format!("{}.md", issue_id));
+            issue.save(&local_path)?;
+        }
+
+        self.input_mode = InputMode::Normal;
+        self.message = Some(format!("saved {}", issue_id));
         self.reload_issues(paths)?;
         Ok(())
     }

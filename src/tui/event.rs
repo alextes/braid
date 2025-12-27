@@ -71,6 +71,117 @@ pub fn handle_events(app: &mut App, paths: &RepoPaths) -> Result<bool> {
                 }
                 return Ok(false);
             }
+            InputMode::EditSelect { issue_id, selected } => {
+                match key.code {
+                    KeyCode::Esc => app.cancel_edit(),
+                    KeyCode::Enter => app.confirm_edit_field(),
+                    KeyCode::Up | KeyCode::Char('k') => {
+                        if *selected > 0 {
+                            app.input_mode = InputMode::EditSelect {
+                                issue_id: issue_id.clone(),
+                                selected: selected - 1,
+                            };
+                        }
+                    }
+                    KeyCode::Down | KeyCode::Char('j') => {
+                        if *selected < 2 {
+                            app.input_mode = InputMode::EditSelect {
+                                issue_id: issue_id.clone(),
+                                selected: selected + 1,
+                            };
+                        }
+                    }
+                    _ => {}
+                }
+                return Ok(false);
+            }
+            InputMode::EditTitle { issue_id, current } => {
+                match key.code {
+                    KeyCode::Esc => app.cancel_edit(),
+                    KeyCode::Enter => {
+                        if let Err(e) = app.save_edit(paths) {
+                            app.message = Some(format!("error: {}", e));
+                            app.input_mode = InputMode::Normal;
+                        }
+                    }
+                    KeyCode::Backspace => {
+                        let mut s = current.clone();
+                        s.pop();
+                        app.input_mode = InputMode::EditTitle {
+                            issue_id: issue_id.clone(),
+                            current: s,
+                        };
+                    }
+                    KeyCode::Char(c) => {
+                        let mut s = current.clone();
+                        s.push(c);
+                        app.input_mode = InputMode::EditTitle {
+                            issue_id: issue_id.clone(),
+                            current: s,
+                        };
+                    }
+                    _ => {}
+                }
+                return Ok(false);
+            }
+            InputMode::EditPriority { issue_id, selected } => {
+                match key.code {
+                    KeyCode::Esc => app.cancel_edit(),
+                    KeyCode::Enter => {
+                        if let Err(e) = app.save_edit(paths) {
+                            app.message = Some(format!("error: {}", e));
+                            app.input_mode = InputMode::Normal;
+                        }
+                    }
+                    KeyCode::Up | KeyCode::Char('k') => {
+                        if *selected > 0 {
+                            app.input_mode = InputMode::EditPriority {
+                                issue_id: issue_id.clone(),
+                                selected: selected - 1,
+                            };
+                        }
+                    }
+                    KeyCode::Down | KeyCode::Char('j') => {
+                        if *selected < 3 {
+                            app.input_mode = InputMode::EditPriority {
+                                issue_id: issue_id.clone(),
+                                selected: selected + 1,
+                            };
+                        }
+                    }
+                    _ => {}
+                }
+                return Ok(false);
+            }
+            InputMode::EditStatus { issue_id, selected } => {
+                match key.code {
+                    KeyCode::Esc => app.cancel_edit(),
+                    KeyCode::Enter => {
+                        if let Err(e) = app.save_edit(paths) {
+                            app.message = Some(format!("error: {}", e));
+                            app.input_mode = InputMode::Normal;
+                        }
+                    }
+                    KeyCode::Up | KeyCode::Char('k') => {
+                        if *selected > 0 {
+                            app.input_mode = InputMode::EditStatus {
+                                issue_id: issue_id.clone(),
+                                selected: selected - 1,
+                            };
+                        }
+                    }
+                    KeyCode::Down | KeyCode::Char('j') => {
+                        if *selected < 2 {
+                            app.input_mode = InputMode::EditStatus {
+                                issue_id: issue_id.clone(),
+                                selected: selected + 1,
+                            };
+                        }
+                    }
+                    _ => {}
+                }
+                return Ok(false);
+            }
             InputMode::Normal => {}
         }
 
@@ -86,6 +197,7 @@ pub fn handle_events(app: &mut App, paths: &RepoPaths) -> Result<bool> {
 
             // actions
             KeyCode::Char('a') | KeyCode::Char('n') => app.start_add_issue(),
+            KeyCode::Char('e') => app.start_edit_issue(),
             KeyCode::Char('s') => {
                 if let Err(e) = app.start_selected(paths) {
                     app.message = Some(format!("error: {}", e));
