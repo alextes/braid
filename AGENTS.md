@@ -52,6 +52,13 @@ format: `<type>[(scope)][!]: <description>`
 
 all lowercase for comments, tracing, docs, issue titles, and other prose. exceptions: acronyms (CLI, API, ID, etc.).
 
+## releases
+
+before cutting a release, read [docs/release-workflow.md](docs/release-workflow.md). key steps:
+- review commits since last tag, update `CHANGELOG.md`
+- bump version in `Cargo.toml`, run `cargo build` to update lockfile
+- commit, tag, push, then `cargo publish`
+
 ## design issues
 
 issues with `type: design` require special handling:
