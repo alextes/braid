@@ -54,11 +54,7 @@ pub fn cmd_ls(
                     return false;
                 }
             }
-            if !tag_filter.is_empty()
-                && !tag_filter
-                    .iter()
-                    .all(|tag| issue.tags().contains(tag))
-            {
+            if !tag_filter.is_empty() && !tag_filter.iter().all(|tag| issue.tags().contains(tag)) {
                 return false;
             }
             true

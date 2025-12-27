@@ -133,6 +133,20 @@ pub enum Command {
 
     /// search issues (prints instructions for using grep/rg)
     Search,
+
+    /// manage agent instructions block for AGENTS.md
+    Agents {
+        #[command(subcommand)]
+        action: Option<AgentsAction>,
+    },
+}
+
+#[derive(Subcommand)]
+pub enum AgentsAction {
+    /// print the agents block to stdout (default)
+    Show,
+    /// inject/update the agents block in AGENTS.md
+    Inject,
 }
 
 #[derive(Subcommand)]

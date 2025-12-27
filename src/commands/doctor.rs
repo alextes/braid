@@ -5,7 +5,7 @@ use crate::error::{BrdError, Result};
 use crate::migrate::{self, CURRENT_SCHEMA};
 use crate::repo::RepoPaths;
 
-use super::load_all_issues;
+use super::{AGENTS_BLOCK_VERSION, check_agents_block, load_all_issues};
 
 /// Parse frontmatter from markdown content.
 fn parse_frontmatter(content: &str) -> Result<(String, String)> {
@@ -149,6 +149,18 @@ pub fn cmd_doctor(cli: &Cli, paths: &RepoPaths) -> Result<()> {
         }));
     }
     record_check("no_cycles", "no dependency cycles", cycles.is_empty());
+
+    // check 7: AGENTS.md block version (informational)
+    let agents_block_version = check_agents_block(paths);
+    let agents_ok = agents_block_version.is_none_or(|v| v >= AGENTS_BLOCK_VERSION);
+    record_check(
+        "agents_block",
+        &format!("AGENTS.md braid block at v{}", AGENTS_BLOCK_VERSION),
+        agents_ok,
+    );
+    if !agents_ok && !cli.json {
+        eprintln!("  hint: run `brd agents inject` to update the braid block in AGENTS.md");
+    }
 
     let ok = errors.is_empty();
 
