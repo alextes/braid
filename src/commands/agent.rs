@@ -102,6 +102,7 @@ pub fn cmd_agent_init(cli: &Cli, paths: &RepoPaths, name: &str, base: Option<&st
         println!();
         println!("To use this agent:");
         println!("  cd {}", worktree_path.display());
+        println!("  # start your agent (claude, codex, gemini, etc.)");
         println!("  brd next  # get next issue to work on");
     }
 
