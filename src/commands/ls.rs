@@ -161,12 +161,20 @@ pub fn cmd_ls(
                 None => "        ",
             };
 
+            // status column: padded to 5 chars (length of "doing")
+            let status_col = match issue.status() {
+                Status::Todo => "todo ",
+                Status::Doing => "doing",
+                Status::Done => "done ",
+                Status::Skip => "skip ",
+            };
+
             print!(
                 "{}  {}  {}{}  {}{}",
                 issue.id(),
                 issue.priority(),
                 type_col,
-                issue.status(),
+                status_col,
                 issue.title(),
                 deps_info
             );
