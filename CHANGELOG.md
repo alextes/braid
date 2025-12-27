@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2025-12-27
+
+### Added
+- `brd rm` command to delete issues
+- `brd skip` command to mark issues as skipped/won't do
+- `brd agents` command to manage AGENTS.md instruction block
+- verbose logging flag (`-v` / `BRD_VERBOSE` env var)
+- TUI: issue editing with `e` key
+- visual styling in `brd ls` and `brd ready`:
+  - P0/P1 issues shown in bold
+  - doing issues shown underlined
+  - done issues shown dimmed
+  - design issues shown in italic
+  - meta issues shown in bold
+- issue type column in ls/ready output (design/meta)
+- owner shown for doing issues in ls (magenta)
+- issue age in ls output (human-readable format)
+- cycle prevention when adding dependencies
+- configuration documentation (`docs/configuration.md`)
+
+### Changed
+- schema v4: renamed `labels` field to `tags`
+- TUI priority picker now includes P0
+
+### Fixed
+- column alignment when type column is empty in ls/ready
+- status column padding (doing vs todo alignment)
+- doctor command AGENTS.md block status reporting
+
 ## [0.2.2] - 2025-12-27
 
 ### Added
@@ -50,7 +79,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - TUI for browsing issues
 - JSON output support
 
-[Unreleased]: https://github.com/alextes/braid/compare/v0.2.2...HEAD
+[Unreleased]: https://github.com/alextes/braid/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/alextes/braid/compare/v0.2.2...v0.3.0
 [0.2.2]: https://github.com/alextes/braid/compare/v0.2.0...v0.2.2
 [0.2.0]: https://github.com/alextes/braid/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/alextes/braid/releases/tag/v0.1.0

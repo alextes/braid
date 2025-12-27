@@ -7,7 +7,7 @@ status: done
 deps: []
 tags:
 - visual
-owner: agent-two
+owner: null
 created_at: 2025-12-27T13:45:22.047962Z
 updated_at: 2025-12-27T21:35:36.446295Z
 acceptance:
