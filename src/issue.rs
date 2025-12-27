@@ -483,4 +483,269 @@ This is the body.
             Err(crate::error::BrdError::IssueNotFound(_))
         ));
     }
+
+    #[test]
+    fn test_parse_missing_optional_fields() {
+        // minimal issue with only required fields
+        let content = r#"---
+schema_version: 2
+id: "test-minimal"
+title: "Minimal issue"
+priority: P2
+status: todo
+created_at: 2025-12-25T12:00:00Z
+updated_at: 2025-12-25T12:00:00Z
+---
+"#;
+
+        let issue = Issue::parse(content).unwrap();
+        assert_eq!(issue.frontmatter.id, "test-minimal");
+        assert_eq!(issue.frontmatter.title, "Minimal issue");
+        assert_eq!(issue.frontmatter.priority, Priority::P2);
+        assert_eq!(issue.frontmatter.status, Status::Todo);
+        // optional fields should have defaults
+        assert!(issue.frontmatter.deps.is_empty());
+        assert!(issue.frontmatter.tags.is_empty());
+        assert!(issue.frontmatter.owner.is_none());
+        assert!(issue.frontmatter.issue_type.is_none());
+        assert!(issue.frontmatter.acceptance.is_empty());
+        assert!(issue.body.is_empty());
+    }
+
+    #[test]
+    fn test_parse_with_all_optional_fields() {
+        let content = r#"---
+schema_version: 2
+id: "test-full"
+title: "Full issue"
+priority: P0
+status: doing
+type: design
+deps:
+  - dep-1
+  - dep-2
+tags:
+  - bug
+  - urgent
+owner: agent-one
+created_at: 2025-12-25T12:00:00Z
+updated_at: 2025-12-25T13:00:00Z
+acceptance:
+  - first criterion
+  - second criterion
+---
+
+issue body here.
+"#;
+
+        let issue = Issue::parse(content).unwrap();
+        assert_eq!(issue.frontmatter.id, "test-full");
+        assert_eq!(issue.frontmatter.priority, Priority::P0);
+        assert_eq!(issue.frontmatter.status, Status::Doing);
+        assert_eq!(issue.frontmatter.issue_type, Some(IssueType::Design));
+        assert_eq!(issue.frontmatter.deps, vec!["dep-1", "dep-2"]);
+        assert_eq!(issue.frontmatter.tags, vec!["bug", "urgent"]);
+        assert_eq!(issue.frontmatter.owner, Some("agent-one".to_string()));
+        assert_eq!(
+            issue.frontmatter.acceptance,
+            vec!["first criterion", "second criterion"]
+        );
+        assert_eq!(issue.body, "issue body here.\n");
+    }
+
+    #[test]
+    fn test_parse_empty_body() {
+        let content = r#"---
+schema_version: 2
+id: "test-nobody"
+title: "No body"
+priority: P3
+status: done
+created_at: 2025-12-25T12:00:00Z
+updated_at: 2025-12-25T12:00:00Z
+---
+"#;
+
+        let issue = Issue::parse(content).unwrap();
+        assert!(issue.body.is_empty());
+    }
+
+    #[test]
+    fn test_parse_whitespace_only_body() {
+        let content = r#"---
+schema_version: 2
+id: "test-whitespace"
+title: "Whitespace body"
+priority: P3
+status: todo
+created_at: 2025-12-25T12:00:00Z
+updated_at: 2025-12-25T12:00:00Z
+---
+
+
+
+"#;
+
+        let issue = Issue::parse(content).unwrap();
+        // body preserves whitespace after the frontmatter delimiter
+        assert!(issue.body.trim().is_empty());
+    }
+
+    #[test]
+    fn test_parse_malformed_missing_frontmatter_start() {
+        let content = r#"id: "test"
+title: "No delimiters"
+---
+"#;
+
+        let result = Issue::parse(content);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_malformed_missing_frontmatter_end() {
+        let content = r#"---
+id: "test"
+title: "No end delimiter"
+"#;
+
+        let result = Issue::parse(content);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_malformed_invalid_yaml() {
+        let content = r#"---
+id: [unclosed bracket
+title: "Bad yaml"
+---
+"#;
+
+        let result = Issue::parse(content);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_malformed_missing_required_field() {
+        // missing title field
+        let content = r#"---
+schema_version: 2
+id: "test-notitle"
+priority: P2
+status: todo
+created_at: 2025-12-25T12:00:00Z
+updated_at: 2025-12-25T12:00:00Z
+---
+"#;
+
+        let result = Issue::parse(content);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_malformed_invalid_priority() {
+        let content = r#"---
+schema_version: 2
+id: "test-badpri"
+title: "Bad priority"
+priority: P9
+status: todo
+created_at: 2025-12-25T12:00:00Z
+updated_at: 2025-12-25T12:00:00Z
+---
+"#;
+
+        let result = Issue::parse(content);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_malformed_invalid_status() {
+        let content = r#"---
+schema_version: 2
+id: "test-badstatus"
+title: "Bad status"
+priority: P2
+status: invalid
+created_at: 2025-12-25T12:00:00Z
+updated_at: 2025-12-25T12:00:00Z
+---
+"#;
+
+        let result = Issue::parse(content);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_roundtrip_serialization() {
+        let content = r#"---
+schema_version: 2
+id: "test-roundtrip"
+title: "Roundtrip test"
+priority: P1
+status: doing
+type: meta
+deps:
+  - dep-a
+  - dep-b
+tags:
+  - feature
+owner: test-agent
+created_at: 2025-12-25T12:00:00Z
+updated_at: 2025-12-25T14:00:00Z
+acceptance:
+  - must work
+  - must be fast
+---
+
+this is the body content.
+
+with multiple paragraphs.
+"#;
+
+        // parse the original
+        let issue = Issue::parse(content).unwrap();
+
+        // serialize back to markdown
+        let serialized = issue.to_markdown().unwrap();
+
+        // parse the serialized version
+        let reparsed = Issue::parse(&serialized).unwrap();
+
+        // verify all fields match
+        assert_eq!(issue.frontmatter.id, reparsed.frontmatter.id);
+        assert_eq!(issue.frontmatter.title, reparsed.frontmatter.title);
+        assert_eq!(issue.frontmatter.priority, reparsed.frontmatter.priority);
+        assert_eq!(issue.frontmatter.status, reparsed.frontmatter.status);
+        assert_eq!(issue.frontmatter.issue_type, reparsed.frontmatter.issue_type);
+        assert_eq!(issue.frontmatter.deps, reparsed.frontmatter.deps);
+        assert_eq!(issue.frontmatter.tags, reparsed.frontmatter.tags);
+        assert_eq!(issue.frontmatter.owner, reparsed.frontmatter.owner);
+        assert_eq!(issue.frontmatter.created_at, reparsed.frontmatter.created_at);
+        assert_eq!(issue.frontmatter.updated_at, reparsed.frontmatter.updated_at);
+        assert_eq!(issue.frontmatter.acceptance, reparsed.frontmatter.acceptance);
+        assert_eq!(issue.body, reparsed.body);
+    }
+
+    #[test]
+    fn test_roundtrip_minimal_issue() {
+        // test roundtrip with minimal fields to ensure optional fields serialize correctly
+        let issue = Issue::new(
+            "test-new".to_string(),
+            "New issue".to_string(),
+            Priority::P2,
+            vec![],
+        );
+
+        let serialized = issue.to_markdown().unwrap();
+        let reparsed = Issue::parse(&serialized).unwrap();
+
+        assert_eq!(issue.frontmatter.id, reparsed.frontmatter.id);
+        assert_eq!(issue.frontmatter.title, reparsed.frontmatter.title);
+        assert_eq!(issue.frontmatter.priority, reparsed.frontmatter.priority);
+        assert_eq!(issue.frontmatter.status, reparsed.frontmatter.status);
+        assert!(reparsed.frontmatter.tags.is_empty());
+        assert!(reparsed.frontmatter.acceptance.is_empty());
+        assert!(reparsed.frontmatter.owner.is_none());
+    }
 }
