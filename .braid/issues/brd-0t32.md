@@ -1,0 +1,15 @@
+---
+schema_version: 4
+id: brd-0t32
+title: brd commit command
+priority: P2
+status: doing
+deps: []
+owner: agent-three
+created_at: 2025-12-27T22:07:51.723669Z
+updated_at: 2025-12-27T22:07:59.091851Z
+acceptance:
+- brd commit stages and commits only .braid changes
+- auto-generates descriptive commit message
+- supports custom message via -m flag
+---
