@@ -3,6 +3,7 @@
 <img width="800" height="356" alt="braid logo, showing a terminal with the command `brd add` and a robot holding a new issue" src="https://github.com/user-attachments/assets/47b3681b-d108-400c-a299-e89fa8ee86e2" />
 
 ![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/alextes/braid/check-lint-test.yaml)
+![Crates.io Version](https://img.shields.io/crates/v/braid)
 
 a lightweight, repo-local, multi-agent capable issue tracker.
 
