@@ -376,6 +376,7 @@ impl App {
                     Status::Todo => 0,
                     Status::Doing => 1,
                     Status::Done => 2,
+                    Status::Skip => 3,
                 };
                 self.input_mode = InputMode::EditStatus {
                     issue_id,
@@ -411,6 +412,7 @@ impl App {
                     0 => Status::Todo,
                     1 => Status::Doing,
                     2 => Status::Done,
+                    3 => Status::Skip,
                     _ => Status::Todo,
                 };
                 (issue_id.clone(), None, None, Some(status))

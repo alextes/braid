@@ -499,7 +499,7 @@ fn draw_input_dialog(f: &mut Frame, app: &App) {
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(Color::Yellow));
 
-            let statuses = ["Todo", "Doing", "Done"];
+            let statuses = ["Todo", "Doing", "Done", "Skip"];
             let items: Vec<ListItem> = statuses
                 .iter()
                 .enumerate()

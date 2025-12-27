@@ -171,7 +171,7 @@ pub fn handle_events(app: &mut App, paths: &RepoPaths) -> Result<bool> {
                         }
                     }
                     KeyCode::Down | KeyCode::Char('j') => {
-                        if *selected < 2 {
+                        if *selected < 3 {
                             app.input_mode = InputMode::EditStatus {
                                 issue_id: issue_id.clone(),
                                 selected: selected + 1,
