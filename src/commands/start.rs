@@ -3,7 +3,7 @@
 use crate::cli::Cli;
 use crate::error::{BrdError, Result};
 use crate::graph::get_ready_issues;
-use crate::issue::Status;
+use crate::issue::{IssueType, Status};
 use crate::lock::LockGuard;
 use crate::repo::{self, RepoPaths};
 
@@ -14,13 +14,15 @@ pub fn cmd_start(cli: &Cli, paths: &RepoPaths, id: Option<&str>, force: bool) ->
 
     let mut issues = load_all_issues(paths)?;
 
-    // resolve issue id: either from argument or pick next ready
+    // resolve issue id: either from argument or pick next ready (skipping meta issues)
     let full_id = match id {
         Some(partial) => resolve_issue_id(partial, &issues)?,
         None => {
             let ready = get_ready_issues(&issues);
+            // skip meta issues - they're tracking containers, not actionable work
             ready
-                .first()
+                .into_iter()
+                .find(|issue| issue.issue_type() != Some(IssueType::Meta))
                 .map(|i| i.id().to_string())
                 .ok_or_else(|| BrdError::Other("no ready issues".to_string()))?
         }

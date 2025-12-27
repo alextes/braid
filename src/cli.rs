@@ -80,9 +80,6 @@ pub enum Command {
     /// list ready issues
     Ready,
 
-    /// get the next issue to work on
-    Next,
-
     /// add or remove dependencies
     Dep {
         #[command(subcommand)]

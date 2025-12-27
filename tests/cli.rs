@@ -166,7 +166,7 @@ fn test_full_workflow_add_start_done() {
 }
 
 #[test]
-fn test_next_returns_highest_priority() {
+fn test_start_picks_highest_priority() {
     let env = TestEnv::new();
 
     // add issues with different priorities
@@ -174,9 +174,13 @@ fn test_next_returns_highest_priority() {
     env.brd(&["add", "high priority", "-p", "P0"]);
     env.brd(&["add", "medium priority", "-p", "P2"]);
 
-    // next should return P0 issue
-    let output = env.brd(&["next"]);
+    // start without id should pick P0 issue
+    let output = env.brd(&["start"]);
     assert!(output.status.success());
+    assert!(TestEnv::stdout(&output).contains("Started:"));
+
+    // verify the high priority issue is now doing
+    let output = env.brd(&["ls", "--status", "doing"]);
     assert!(TestEnv::stdout(&output).contains("high priority"));
 }
 

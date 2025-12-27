@@ -1,7 +1,7 @@
 use braid::cli::{AgentAction, AgentsAction, Cli, Command, DepAction};
 use braid::commands::{
     cmd_add, cmd_agent_init, cmd_agents_inject, cmd_agents_show, cmd_completions, cmd_dep_add,
-    cmd_dep_rm, cmd_doctor, cmd_done, cmd_init, cmd_ls, cmd_migrate, cmd_next, cmd_ready, cmd_rm,
+    cmd_dep_rm, cmd_doctor, cmd_done, cmd_init, cmd_ls, cmd_migrate, cmd_ready, cmd_rm,
     cmd_search, cmd_ship, cmd_show, cmd_skip, cmd_start, cmd_tui,
 };
 use braid::config::Config;
@@ -80,7 +80,6 @@ fn run(cli: &Cli) -> Result<()> {
         ),
         Command::Show { id } => cmd_show(cli, &paths, id),
         Command::Ready => cmd_ready(cli, &paths),
-        Command::Next => cmd_next(cli, &paths),
         Command::Dep { action } => match action {
             DepAction::Add { child, parent } => cmd_dep_add(cli, &paths, child, parent),
             DepAction::Rm { child, parent } => cmd_dep_rm(cli, &paths, child, parent),
