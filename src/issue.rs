@@ -748,4 +748,83 @@ with multiple paragraphs.
         assert!(reparsed.frontmatter.acceptance.is_empty());
         assert!(reparsed.frontmatter.owner.is_none());
     }
+
+    #[test]
+    fn test_generate_issue_id_format() {
+        let config = Config {
+            schema_version: 4,
+            id_prefix: "test".to_string(),
+            id_len: 4,
+        };
+        let temp_dir = tempfile::tempdir().unwrap();
+
+        let id = generate_issue_id(&config, temp_dir.path()).unwrap();
+
+        // should be "prefix-suffix" format
+        assert!(id.starts_with("test-"));
+        let parts: Vec<&str> = id.splitn(2, '-').collect();
+        assert_eq!(parts.len(), 2);
+        assert_eq!(parts[0], "test");
+    }
+
+    #[test]
+    fn test_generate_issue_id_suffix_length() {
+        let config = Config {
+            schema_version: 4,
+            id_prefix: "brd".to_string(),
+            id_len: 6,
+        };
+        let temp_dir = tempfile::tempdir().unwrap();
+
+        let id = generate_issue_id(&config, temp_dir.path()).unwrap();
+
+        let suffix = id.strip_prefix("brd-").unwrap();
+        assert_eq!(suffix.len(), 6);
+    }
+
+    #[test]
+    fn test_generate_issue_id_charset() {
+        let config = Config {
+            schema_version: 4,
+            id_prefix: "x".to_string(),
+            id_len: 10,
+        };
+        let temp_dir = tempfile::tempdir().unwrap();
+
+        // generate multiple IDs to check charset
+        for _ in 0..10 {
+            let id = generate_issue_id(&config, temp_dir.path()).unwrap();
+            let suffix = id.strip_prefix("x-").unwrap();
+
+            // all chars should be lowercase alphanumeric
+            for c in suffix.chars() {
+                assert!(
+                    c.is_ascii_lowercase() || c.is_ascii_digit(),
+                    "unexpected char in suffix: {}",
+                    c
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_generate_issue_id_avoids_collision() {
+        let config = Config {
+            schema_version: 4,
+            id_prefix: "col".to_string(),
+            id_len: 4,
+        };
+        let temp_dir = tempfile::tempdir().unwrap();
+
+        // generate first ID and create a file for it
+        let id1 = generate_issue_id(&config, temp_dir.path()).unwrap();
+        let path1 = temp_dir.path().join(format!("{}.md", id1));
+        std::fs::write(&path1, "exists").unwrap();
+
+        // generate more IDs - they should all be different from id1
+        for _ in 0..10 {
+            let id2 = generate_issue_id(&config, temp_dir.path()).unwrap();
+            assert_ne!(id1, id2, "generated same ID as existing file");
+        }
+    }
 }
