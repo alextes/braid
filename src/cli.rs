@@ -150,6 +150,13 @@ pub enum Command {
     /// search issues (prints instructions for using grep/rg)
     Search,
 
+    /// commit .braid changes
+    Commit {
+        /// custom commit message (auto-generated if omitted)
+        #[arg(short, long)]
+        message: Option<String>,
+    },
+
     /// manage agent instructions block for AGENTS.md
     Agents {
         #[command(subcommand)]
