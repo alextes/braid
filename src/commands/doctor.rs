@@ -18,9 +18,9 @@ fn parse_frontmatter(content: &str) -> Result<(String, String)> {
     }
 
     let rest = &content[3..];
-    let end = rest.find("\n---").ok_or_else(|| {
-        BrdError::ParseError("frontmatter".into(), "missing closing ---".into())
-    })?;
+    let end = rest
+        .find("\n---")
+        .ok_or_else(|| BrdError::ParseError("frontmatter".into(), "missing closing ---".into()))?;
 
     let frontmatter = rest[..end].trim().to_string();
     let body = rest[end + 4..].trim().to_string();
