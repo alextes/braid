@@ -1,5 +1,5 @@
 ---
-brd: 1
+schema_version: 2
 id: brd-o815
 title: improve error message for acceptance criteria with colons
 priority: P1

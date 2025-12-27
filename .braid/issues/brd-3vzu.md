@@ -1,5 +1,5 @@
 ---
-brd: 1
+schema_version: 2
 id: brd-3vzu
 title: 'readme: installation instructions'
 priority: P2

@@ -1,5 +1,5 @@
 ---
-brd: 1
+schema_version: 2
 id: brd-qo6j
 title: add integration tests for CLI commands
 priority: P1

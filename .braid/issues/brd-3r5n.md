@@ -1,5 +1,5 @@
 ---
-brd: 1
+schema_version: 2
 id: brd-3r5n
 title: 'readme: commands reference'
 priority: P2

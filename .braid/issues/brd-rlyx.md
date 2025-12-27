@@ -1,5 +1,5 @@
 ---
-brd: 1
+schema_version: 2
 id: brd-rlyx
 title: 'readme: quick start guide'
 priority: P2

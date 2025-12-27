@@ -1,12 +1,12 @@
 ---
-brd: 1
+schema_version: 2
 id: brd-p1dp
 title: implement claims system for multi-agent coordination
 priority: P3
 status: todo
 deps: []
 created_at: 2025-12-25T21:46:27.951363Z
-updated_at: 2025-12-26T16:44:10.000000Z
+updated_at: 2025-12-26T16:44:10Z
 acceptance:
 - claim, release, reclaim, claims commands work
 - claims filtering in ready/next

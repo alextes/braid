@@ -1,15 +1,15 @@
 ---
-brd: 1
+schema_version: 2
 id: brd-xho0
-title: "Design: manage growing brd ls output"
+title: 'Design: manage growing brd ls output'
 priority: P1
 status: done
 deps: []
 created_at: 2025-12-26T19:00:09.808782Z
 updated_at: 2025-12-26T19:07:30.797082Z
 acceptance:
-  - design decision documented
-  - implementation approach chosen
+- design decision documented
+- implementation approach chosen
 ---
 
 as issues accumulate, `brd ls` becomes unwieldy. need a strategy to keep the default view useful.

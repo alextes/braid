@@ -1,5 +1,5 @@
 ---
-brd: 1
+schema_version: 2
 id: brd-wb5z
 title: extensive readme
 priority: P2

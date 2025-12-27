@@ -1,5 +1,5 @@
 ---
-brd: 1
+schema_version: 2
 id: brd-b9ku
 title: 'improve brd start: optional id and reject already-doing'
 priority: P1

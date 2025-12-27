@@ -1,5 +1,5 @@
 ---
-brd: 1
+schema_version: 2
 id: brd-oc6m
 title: print done issues in gray/dim color in brd ls output
 priority: P2

@@ -1,5 +1,5 @@
 ---
-brd: 1
+schema_version: 2
 id: brd-fm0l
 title: add unit tests for issue ID generation
 priority: P3

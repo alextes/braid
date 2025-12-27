@@ -1,5 +1,5 @@
 ---
-brd: 1
+schema_version: 2
 id: brd-5gpr
 title: move command implementations to commands module
 priority: P2

@@ -1,5 +1,5 @@
 ---
-brd: 1
+schema_version: 2
 id: brd-q5af
 title: build TUI for interactive issue management
 priority: P2

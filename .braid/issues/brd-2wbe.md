@@ -1,5 +1,5 @@
 ---
-brd: 1
+schema_version: 2
 id: brd-2wbe
 title: make owner field required in issue frontmatter
 priority: P2
