@@ -15,8 +15,8 @@ mod ready;
 mod rm;
 mod search;
 mod ship;
-mod skip;
 mod show;
+mod skip;
 mod start;
 mod tui;
 

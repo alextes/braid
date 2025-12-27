@@ -2,6 +2,7 @@
 
 use crate::cli::Cli;
 use crate::error::{BrdError, Result};
+use crate::graph::would_create_cycle;
 use crate::lock::LockGuard;
 use crate::repo::RepoPaths;
 
@@ -17,6 +18,15 @@ pub fn cmd_dep_add(cli: &Cli, paths: &RepoPaths, child_id: &str, parent_id: &str
     // check not self-dep
     if child_full == parent_full {
         return Err(BrdError::Other("cannot add self-dependency".to_string()));
+    }
+
+    // check for cycles
+    if let Some(cycle_path) = would_create_cycle(&child_full, &parent_full, &issues) {
+        let cycle_str = cycle_path.join(" -> ");
+        return Err(BrdError::Other(format!(
+            "cannot add dependency: would create cycle: {}",
+            cycle_str
+        )));
     }
 
     let child = issues

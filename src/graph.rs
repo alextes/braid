@@ -105,6 +105,56 @@ fn find_cycles_dfs(
     rec_stack.remove(id);
 }
 
+/// check if adding a dependency from child to parent would create a cycle.
+/// returns Some(path) if it would create a cycle, where path shows the cycle.
+/// returns None if it's safe to add.
+pub fn would_create_cycle(
+    child_id: &str,
+    parent_id: &str,
+    issues: &HashMap<String, Issue>,
+) -> Option<Vec<String>> {
+    // adding child -> parent creates a cycle if parent can already reach child
+    // i.e., there's a path from parent to child through existing deps
+    let mut visited = HashSet::new();
+    let mut path = vec![child_id.to_string(), parent_id.to_string()];
+
+    if can_reach(parent_id, child_id, issues, &mut visited, &mut path) {
+        Some(path)
+    } else {
+        None
+    }
+}
+
+/// check if `from` can reach `to` via dependencies, building the path along the way.
+fn can_reach(
+    from: &str,
+    to: &str,
+    issues: &HashMap<String, Issue>,
+    visited: &mut HashSet<String>,
+    path: &mut Vec<String>,
+) -> bool {
+    if from == to {
+        return true;
+    }
+
+    if visited.contains(from) {
+        return false;
+    }
+    visited.insert(from.to_string());
+
+    if let Some(issue) = issues.get(from) {
+        for dep_id in issue.deps() {
+            path.push(dep_id.clone());
+            if can_reach(dep_id, to, issues, visited, path) {
+                return true;
+            }
+            path.pop();
+        }
+    }
+
+    false
+}
+
 /// get all ready issues, sorted by priority, created_at, then id.
 pub fn get_ready_issues(issues: &HashMap<String, Issue>) -> Vec<&Issue> {
     let mut ready: Vec<&Issue> = issues
@@ -167,5 +217,40 @@ mod tests {
 
         let cycles = find_cycles(&issues);
         assert!(!cycles.is_empty());
+    }
+
+    #[test]
+    fn test_would_create_cycle_detects_direct() {
+        // a -> b exists, adding b -> a would create cycle
+        let mut issues = HashMap::new();
+        issues.insert("a".to_string(), make_issue("a", Status::Todo, vec!["b"]));
+        issues.insert("b".to_string(), make_issue("b", Status::Todo, vec![]));
+
+        let result = would_create_cycle("b", "a", &issues);
+        assert!(result.is_some());
+    }
+
+    #[test]
+    fn test_would_create_cycle_detects_indirect() {
+        // a -> b -> c exists, adding c -> a would create cycle
+        let mut issues = HashMap::new();
+        issues.insert("a".to_string(), make_issue("a", Status::Todo, vec!["b"]));
+        issues.insert("b".to_string(), make_issue("b", Status::Todo, vec!["c"]));
+        issues.insert("c".to_string(), make_issue("c", Status::Todo, vec![]));
+
+        let result = would_create_cycle("c", "a", &issues);
+        assert!(result.is_some());
+    }
+
+    #[test]
+    fn test_would_create_cycle_allows_valid() {
+        // a -> b exists, adding c -> a is fine
+        let mut issues = HashMap::new();
+        issues.insert("a".to_string(), make_issue("a", Status::Todo, vec!["b"]));
+        issues.insert("b".to_string(), make_issue("b", Status::Todo, vec![]));
+        issues.insert("c".to_string(), make_issue("c", Status::Todo, vec![]));
+
+        let result = would_create_cycle("c", "a", &issues);
+        assert!(result.is_none());
     }
 }

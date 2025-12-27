@@ -251,7 +251,12 @@ fn draw_detail(f: &mut Frame, area: Rect, app: &App) {
             let is_resolved = app
                 .issues
                 .get(dep)
-                .map(|d| matches!(d.status(), crate::issue::Status::Done | crate::issue::Status::Skip))
+                .map(|d| {
+                    matches!(
+                        d.status(),
+                        crate::issue::Status::Done | crate::issue::Status::Skip
+                    )
+                })
                 .unwrap_or(false);
             let style = if is_resolved {
                 Style::default().fg(Color::Green)

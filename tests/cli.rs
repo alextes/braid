@@ -250,6 +250,27 @@ fn test_dep_add_and_remove() {
     assert!(!json["derived"]["is_blocked"].as_bool().unwrap());
 }
 
+#[test]
+fn test_dep_add_rejects_cycle() {
+    let env = TestEnv::new();
+
+    // add two issues
+    let output = env.brd_json(&["add", "issue one"]);
+    let id1 = TestEnv::json(&output)["id"].as_str().unwrap().to_string();
+
+    let output = env.brd_json(&["add", "issue two"]);
+    let id2 = TestEnv::json(&output)["id"].as_str().unwrap().to_string();
+
+    // add dependency id1 -> id2
+    let output = env.brd(&["dep", "add", &id1, &id2]);
+    assert!(output.status.success());
+
+    // try to add reverse dependency id2 -> id1 (would create cycle)
+    let output = env.brd(&["dep", "add", &id2, &id1]);
+    assert!(!output.status.success());
+    assert!(TestEnv::stderr(&output).contains("cycle"));
+}
+
 // =============================================================================
 // JSON output tests
 // =============================================================================
