@@ -3,11 +3,11 @@ schema_version: 4
 id: brd-ozah
 title: add brd mode command (show only)
 priority: P2
-status: todo
+status: doing
 deps: []
-owner: null
+owner: agent-one
 created_at: 2025-12-28T16:21:42.842145Z
-updated_at: 2025-12-28T16:21:42.842145Z
+updated_at: 2025-12-28T16:40:49.261807Z
 ---
 
 implement `brd mode` command that shows current mode.
