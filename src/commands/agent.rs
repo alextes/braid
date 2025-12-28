@@ -127,3 +127,160 @@ pub fn cmd_agent_init(cli: &Cli, paths: &RepoPaths, name: &str, base: Option<&st
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::{Path, PathBuf};
+    use std::sync::Mutex;
+
+    use tempfile::tempdir;
+
+    static AGENT_INIT_TEST_LOCK: Mutex<()> = Mutex::new(());
+
+    struct EnvGuard {
+        key: &'static str,
+        prev: Option<String>,
+    }
+
+    impl EnvGuard {
+        fn set(key: &'static str, value: &str) -> Self {
+            let prev = std::env::var(key).ok();
+            unsafe { std::env::set_var(key, value) };
+            Self { key, prev }
+        }
+    }
+
+    impl Drop for EnvGuard {
+        fn drop(&mut self) {
+            match &self.prev {
+                Some(val) => unsafe { std::env::set_var(self.key, val) },
+                None => unsafe { std::env::remove_var(self.key) },
+            }
+        }
+    }
+
+    fn git_ok(repo: &Path, args: &[&str]) {
+        let output = std::process::Command::new("git")
+            .args(args)
+            .current_dir(repo)
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "git {:?} failed: {}",
+            args,
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+
+    fn git_output(repo: &Path, args: &[&str]) -> String {
+        let output = std::process::Command::new("git")
+            .args(args)
+            .current_dir(repo)
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "git {:?} failed: {}",
+            args,
+            String::from_utf8_lossy(&output.stderr)
+        );
+        String::from_utf8_lossy(&output.stdout).trim().to_string()
+    }
+
+    fn create_repo() -> (tempfile::TempDir, PathBuf, RepoPaths, String) {
+        let dir = tempdir().unwrap();
+        let repo_path = dir.path().join("repo");
+        std::fs::create_dir_all(&repo_path).unwrap();
+
+        git_ok(&repo_path, &["init"]);
+        git_ok(&repo_path, &["config", "user.email", "test@test.com"]);
+        git_ok(&repo_path, &["config", "user.name", "test user"]);
+        std::fs::write(repo_path.join("README.md"), "test\n").unwrap();
+        git_ok(&repo_path, &["add", "."]);
+        git_ok(&repo_path, &["commit", "-m", "init"]);
+
+        let base_branch = git_output(&repo_path, &["rev-parse", "--abbrev-ref", "HEAD"]);
+
+        let paths = RepoPaths {
+            worktree_root: repo_path.clone(),
+            git_common_dir: repo_path.join(".git"),
+            brd_common_dir: repo_path.join(".git/brd"),
+        };
+        std::fs::create_dir_all(&paths.brd_common_dir).unwrap();
+
+        (dir, repo_path, paths, base_branch)
+    }
+
+    fn make_cli() -> Cli {
+        Cli {
+            json: false,
+            repo: None,
+            no_color: true,
+            verbose: false,
+            command: crate::cli::Command::Doctor,
+        }
+    }
+
+    #[test]
+    fn test_agent_init_creates_worktree_and_branch() {
+        let _lock = AGENT_INIT_TEST_LOCK.lock().unwrap();
+        let (_dir, repo_path, paths, base_branch) = create_repo();
+
+        let home_dir = tempdir().unwrap();
+        let _env = EnvGuard::set("HOME", home_dir.path().to_str().unwrap());
+
+        let cli = make_cli();
+        cmd_agent_init(&cli, &paths, "agent-one", Some(&base_branch)).unwrap();
+
+        let worktree_path = home_dir
+            .path()
+            .join(".braid")
+            .join("worktrees")
+            .join("repo")
+            .join("agent-one");
+        assert!(worktree_path.exists());
+        assert!(worktree_path.join(".braid/agent.toml").exists());
+
+        let agent_toml = std::fs::read_to_string(worktree_path.join(".braid/agent.toml")).unwrap();
+        assert!(agent_toml.contains("agent_id = \"agent-one\""));
+
+        let branch_list = git_output(&repo_path, &["branch", "--list", "agent-one"]);
+        assert!(branch_list.contains("agent-one"));
+    }
+
+    #[test]
+    fn test_agent_init_rejects_invalid_name() {
+        let _lock = AGENT_INIT_TEST_LOCK.lock().unwrap();
+        let (_dir, _repo_path, paths, base_branch) = create_repo();
+
+        let home_dir = tempdir().unwrap();
+        let _env = EnvGuard::set("HOME", home_dir.path().to_str().unwrap());
+
+        let cli = make_cli();
+        let err = cmd_agent_init(&cli, &paths, "bad name", Some(&base_branch)).unwrap_err();
+        assert!(err.to_string().contains("invalid agent name"));
+    }
+
+    #[test]
+    fn test_agent_init_rejects_duplicate_name() {
+        let _lock = AGENT_INIT_TEST_LOCK.lock().unwrap();
+        let (_dir, _repo_path, paths, base_branch) = create_repo();
+
+        let home_dir = tempdir().unwrap();
+        let _env = EnvGuard::set("HOME", home_dir.path().to_str().unwrap());
+
+        let worktree_path = home_dir
+            .path()
+            .join(".braid")
+            .join("worktrees")
+            .join("repo")
+            .join("agent-one");
+        std::fs::create_dir_all(&worktree_path).unwrap();
+
+        let cli = make_cli();
+        let err = cmd_agent_init(&cli, &paths, "agent-one", Some(&base_branch)).unwrap_err();
+        assert!(err.to_string().contains("directory already exists"));
+    }
+}
