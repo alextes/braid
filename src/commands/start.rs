@@ -52,7 +52,10 @@ fn check_unshipped_done_issues(
     for issue in local_done {
         let issue_file = format!(".braid/issues/{}.md", issue.id());
         // Check if file differs from origin/main
-        let diff_output = git_output(&["diff", "origin/main", "--", &issue_file], &paths.worktree_root)?;
+        let diff_output = git_output(
+            &["diff", "origin/main", "--", &issue_file],
+            &paths.worktree_root,
+        )?;
         if !diff_output.is_empty() {
             unshipped.push(issue.id().to_string());
         }
@@ -101,12 +104,11 @@ fn sync_with_main(paths: &RepoPaths, cli: &Cli) -> Result<()> {
     if !is_clean(&paths.worktree_root)? {
         // Check if only .braid changes
         let status = git_output(&["status", "--porcelain"], &paths.worktree_root)?;
-        let non_braid_changes = status
-            .lines()
-            .any(|line| !line.contains(".braid/"));
+        let non_braid_changes = status.lines().any(|line| !line.contains(".braid/"));
         if non_braid_changes {
             return Err(BrdError::Other(
-                "working tree has uncommitted changes outside .braid - commit or stash first".to_string(),
+                "working tree has uncommitted changes outside .braid - commit or stash first"
+                    .to_string(),
             ));
         }
     }
@@ -166,7 +168,11 @@ fn commit_and_push_main(paths: &RepoPaths, issue_id: &str, cli: &Cli) -> Result<
 
         if attempt < MAX_RETRIES {
             if !cli.json {
-                eprintln!("  push rejected, rebasing and retrying ({}/{})...", attempt + 1, MAX_RETRIES);
+                eprintln!(
+                    "  push rejected, rebasing and retrying ({}/{})...",
+                    attempt + 1,
+                    MAX_RETRIES
+                );
             }
 
             // Pull and rebase
@@ -196,15 +202,18 @@ fn commit_and_push_sync_branch(
     issue_id: &str,
     cli: &Cli,
 ) -> Result<()> {
-    let branch = config.sync_branch.as_ref().ok_or_else(|| {
-        BrdError::Other("sync_branch not configured".to_string())
-    })?;
+    let branch = config
+        .sync_branch
+        .as_ref()
+        .ok_or_else(|| BrdError::Other("sync_branch not configured".to_string()))?;
 
     let issues_wt = paths.ensure_issues_worktree(branch)?;
 
     // Commit
     if !git(&["add", ".braid"], &issues_wt)? {
-        return Err(BrdError::Other("failed to stage .braid in sync worktree".to_string()));
+        return Err(BrdError::Other(
+            "failed to stage .braid in sync worktree".to_string(),
+        ));
     }
 
     let commit_msg = format!("start: {}", issue_id);
@@ -223,11 +232,17 @@ fn commit_and_push_sync_branch(
 
         if attempt < MAX_RETRIES {
             if !cli.json {
-                eprintln!("  push rejected, rebasing sync branch ({}/{})...", attempt + 1, MAX_RETRIES);
+                eprintln!(
+                    "  push rejected, rebasing sync branch ({}/{})...",
+                    attempt + 1,
+                    MAX_RETRIES
+                );
             }
 
             if !git(&["fetch", "origin", branch], &issues_wt)? {
-                return Err(BrdError::Other("failed to fetch sync branch during retry".to_string()));
+                return Err(BrdError::Other(
+                    "failed to fetch sync branch during retry".to_string(),
+                ));
             }
             if !git(&["rebase", &format!("origin/{}", branch)], &issues_wt)? {
                 let _ = git(&["rebase", "--abort"], &issues_wt);

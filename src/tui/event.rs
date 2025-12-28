@@ -499,8 +499,7 @@ mod tests {
         );
 
         let mut app = env.app();
-        handle_key_event(&mut app, &env.paths, key(KeyCode::Tab))
-            .expect("switch pane failed");
+        handle_key_event(&mut app, &env.paths, key(KeyCode::Tab)).expect("switch pane failed");
         assert_eq!(app.selected_issue_id(), Some("brd-main"));
         assert_eq!(app.detail_dep_selected, Some(0));
 

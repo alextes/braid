@@ -285,7 +285,10 @@ acceptance: []
 
         let config = Config::default();
         let issues = load_all_issues(&paths, &config).unwrap();
-        let child = issues.values().find(|i| i.title() == "Child issue").unwrap();
+        let child = issues
+            .values()
+            .find(|i| i.title() == "Child issue")
+            .unwrap();
         assert!(child.deps().contains(&"brd-parent".to_string()));
     }
 
@@ -429,10 +432,12 @@ acceptance: []
         let issues = load_all_issues(&paths, &config).unwrap();
         let issue = issues.values().next().unwrap();
         assert_eq!(issue.frontmatter.acceptance.len(), 2);
-        assert!(issue
-            .frontmatter
-            .acceptance
-            .contains(&"Users can log in".to_string()));
+        assert!(
+            issue
+                .frontmatter
+                .acceptance
+                .contains(&"Users can log in".to_string())
+        );
     }
 
     // =========================================================================
