@@ -165,6 +165,9 @@ pub enum Command {
 
     /// sync issues with the sync branch (sync branch mode only)
     Sync,
+
+    /// show current workflow mode
+    Mode,
 }
 
 #[derive(Subcommand)]
