@@ -3,13 +3,13 @@ schema_version: 4
 id: brd-blyq
 title: add unit tests for agents command
 priority: P3
-status: todo
+status: doing
 deps: []
-owner: null
-created_at: 2025-12-28T08:50:04.939819Z
 tags:
 - testing
-updated_at: 2025-12-28T08:50:04.939819Z
+owner: agent-three
+created_at: 2025-12-28T08:50:04.939819Z
+updated_at: 2025-12-28T21:07:27.414173Z
 ---
 
 agents show/inject commands manage AGENTS.md but have no unit tests.
