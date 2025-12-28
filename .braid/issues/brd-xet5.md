@@ -3,13 +3,13 @@ schema_version: 4
 id: brd-xet5
 title: design smoother workflow mode management and onboarding
 priority: P2
-status: doing
+status: done
 type: design
 deps:
 - brd-jpux
-owner: alextes
+owner: null
 created_at: 2025-12-28T21:06:17.924989Z
-updated_at: 2025-12-28T23:16:27.275329Z
+updated_at: 2025-12-28T23:17:08.281406Z
 ---
 
 the workflow modes from brd-jpux (solo, branch-per-feature, multi-human/remote, local multi-agent) are powerful but the UX for discovering, choosing, and switching between them could be smoother.
