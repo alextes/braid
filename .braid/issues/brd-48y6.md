@@ -3,14 +3,14 @@ schema_version: 4
 id: brd-48y6
 title: add unit tests for TUI state management
 priority: P1
-status: todo
+status: doing
 type: design
 deps: []
-owner: null
-created_at: 2025-12-28T08:48:43.326404Z
 tags:
 - testing
-updated_at: 2025-12-28T08:48:43.326404Z
+owner: agent-one
+created_at: 2025-12-28T08:48:43.326404Z
+updated_at: 2025-12-28T16:50:12.712406Z
 ---
 
 the TUI has 7 input modes and complex state transitions with zero test coverage.
