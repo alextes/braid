@@ -107,10 +107,10 @@ fn generate_commit_message(repo_root: &std::path::Path) -> Result<String> {
             let path = parts[1];
 
             // extract issue ID from path like .braid/issues/brd-xxxx.md
-            if let Some(filename) = path.strip_prefix(".braid/issues/") {
-                if let Some(id) = filename.strip_suffix(".md") {
-                    issue_ids.push(id.to_string());
-                }
+            if let Some(filename) = path.strip_prefix(".braid/issues/")
+                && let Some(id) = filename.strip_suffix(".md")
+            {
+                issue_ids.push(id.to_string());
             }
 
             match status {

@@ -2,6 +2,19 @@
 
 how to cut a new braid release.
 
+## pre-flight checks
+
+before releasing, run locally with CI-equivalent strictness:
+
+```bash
+cargo check
+cargo clippy -- -D warnings
+cargo fmt --all -- --check
+cargo test --all
+```
+
+all must pass — CI will reject the release otherwise.
+
 ## 1. review changes since last release
 
 ```bash
@@ -18,7 +31,7 @@ edit `CHANGELOG.md`:
 ```markdown
 ## [Unreleased]
 
-## [0.3.0] - 2025-12-28
+## [0.4.0] - 2025-12-28
 
 ### Added
 - ...
@@ -29,7 +42,7 @@ edit `CHANGELOG.md`:
 update `version` in `Cargo.toml`:
 
 ```toml
-version = "0.3.0"
+version = "0.4.0"
 ```
 
 ## 4. update lockfile
@@ -44,7 +57,7 @@ cargo build
 
 ```bash
 git add Cargo.toml Cargo.lock CHANGELOG.md
-git commit -m "release: v0.3.0"
+git commit -m "release: v0.4.0"
 ```
 
 ## 6. ship to main (if in agent worktree)
@@ -53,33 +66,32 @@ git commit -m "release: v0.3.0"
 brd agent ship
 ```
 
-## 7. tag and push
+## 7. push and verify CI
+
+push commits to main and **wait for CI to pass** before tagging:
 
 ```bash
-git tag v0.3.0
+git push origin main
+```
+
+check CI status at https://github.com/alextes/braid/actions — do not proceed until the check-lint-test workflow passes.
+
+## 8. tag and push
+
+only after CI passes:
+
+```bash
+git tag v0.4.0
 git push --tags
 ```
 
 this triggers cargo-dist CI which builds binaries for all platforms and creates the github release.
 
-## 8. publish to crates.io
+## 9. publish to crates.io
 
-after CI passes:
+after cargo-dist CI passes:
 
 ```bash
-git checkout v0.3.0
+git checkout v0.4.0
 cargo publish
 ```
-
-## pre-flight checks
-
-before releasing, ensure:
-
-```bash
-cargo check
-cargo clippy
-cargo fmt --all -- --check
-cargo test
-```
-
-all must pass — CI will reject the release otherwise.
