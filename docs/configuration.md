@@ -25,9 +25,9 @@ when you run `brd init` in a directory called `my-project`, the prefix defaults 
 you can change this to any short identifier that makes sense for your project:
 
 ```toml
-id_prefix = "feat"    # feat-a1b2
-id_prefix = "bug"     # bug-c3d4
-id_prefix = "acme"    # acme-e5f6
+id_prefix = "acme"    # acme-a1b2
+id_prefix = "web"     # web-c3d4
+id_prefix = "api"     # api-e5f6
 ```
 
 ### id_len
