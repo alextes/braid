@@ -70,10 +70,7 @@ pub fn cmd_doctor(cli: &Cli, paths: &RepoPaths) -> Result<()> {
     }
 
     // load config for issue operations
-    let config = match crate::config::Config::load(&paths.config_path()) {
-        Ok(c) => c,
-        Err(_) => crate::config::Config::default(),
-    };
+    let config = crate::config::Config::load(&paths.config_path()).unwrap_or_default();
 
     // check 3: all issue files parse correctly
     let issues = load_all_issues(paths, &config)?;
@@ -225,5 +222,331 @@ pub fn cmd_doctor(cli: &Cli, paths: &RepoPaths) -> Result<()> {
         Ok(())
     } else {
         Err(BrdError::Other("doctor found errors".to_string()))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // =========================================================================
+    // parse_frontmatter tests
+    // =========================================================================
+
+    #[test]
+    fn test_parse_frontmatter_valid() {
+        let content = r#"---
+id: test-123
+title: Test Issue
+---
+Body content here."#;
+        let (frontmatter, body) = parse_frontmatter(content).unwrap();
+        assert!(frontmatter.contains("id: test-123"));
+        assert!(frontmatter.contains("title: Test Issue"));
+        assert_eq!(body, "Body content here.");
+    }
+
+    #[test]
+    fn test_parse_frontmatter_with_leading_whitespace() {
+        let content = r#"
+---
+id: test
+---
+Body"#;
+        let (frontmatter, body) = parse_frontmatter(content).unwrap();
+        assert!(frontmatter.contains("id: test"));
+        assert_eq!(body, "Body");
+    }
+
+    #[test]
+    fn test_parse_frontmatter_missing_opening() {
+        let content = "no frontmatter here";
+        let result = parse_frontmatter(content);
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("missing opening ---"));
+    }
+
+    #[test]
+    fn test_parse_frontmatter_missing_closing() {
+        let content = r#"---
+id: test
+title: No closing"#;
+        let result = parse_frontmatter(content);
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("missing closing ---"));
+    }
+
+    #[test]
+    fn test_parse_frontmatter_empty_body() {
+        let content = r#"---
+id: test
+---"#;
+        let (frontmatter, body) = parse_frontmatter(content).unwrap();
+        assert!(frontmatter.contains("id: test"));
+        assert_eq!(body, "");
+    }
+
+    #[test]
+    fn test_parse_frontmatter_multiline_body() {
+        let content = r#"---
+id: test
+---
+Line 1
+Line 2
+Line 3"#;
+        let (_, body) = parse_frontmatter(content).unwrap();
+        assert!(body.contains("Line 1"));
+        assert!(body.contains("Line 2"));
+        assert!(body.contains("Line 3"));
+    }
+
+    // =========================================================================
+    // Integration-style tests using tempfile
+    // =========================================================================
+
+    use std::fs;
+    use tempfile::tempdir;
+
+    fn create_test_repo() -> (tempfile::TempDir, crate::repo::RepoPaths) {
+        let dir = tempdir().unwrap();
+        let paths = crate::repo::RepoPaths {
+            worktree_root: dir.path().to_path_buf(),
+            git_common_dir: dir.path().join(".git"),
+            brd_common_dir: dir.path().join(".git/brd"),
+        };
+        (dir, paths)
+    }
+
+    fn create_braid_dir(paths: &crate::repo::RepoPaths) {
+        fs::create_dir_all(paths.braid_dir().join("issues")).unwrap();
+    }
+
+    fn create_valid_config(paths: &crate::repo::RepoPaths) {
+        let config = crate::config::Config::default();
+        config.save(&paths.config_path()).unwrap();
+    }
+
+    fn create_issue(paths: &crate::repo::RepoPaths, id: &str, deps: &[&str]) {
+        let config = crate::config::Config::default();
+        let deps_yaml = if deps.is_empty() {
+            "deps: []".to_string()
+        } else {
+            format!(
+                "deps:\n{}",
+                deps.iter()
+                    .map(|d| format!("  - {}", d))
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            )
+        };
+        let content = format!(
+            r#"---
+schema_version: {}
+id: {}
+title: Test Issue {}
+priority: P2
+status: todo
+{}
+tags: []
+owner: ~
+created_at: 2024-01-01T00:00:00Z
+updated_at: 2024-01-01T00:00:00Z
+acceptance: []
+---
+Test body."#,
+            migrate::CURRENT_SCHEMA,
+            id,
+            id,
+            deps_yaml
+        );
+        let issue_path = paths.issues_dir(&config).join(format!("{}.md", id));
+        fs::write(issue_path, content).unwrap();
+    }
+
+    fn make_cli() -> crate::cli::Cli {
+        crate::cli::Cli {
+            json: true,
+            repo: None,
+            no_color: true,
+            verbose: false,
+            command: crate::cli::Command::Doctor,
+        }
+    }
+
+    #[test]
+    fn test_doctor_missing_braid_dir() {
+        let (_dir, paths) = create_test_repo();
+        let cli = make_cli();
+
+        let result = cmd_doctor(&cli, &paths);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_doctor_missing_config() {
+        let (_dir, paths) = create_test_repo();
+        create_braid_dir(&paths);
+        // Don't create config.toml
+
+        let cli = make_cli();
+
+        let result = cmd_doctor(&cli, &paths);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_doctor_healthy_repo() {
+        let (_dir, paths) = create_test_repo();
+        create_braid_dir(&paths);
+        create_valid_config(&paths);
+
+        let cli = make_cli();
+
+        // Should pass (only AGENTS.md check fails, which is not an error)
+        let result = cmd_doctor(&cli, &paths);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_doctor_missing_dependency() {
+        let (_dir, paths) = create_test_repo();
+        create_braid_dir(&paths);
+        create_valid_config(&paths);
+        // Create an issue that depends on a non-existent issue
+        create_issue(&paths, "child", &["nonexistent"]);
+
+        let cli = make_cli();
+
+        let result = cmd_doctor(&cli, &paths);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_doctor_valid_dependency() {
+        let (_dir, paths) = create_test_repo();
+        create_braid_dir(&paths);
+        create_valid_config(&paths);
+        create_issue(&paths, "parent", &[]);
+        create_issue(&paths, "child", &["parent"]);
+
+        let cli = make_cli();
+
+        let result = cmd_doctor(&cli, &paths);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_doctor_dependency_cycle() {
+        let (_dir, paths) = create_test_repo();
+        create_braid_dir(&paths);
+        create_valid_config(&paths);
+        // Create a cycle: a -> b -> a
+        create_issue(&paths, "issue-a", &["issue-b"]);
+        create_issue(&paths, "issue-b", &["issue-a"]);
+
+        let cli = make_cli();
+
+        let result = cmd_doctor(&cli, &paths);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_doctor_schema_needs_migration() {
+        let (_dir, paths) = create_test_repo();
+        create_braid_dir(&paths);
+        create_valid_config(&paths);
+
+        // Create an issue with old schema version
+        let config = crate::config::Config::default();
+        let content = r#"---
+brd: 1
+id: old-issue
+title: Old Schema Issue
+priority: P2
+status: todo
+deps: []
+tags: []
+created_at: 2024-01-01T00:00:00Z
+updated_at: 2024-01-01T00:00:00Z
+---
+Old issue."#;
+        let issue_path = paths.issues_dir(&config).join("old-issue.md");
+        fs::write(issue_path, content).unwrap();
+
+        let cli = make_cli();
+
+        // Schema migration warning doesn't cause failure
+        let result = cmd_doctor(&cli, &paths);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_doctor_invalid_config_toml() {
+        let (_dir, paths) = create_test_repo();
+        create_braid_dir(&paths);
+        // Create an invalid config.toml
+        fs::write(paths.config_path(), "this is not valid toml {{{{").unwrap();
+
+        let cli = make_cli();
+
+        let result = cmd_doctor(&cli, &paths);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_doctor_agents_block_present() {
+        let (_dir, paths) = create_test_repo();
+        create_braid_dir(&paths);
+        create_valid_config(&paths);
+
+        // Create AGENTS.md with current version block
+        let block = crate::commands::agents::generate_block();
+        fs::write(
+            paths.worktree_root.join("AGENTS.md"),
+            format!("# Agents\n\n{}", block),
+        )
+        .unwrap();
+
+        let cli = make_cli();
+
+        let result = cmd_doctor(&cli, &paths);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_doctor_agents_block_outdated() {
+        let (_dir, paths) = create_test_repo();
+        create_braid_dir(&paths);
+        create_valid_config(&paths);
+
+        // Create AGENTS.md with old version block
+        let old_block = r#"<!-- braid:agents:start v1 -->
+Old content
+<!-- braid:agents:end -->"#;
+        fs::write(paths.worktree_root.join("AGENTS.md"), old_block).unwrap();
+
+        let cli = make_cli();
+
+        // Outdated agents block is not an error
+        let result = cmd_doctor(&cli, &paths);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_doctor_multiple_errors() {
+        let (_dir, paths) = create_test_repo();
+        create_braid_dir(&paths);
+        create_valid_config(&paths);
+        // Create issues with missing deps AND cycles
+        create_issue(&paths, "issue-a", &["issue-b", "nonexistent"]);
+        create_issue(&paths, "issue-b", &["issue-a"]);
+
+        let cli = make_cli();
+
+        // Should fail and aggregate multiple errors
+        let result = cmd_doctor(&cli, &paths);
+        assert!(result.is_err());
     }
 }
