@@ -3,11 +3,11 @@ schema_version: 4
 id: brd-c2g4
 title: 'brd sync: detect upstream, support local-only'
 priority: P2
-status: todo
+status: doing
 deps: []
-owner: null
+owner: agent-three
 created_at: 2025-12-28T16:21:42.963077Z
-updated_at: 2025-12-28T16:21:42.963077Z
+updated_at: 2025-12-28T20:19:28.112913Z
 ---
 
 update `brd sync` to work in local-only mode when no upstream exists.
