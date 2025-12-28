@@ -502,7 +502,8 @@ Old issue."#;
         create_valid_config(&paths);
 
         // Create AGENTS.md with current version block
-        let block = crate::commands::agents::generate_block();
+        let config = crate::config::Config::default();
+        let block = crate::commands::agents::generate_block(&config);
         fs::write(
             paths.worktree_root.join("AGENTS.md"),
             format!("# Agents\n\n{}", block),

@@ -2,20 +2,19 @@
 
 use std::fs;
 
+use crate::config::Config;
 use crate::error::{BrdError, Result};
 use crate::repo::RepoPaths;
 
 /// current version of the agents block
-pub const AGENTS_BLOCK_VERSION: u32 = 3;
+pub const AGENTS_BLOCK_VERSION: u32 = 4;
 
 const BLOCK_START: &str = "<!-- braid:agents:start";
 const BLOCK_END: &str = "<!-- braid:agents:end -->";
 
-/// generate the agents block content
-pub fn generate_block() -> String {
-    format!(
-        r#"{BLOCK_START} v{AGENTS_BLOCK_VERSION} -->
-## braid workflow
+/// generate the static part of the agents block (mode-independent)
+fn generate_static_block() -> String {
+    r#"## braid workflow
 
 this repo uses braid (`brd`) for issue tracking. issues live in `.braid/issues/` as markdown files.
 
@@ -25,12 +24,11 @@ basic flow:
 3. `brd done <id>` — mark the issue complete
 4. `brd agent ship` — push your work to main
 
-`brd start` automatically syncs with origin/main, claims the issue, and pushes the claim. use `--no-sync` to skip sync or `--no-push` to claim locally only.
-
 useful commands:
 - `brd ls` — list all issues
 - `brd ready` — show issues with no unresolved dependencies
 - `brd show <id>` — view issue details
+- `brd mode` — show current workflow mode
 
 ## working in agent worktrees
 
@@ -56,8 +54,62 @@ if you're in a worktree:
 **meta issues** (`type: meta`) are tracking issues:
 - group related work under a parent issue
 - show progress as "done/total" in `brd ls`
-- typically not picked up directly — work on the child issues instead
-{BLOCK_END}"#
+- typically not picked up directly — work on the child issues instead"#
+        .to_string()
+}
+
+/// generate the dynamic sync section based on mode
+fn generate_sync_section(config: &Config) -> String {
+    if let Some(ref branch) = config.sync_branch {
+        format!(
+            r#"## syncing issues (local-sync mode)
+
+this repo uses **local-sync mode** — issues live on the `{branch}` branch in a shared worktree.
+
+**how it works:**
+- all local agents see issue changes instantly (shared filesystem)
+- `brd start` and `brd done` write to the shared worktree automatically
+- no manual commits needed for issue state changes
+
+**remote sync:**
+- run `brd sync` to push issue changes to the remote
+- run `brd sync` to pull others' issue changes
+
+**switching modes:**
+- `brd mode` — show current mode
+- `brd mode default` — switch back to git-native mode"#
+        )
+    } else {
+        r#"## syncing issues (git-native mode)
+
+this repo uses **git-native mode** — issues live alongside code and sync via git.
+
+**how it works:**
+- `brd start` auto-syncs: fetches, rebases, claims, commits, and pushes
+- issue changes flow through your normal git workflow
+- merge to main or create PRs to share issue state
+
+**after marking an issue done:**
+```bash
+brd done <id>
+git add .braid && git commit -m "done: <id>"
+brd agent ship  # or create a PR
+```
+
+**switching modes:**
+- `brd mode` — show current mode
+- `brd mode sync-local` — switch to local-sync mode for multi-agent setups"#
+            .to_string()
+    }
+}
+
+/// generate the complete agents block content
+pub fn generate_block(config: &Config) -> String {
+    let static_block = generate_static_block();
+    let sync_section = generate_sync_section(config);
+
+    format!(
+        "{BLOCK_START} v{AGENTS_BLOCK_VERSION} -->\n{static_block}\n\n{sync_section}\n{BLOCK_END}"
     )
 }
 
@@ -86,14 +138,29 @@ pub fn check_agents_block(paths: &RepoPaths) -> Option<u32> {
 
 /// print the agents block to stdout
 pub fn cmd_agents_show() -> Result<()> {
-    println!("{}", generate_block());
+    // Show both modes for reference
+    let git_native = Config::default();
+    let mut local_sync = Config::default();
+    local_sync.sync_branch = Some("braid-issues".to_string());
+
+    println!("=== git-native mode ===\n");
+    println!("{}", generate_block(&git_native));
+    println!("\n\n=== local-sync mode ===\n");
+    println!("{}", generate_block(&local_sync));
     Ok(())
 }
 
 /// inject or update the agents block in AGENTS.md
 pub fn cmd_agents_inject(paths: &RepoPaths) -> Result<()> {
+    let config = Config::load(&paths.config_path())?;
     let agents_path = paths.worktree_root.join("AGENTS.md");
-    let block = generate_block();
+    let block = generate_block(&config);
+
+    let mode_name = if config.sync_branch.is_some() {
+        "local-sync"
+    } else {
+        "git-native"
+    };
 
     if agents_path.exists() {
         let content = fs::read_to_string(&agents_path)?;
@@ -106,8 +173,8 @@ pub fn cmd_agents_inject(paths: &RepoPaths) -> Result<()> {
                     format!("{}{}{}", &content[..start_idx], block, &content[end_idx..]);
                 fs::write(&agents_path, new_content)?;
                 println!(
-                    "updated braid agents block in AGENTS.md (v{})",
-                    AGENTS_BLOCK_VERSION
+                    "updated braid agents block in AGENTS.md (v{}, {})",
+                    AGENTS_BLOCK_VERSION, mode_name
                 );
             } else {
                 return Err(BrdError::Other(
@@ -125,8 +192,8 @@ pub fn cmd_agents_inject(paths: &RepoPaths) -> Result<()> {
             content.push('\n');
             fs::write(&agents_path, content)?;
             println!(
-                "added braid agents block to AGENTS.md (v{})",
-                AGENTS_BLOCK_VERSION
+                "added braid agents block to AGENTS.md (v{}, {})",
+                AGENTS_BLOCK_VERSION, mode_name
             );
         }
     } else {
@@ -136,8 +203,8 @@ pub fn cmd_agents_inject(paths: &RepoPaths) -> Result<()> {
             format!("# Instructions for AI agents\n\n{}\n", block),
         )?;
         println!(
-            "created AGENTS.md with braid agents block (v{})",
-            AGENTS_BLOCK_VERSION
+            "created AGENTS.md with braid agents block (v{}, {})",
+            AGENTS_BLOCK_VERSION, mode_name
         );
     }
 
@@ -152,6 +219,13 @@ mod tests {
 
     fn create_paths() -> (tempfile::TempDir, RepoPaths) {
         let dir = tempdir().unwrap();
+        let braid_dir = dir.path().join(".braid");
+        fs::create_dir_all(&braid_dir).unwrap();
+
+        // Create a minimal config
+        let config = Config::default();
+        config.save(&braid_dir.join("config.toml")).unwrap();
+
         let paths = RepoPaths {
             worktree_root: dir.path().to_path_buf(),
             git_common_dir: dir.path().join(".git"),
@@ -162,8 +236,29 @@ mod tests {
     }
 
     #[test]
+    fn test_generate_block_git_native() {
+        let config = Config::default();
+        let block = generate_block(&config);
+        assert!(block.contains("## syncing issues (git-native mode)"));
+        assert!(block.contains("brd agent ship"));
+        assert!(!block.contains("## syncing issues (local-sync mode)"));
+    }
+
+    #[test]
+    fn test_generate_block_local_sync() {
+        let mut config = Config::default();
+        config.sync_branch = Some("braid-issues".to_string());
+        let block = generate_block(&config);
+        assert!(block.contains("## syncing issues (local-sync mode)"));
+        assert!(block.contains("braid-issues"));
+        assert!(block.contains("brd sync"));
+        assert!(!block.contains("## syncing issues (git-native mode)"));
+    }
+
+    #[test]
     fn test_extract_version_from_block() {
-        let block = generate_block();
+        let config = Config::default();
+        let block = generate_block(&config);
         let content = format!("header\n{block}\nfooter");
         assert_eq!(extract_version(&content), Some(AGENTS_BLOCK_VERSION));
     }
@@ -178,7 +273,8 @@ mod tests {
     fn test_check_agents_block_reads_version() {
         let (_dir, paths) = create_paths();
         let agents_path = paths.worktree_root.join("AGENTS.md");
-        fs::write(&agents_path, generate_block()).unwrap();
+        let config = Config::default();
+        fs::write(&agents_path, generate_block(&config)).unwrap();
 
         assert_eq!(check_agents_block(&paths), Some(AGENTS_BLOCK_VERSION));
     }
@@ -221,8 +317,8 @@ mod tests {
         let content = fs::read_to_string(&agents_path).unwrap();
         assert!(content.contains("before"));
         assert!(content.contains("after"));
-        assert!(content.contains(&generate_block()));
         assert!(!content.contains("old\n"));
+        assert!(content.contains(&format!("v{AGENTS_BLOCK_VERSION}")));
     }
 
     #[test]
