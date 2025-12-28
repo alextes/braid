@@ -7,8 +7,9 @@ use ratatui::{
     text::{Line, Span, Text},
     widgets::{Block, Borders, Clear, List, ListItem, ListState, Paragraph, Wrap},
 };
+use time::{Duration as TimeDuration, OffsetDateTime};
 
-use super::app::{ActivePane, App, InputMode};
+use super::app::{ActivePane, App, InputMode, ViewMode};
 
 /// draw the entire UI.
 pub fn draw(f: &mut Frame, app: &mut App) {
@@ -37,14 +38,18 @@ pub fn draw(f: &mut Frame, app: &mut App) {
 }
 
 fn draw_header(f: &mut Frame, area: Rect, app: &App) {
-    let text = format!("brd tui — agent: {}", app.agent_id);
+    let text = if app.view_mode == ViewMode::Live {
+        format!("brd tui — live — agent: {}", app.agent_id)
+    } else {
+        format!("brd tui — agent: {}", app.agent_id)
+    };
     let header = Paragraph::new(text).style(Style::default().fg(Color::Cyan));
     f.render_widget(header, area);
 }
 
 fn draw_footer(f: &mut Frame, area: Rect, app: &App) {
     let msg = app.message.as_deref().unwrap_or("");
-    let help = "[a]dd [e]dit [s]tart [d]one [r]efresh [↑↓/jk]nav [Tab]switch [h/l]dep [enter]open dep [?]help [q]uit";
+    let help = "[a]dd [e]dit [s]tart [d]one [r]efresh [v]live [↑↓/jk]nav [Tab]switch [h/l]dep [enter]open dep [?]help [q]uit";
     let text = if msg.is_empty() {
         help.to_string()
     } else {
@@ -55,6 +60,13 @@ fn draw_footer(f: &mut Frame, area: Rect, app: &App) {
 }
 
 fn draw_main(f: &mut Frame, area: Rect, app: &mut App) {
+    match app.view_mode {
+        ViewMode::Normal => draw_normal_main(f, area, app),
+        ViewMode::Live => draw_live_main(f, area, app),
+    }
+}
+
+fn draw_normal_main(f: &mut Frame, area: Rect, app: &mut App) {
     let chunks = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([Constraint::Percentage(40), Constraint::Percentage(60)])
@@ -72,6 +84,130 @@ fn draw_lists(f: &mut Frame, area: Rect, app: &mut App) {
 
     draw_ready_list(f, chunks[0], app);
     draw_all_list(f, chunks[1], app);
+}
+
+fn draw_live_main(f: &mut Frame, area: Rect, app: &mut App) {
+    let chunks = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Percentage(40), Constraint::Percentage(60)])
+        .split(area);
+
+    draw_live_lists(f, chunks[0], app);
+    draw_detail(f, chunks[1], app);
+}
+
+fn draw_live_lists(f: &mut Frame, area: Rect, app: &mut App) {
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Percentage(65), Constraint::Percentage(35)])
+        .split(area);
+
+    draw_in_progress_list(f, chunks[0], app);
+    draw_recent_done_list(f, chunks[1], app);
+}
+
+fn draw_in_progress_list(f: &mut Frame, area: Rect, app: &mut App) {
+    let border_style = Style::default().fg(Color::Yellow);
+    let title = format!(" In Progress ({}) ", app.in_progress_issues.len());
+    let block = Block::default()
+        .title(title)
+        .borders(Borders::ALL)
+        .border_style(border_style);
+
+    let owner_width = 12usize;
+    let fixed_width = 4 + 2 + 8 + 1 + 2 + 1 + owner_width + 1;
+    let title_width = usize::from(area.width.saturating_sub(fixed_width as u16)).max(1);
+    let view_height = block.inner(area).height as usize;
+    let now = OffsetDateTime::now_utc();
+
+    let items: Vec<ListItem> = app
+        .in_progress_issues
+        .iter()
+        .enumerate()
+        .map(|(i, id)| {
+            let issue = app.issues.get(id).unwrap();
+            let age = format_age(issue.frontmatter.updated_at);
+            let owner = issue.frontmatter.owner.as_deref().unwrap_or("unknown");
+            let owner = truncate(owner, owner_width);
+            let title = truncate(issue.title(), title_width);
+            let text = format!(
+                "{:>4}  {} {} {:<width$} {}",
+                age,
+                id,
+                issue.priority(),
+                owner,
+                title,
+                width = owner_width
+            );
+            let duration = now - issue.frontmatter.updated_at;
+            let age_color = age_color(duration);
+            let style = if !app.in_progress_issues.is_empty() && i == app.in_progress_selected {
+                Style::default()
+                    .bg(Color::Yellow)
+                    .fg(Color::Black)
+                    .add_modifier(Modifier::BOLD)
+            } else {
+                Style::default().fg(age_color)
+            };
+            ListItem::new(text).style(style)
+        })
+        .collect();
+
+    let selected = if app.in_progress_issues.is_empty() {
+        None
+    } else {
+        Some(app.in_progress_selected)
+    };
+    update_offset(
+        &mut app.in_progress_offset,
+        selected,
+        app.in_progress_issues.len(),
+        view_height,
+    );
+    let mut state = ListState::default()
+        .with_selected(selected)
+        .with_offset(app.in_progress_offset);
+    let list = List::new(items)
+        .block(block)
+        .highlight_style(Style::default())
+        .highlight_symbol("");
+    f.render_stateful_widget(list, area, &mut state);
+}
+
+fn draw_recent_done_list(f: &mut Frame, area: Rect, app: &mut App) {
+    let title = format!(" Recently Done ({}) ", app.recent_done_issues.len());
+    let block = Block::default()
+        .title(title)
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::DarkGray));
+
+    let fixed_width = 4 + 1 + 1 + 8 + 1;
+    let title_width = usize::from(area.width.saturating_sub(fixed_width as u16)).max(1);
+
+    let items: Vec<ListItem> = app
+        .recent_done_issues
+        .iter()
+        .map(|id| {
+            let issue = app.issues.get(id).unwrap();
+            let age = format_age(issue.frontmatter.updated_at);
+            let status_char = match issue.status() {
+                crate::issue::Status::Done => '✓',
+                crate::issue::Status::Skip => '⊘',
+                _ => ' ',
+            };
+            let title = truncate(issue.title(), title_width);
+            let text = format!("{:>4} {} {} {}", age, status_char, id, title);
+            let style = match issue.status() {
+                crate::issue::Status::Done => Style::default().fg(Color::Green),
+                crate::issue::Status::Skip => Style::default().fg(Color::DarkGray),
+                _ => Style::default(),
+            };
+            ListItem::new(text).style(style)
+        })
+        .collect();
+
+    let list = List::new(items).block(block);
+    f.render_widget(list, area);
 }
 
 fn draw_ready_list(f: &mut Frame, area: Rect, app: &mut App) {
@@ -401,6 +537,7 @@ fn draw_help(f: &mut Frame, area: Rect) {
         Line::from("  d          Mark selected issue as done"),
         Line::from("  enter      open selected dependency"),
         Line::from("  r          Refresh issues from disk"),
+        Line::from("  v          Toggle live view"),
         Line::from(""),
         Line::from(Span::styled(
             "Other",
@@ -415,10 +552,48 @@ fn draw_help(f: &mut Frame, area: Rect) {
 }
 
 fn truncate(s: &str, max_len: usize) -> String {
+    if max_len == 0 {
+        return String::new();
+    }
+    if max_len == 1 {
+        return "…".to_string();
+    }
     if s.len() <= max_len {
         s.to_string()
     } else {
         format!("{}…", &s[..max_len - 1])
+    }
+}
+
+fn format_age(updated_at: OffsetDateTime) -> String {
+    let now = OffsetDateTime::now_utc();
+    let duration = now - updated_at;
+    let minutes = duration.whole_minutes();
+
+    if minutes < 0 {
+        "0m".to_string()
+    } else if minutes < 60 {
+        format!("{}m", minutes.max(1))
+    } else if minutes < 60 * 24 {
+        format!("{}h", minutes / 60)
+    } else if minutes < 60 * 24 * 7 {
+        format!("{}d", minutes / (60 * 24))
+    } else if minutes < 60 * 24 * 30 {
+        format!("{}w", minutes / (60 * 24 * 7))
+    } else if minutes < 60 * 24 * 365 {
+        format!("{}mo", minutes / (60 * 24 * 30))
+    } else {
+        format!("{}y", minutes / (60 * 24 * 365))
+    }
+}
+
+fn age_color(duration: TimeDuration) -> Color {
+    if duration < TimeDuration::hours(1) {
+        Color::Green
+    } else if duration < TimeDuration::days(1) {
+        Color::Yellow
+    } else {
+        Color::Red
     }
 }
 

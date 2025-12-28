@@ -16,6 +16,13 @@ pub enum ActivePane {
     All,
 }
 
+/// which view mode is currently active.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ViewMode {
+    Normal,
+    Live,
+}
+
 /// input mode for creating/editing issues.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum InputMode {
@@ -43,6 +50,10 @@ pub struct App {
     pub ready_issues: Vec<String>,
     /// all issues (sorted)
     pub all_issues: Vec<String>,
+    /// in-progress issues (sorted by age)
+    pub in_progress_issues: Vec<String>,
+    /// recently completed issues (sorted by updated_at)
+    pub recent_done_issues: Vec<String>,
     /// currently selected index in ready pane
     pub ready_selected: usize,
     /// scroll offset for ready list
@@ -51,8 +62,14 @@ pub struct App {
     pub all_selected: usize,
     /// scroll offset for all list
     pub all_offset: usize,
+    /// currently selected index in in-progress list
+    pub in_progress_selected: usize,
+    /// scroll offset for in-progress list
+    pub in_progress_offset: usize,
     /// which pane is active
     pub active_pane: ActivePane,
+    /// which view is active
+    pub view_mode: ViewMode,
     /// current agent id
     pub agent_id: String,
     /// status message to display
@@ -67,6 +84,8 @@ pub struct App {
     pub detail_dep_selected: Option<usize>,
 }
 
+const RECENT_DONE_LIMIT: usize = 8;
+
 impl App {
     /// create a new app by loading issues from disk.
     pub fn new(paths: &RepoPaths) -> Result<Self> {
@@ -76,11 +95,16 @@ impl App {
             issues: HashMap::new(),
             ready_issues: Vec::new(),
             all_issues: Vec::new(),
+            in_progress_issues: Vec::new(),
+            recent_done_issues: Vec::new(),
             ready_selected: 0,
             ready_offset: 0,
             all_selected: 0,
             all_offset: 0,
+            in_progress_selected: 0,
+            in_progress_offset: 0,
             active_pane: ActivePane::Ready,
+            view_mode: ViewMode::Normal,
             agent_id,
             message: None,
             show_help: false,
@@ -94,6 +118,15 @@ impl App {
 
     /// reload issues from disk.
     pub fn reload_issues(&mut self, paths: &RepoPaths) -> Result<()> {
+        self.reload_issues_with_message(paths, true)
+    }
+
+    /// reload issues from disk, optionally showing a status message.
+    pub fn reload_issues_with_message(
+        &mut self,
+        paths: &RepoPaths,
+        show_message: bool,
+    ) -> Result<()> {
         self.issues = load_all_issues(paths, &self.config)?;
 
         // build ready list
@@ -105,6 +138,31 @@ impl App {
         all.sort_by(|a, b| a.cmp_by_priority(b));
         self.all_issues = all.iter().map(|i| i.id().to_string()).collect();
 
+        // build in-progress list (oldest first)
+        let mut in_progress: Vec<&Issue> = self
+            .issues
+            .values()
+            .filter(|issue| issue.status() == Status::Doing)
+            .collect();
+        in_progress.sort_by(|a, b| a.frontmatter.updated_at.cmp(&b.frontmatter.updated_at));
+        self.in_progress_issues = in_progress
+            .iter()
+            .map(|i| i.id().to_string())
+            .collect();
+
+        // build recent done list (most recent first)
+        let mut recent_done: Vec<&Issue> = self
+            .issues
+            .values()
+            .filter(|issue| matches!(issue.status(), Status::Done | Status::Skip))
+            .collect();
+        recent_done.sort_by(|a, b| b.frontmatter.updated_at.cmp(&a.frontmatter.updated_at));
+        self.recent_done_issues = recent_done
+            .iter()
+            .take(RECENT_DONE_LIMIT)
+            .map(|i| i.id().to_string())
+            .collect();
+
         // clamp selections
         if self.ready_selected >= self.ready_issues.len() && !self.ready_issues.is_empty() {
             self.ready_selected = self.ready_issues.len() - 1;
@@ -112,20 +170,36 @@ impl App {
         if self.all_selected >= self.all_issues.len() && !self.all_issues.is_empty() {
             self.all_selected = self.all_issues.len() - 1;
         }
+        if self.in_progress_selected >= self.in_progress_issues.len()
+            && !self.in_progress_issues.is_empty()
+        {
+            self.in_progress_selected = self.in_progress_issues.len() - 1;
+        }
         if self.ready_offset >= self.ready_issues.len() {
             self.ready_offset = 0;
         }
         if self.all_offset >= self.all_issues.len() {
             self.all_offset = 0;
         }
+        if self.in_progress_offset >= self.in_progress_issues.len() {
+            self.in_progress_offset = 0;
+        }
 
         self.reset_dep_selection();
-        self.message = Some("refreshed".to_string());
+        if show_message {
+            self.message = Some("refreshed".to_string());
+        }
         Ok(())
     }
 
     /// get the currently selected issue id.
     pub fn selected_issue_id(&self) -> Option<&str> {
+        if self.view_mode == ViewMode::Live {
+            return self
+                .in_progress_issues
+                .get(self.in_progress_selected)
+                .map(|s| s.as_str());
+        }
         match self.active_pane {
             ActivePane::Ready => self
                 .ready_issues
@@ -147,6 +221,14 @@ impl App {
 
     /// move selection up.
     pub fn move_up(&mut self) {
+        if self.view_mode == ViewMode::Live {
+            if self.in_progress_selected > 0 {
+                self.in_progress_selected -= 1;
+            }
+            self.reset_dep_selection();
+            self.message = None;
+            return;
+        }
         match self.active_pane {
             ActivePane::Ready => {
                 if self.ready_selected > 0 {
@@ -165,6 +247,14 @@ impl App {
 
     /// move selection down.
     pub fn move_down(&mut self) {
+        if self.view_mode == ViewMode::Live {
+            if self.in_progress_selected + 1 < self.in_progress_issues.len() {
+                self.in_progress_selected += 1;
+            }
+            self.reset_dep_selection();
+            self.message = None;
+            return;
+        }
         match self.active_pane {
             ActivePane::Ready => {
                 if self.ready_selected + 1 < self.ready_issues.len() {
@@ -183,9 +273,22 @@ impl App {
 
     /// switch active pane.
     pub fn switch_pane(&mut self) {
+        if self.view_mode == ViewMode::Live {
+            return;
+        }
         self.active_pane = match self.active_pane {
             ActivePane::Ready => ActivePane::All,
             ActivePane::All => ActivePane::Ready,
+        };
+        self.reset_dep_selection();
+        self.message = None;
+    }
+
+    /// toggle live view mode.
+    pub fn toggle_live_view(&mut self) {
+        self.view_mode = match self.view_mode {
+            ViewMode::Normal => ViewMode::Live,
+            ViewMode::Live => ViewMode::Normal,
         };
         self.reset_dep_selection();
         self.message = None;
@@ -255,6 +358,9 @@ impl App {
         };
 
         if self.select_issue_by_id(&dep_id) {
+            if self.view_mode == ViewMode::Live {
+                self.view_mode = ViewMode::Normal;
+            }
             self.message = None;
         } else {
             self.message = Some("dependency issue missing".to_string());

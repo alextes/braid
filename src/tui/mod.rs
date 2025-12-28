@@ -5,6 +5,7 @@ mod event;
 mod ui;
 
 use std::io;
+use std::time::{Duration, Instant};
 
 use crossterm::{
     event::{DisableMouseCapture, EnableMouseCapture},
@@ -16,7 +17,7 @@ use ratatui::prelude::*;
 use crate::error::Result;
 use crate::repo::RepoPaths;
 
-use app::App;
+use app::{App, ViewMode};
 use event::handle_events;
 
 /// run the TUI application.
@@ -51,11 +52,18 @@ fn run_loop(
     app: &mut App,
     paths: &RepoPaths,
 ) -> Result<()> {
+    let mut last_refresh = Instant::now();
+    let refresh_interval = Duration::from_secs(5);
     loop {
         terminal.draw(|f| ui::draw(f, app))?;
 
         if handle_events(app, paths)? {
             return Ok(());
+        }
+
+        if app.view_mode == ViewMode::Live && last_refresh.elapsed() >= refresh_interval {
+            app.reload_issues_with_message(paths, false)?;
+            last_refresh = Instant::now();
         }
     }
 }

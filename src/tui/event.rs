@@ -222,6 +222,7 @@ fn handle_key_event(app: &mut App, paths: &RepoPaths, key: KeyEvent) -> Result<b
                 app.message = Some(format!("error: {}", e));
             }
         }
+        KeyCode::Char('v') => app.toggle_live_view(),
         KeyCode::Enter => app.open_selected_dependency(),
 
         // help
