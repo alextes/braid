@@ -3,13 +3,13 @@ schema_version: 4
 id: brd-34d4
 title: separate priority emphasis from meta styling in brd ls/ready
 priority: P1
-status: doing
+status: done
 deps: []
 tags:
 - visual
-owner: agent-three
+owner: null
 created_at: 2025-12-28T13:12:35.033894Z
-updated_at: 2025-12-28T15:55:11.459897Z
+updated_at: 2025-12-28T15:59:38.256385Z
 acceptance:
 - priority emphasis does not use the same bold styling as meta issues
 - brd ls and brd ready both reflect the updated styling
