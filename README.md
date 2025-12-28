@@ -120,6 +120,8 @@ braid enables multiple AI agents to work on the same codebase in parallel withou
 
 **the workflow:**
 
+`brd agent ship` is just a convenience wrapper: it rebases your agent branch onto main and fast-forward merges it (no magic).
+
 ```bash
 # agent picks up work (auto-syncs, commits, and pushes the claim)
 brd start              # claims next ready issue
@@ -130,7 +132,7 @@ git add . && git commit -m "feat: implement the thing"
 # agent marks done and ships
 brd done <id>
 git add .braid && git commit -m "done: <id>"
-brd agent ship         # rebase + push to main
+brd agent ship         # rebase + fast-forward merge to main
 ```
 
 `brd start` automatically:
