@@ -1,6 +1,7 @@
 //! brd dep add/rm commands.
 
 use crate::cli::Cli;
+use crate::config::Config;
 use crate::error::{BrdError, Result};
 use crate::graph::would_create_cycle;
 use crate::lock::LockGuard;
@@ -9,9 +10,10 @@ use crate::repo::RepoPaths;
 use super::{load_all_issues, resolve_issue_id};
 
 pub fn cmd_dep_add(cli: &Cli, paths: &RepoPaths, child_id: &str, parent_id: &str) -> Result<()> {
+    let config = Config::load(&paths.config_path())?;
     let _lock = LockGuard::acquire(&paths.lock_path())?;
 
-    let mut issues = load_all_issues(paths)?;
+    let mut issues = load_all_issues(paths, &config)?;
     let child_full = resolve_issue_id(child_id, &issues)?;
     let parent_full = resolve_issue_id(parent_id, &issues)?;
 
@@ -36,7 +38,7 @@ pub fn cmd_dep_add(cli: &Cli, paths: &RepoPaths, child_id: &str, parent_id: &str
     if !child.frontmatter.deps.contains(&parent_full) {
         child.frontmatter.deps.push(parent_full.clone());
         child.touch();
-        let issue_path = paths.issues_dir().join(format!("{}.md", child_full));
+        let issue_path = paths.issues_dir(&config).join(format!("{}.md", child_full));
         child.save(&issue_path)?;
     }
 
@@ -50,9 +52,10 @@ pub fn cmd_dep_add(cli: &Cli, paths: &RepoPaths, child_id: &str, parent_id: &str
 }
 
 pub fn cmd_dep_rm(cli: &Cli, paths: &RepoPaths, child_id: &str, parent_id: &str) -> Result<()> {
+    let config = Config::load(&paths.config_path())?;
     let _lock = LockGuard::acquire(&paths.lock_path())?;
 
-    let mut issues = load_all_issues(paths)?;
+    let mut issues = load_all_issues(paths, &config)?;
     let child_full = resolve_issue_id(child_id, &issues)?;
     let parent_full = resolve_issue_id(parent_id, &issues)?;
 
@@ -62,7 +65,7 @@ pub fn cmd_dep_rm(cli: &Cli, paths: &RepoPaths, child_id: &str, parent_id: &str)
 
     child.frontmatter.deps.retain(|d| d != &parent_full);
     child.touch();
-    let issue_path = paths.issues_dir().join(format!("{}.md", child_full));
+    let issue_path = paths.issues_dir(&config).join(format!("{}.md", child_full));
     child.save(&issue_path)?;
 
     if cli.json {

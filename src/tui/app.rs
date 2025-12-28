@@ -57,12 +57,15 @@ pub struct App {
     pub show_help: bool,
     /// current input mode
     pub input_mode: InputMode,
+    /// current config
+    pub config: Config,
 }
 
 impl App {
     /// create a new app by loading issues from disk.
     pub fn new(paths: &RepoPaths) -> Result<Self> {
         let agent_id = get_agent_id(&paths.worktree_root);
+        let config = Config::load(&paths.config_path())?;
         let mut app = Self {
             issues: HashMap::new(),
             ready_issues: Vec::new(),
@@ -74,6 +77,7 @@ impl App {
             message: None,
             show_help: false,
             input_mode: InputMode::Normal,
+            config,
         };
         app.reload_issues(paths)?;
         Ok(app)
@@ -81,7 +85,7 @@ impl App {
 
     /// reload issues from disk.
     pub fn reload_issues(&mut self, paths: &RepoPaths) -> Result<()> {
-        self.issues = load_all_issues(paths)?;
+        self.issues = load_all_issues(paths, &self.config)?;
 
         // build ready list
         let ready = get_ready_issues(&self.issues);
@@ -198,7 +202,7 @@ impl App {
         issue.touch();
 
         // save issue
-        let issue_path = paths.issues_dir().join(format!("{}.md", issue_id));
+        let issue_path = paths.issues_dir(&self.config).join(format!("{}.md", issue_id));
         issue.save(&issue_path)?;
 
         self.message = Some(format!("started {}", issue_id));
@@ -225,7 +229,7 @@ impl App {
         issue.touch();
 
         // save issue
-        let issue_path = paths.issues_dir().join(format!("{}.md", issue_id));
+        let issue_path = paths.issues_dir(&self.config).join(format!("{}.md", issue_id));
         issue.save(&issue_path)?;
 
         self.message = Some(format!("done {}", issue_id));
@@ -274,14 +278,14 @@ impl App {
             _ => Priority::P2,
         };
 
-        let config = Config::load(&paths.config_path())?;
-        let id = generate_issue_id(&config, &paths.issues_dir())?;
+        let issues_dir = paths.issues_dir(&self.config);
+        let id = generate_issue_id(&self.config, &issues_dir)?;
         let issue = Issue::new(id.clone(), title, priority, vec![]);
 
         let _lock = LockGuard::acquire(&paths.lock_path())?;
 
         // save issue
-        let issue_path = paths.issues_dir().join(format!("{}.md", id));
+        let issue_path = issues_dir.join(format!("{}.md", id));
         issue.save(&issue_path)?;
 
         self.input_mode = InputMode::Normal;
@@ -417,7 +421,7 @@ impl App {
         issue.touch();
 
         // save issue
-        let issue_path = paths.issues_dir().join(format!("{}.md", issue_id));
+        let issue_path = paths.issues_dir(&self.config).join(format!("{}.md", issue_id));
         issue.save(&issue_path)?;
 
         self.input_mode = InputMode::Normal;
@@ -456,9 +460,9 @@ fn generate_issue_id(config: &Config, issues_dir: &std::path::Path) -> Result<St
 }
 
 /// load all issues from the issues directory.
-fn load_all_issues(paths: &RepoPaths) -> Result<HashMap<String, Issue>> {
+fn load_all_issues(paths: &RepoPaths, config: &Config) -> Result<HashMap<String, Issue>> {
     let mut issues = HashMap::new();
-    let issues_dir = paths.issues_dir();
+    let issues_dir = paths.issues_dir(config);
 
     if !issues_dir.exists() {
         return Ok(issues);

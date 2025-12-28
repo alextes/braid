@@ -128,3 +128,28 @@ git fetch origin main && git rebase origin/main && cargo build --release
 ```bash
 brd start <issue-id>   # if you're the owner, you can restart it
 ```
+
+## sync branch mode
+
+if your repository uses sync branch mode, issues live on a separate branch instead of main. this keeps issue commit churn separate from code history.
+
+with sync branch mode enabled:
+
+1. issue commands (`brd start`, `brd done`, etc.) write to a shared issues worktree
+2. use `brd sync` to push issue changes to the sync branch
+3. use `brd agent ship` for code changes (goes to main)
+
+```bash
+# claim and complete an issue
+brd start <issue-id>
+# ... work on it ...
+brd done <issue-id>
+
+# sync issues to remote
+brd sync
+
+# ship code separately
+brd agent ship
+```
+
+see [sync-branch.md](sync-branch.md) for full details.

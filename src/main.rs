@@ -2,7 +2,7 @@ use braid::cli::{AgentAction, AgentsAction, Cli, Command, DepAction};
 use braid::commands::{
     cmd_add, cmd_agent_init, cmd_agents_inject, cmd_agents_show, cmd_commit, cmd_completions,
     cmd_dep_add, cmd_dep_rm, cmd_doctor, cmd_done, cmd_init, cmd_ls, cmd_migrate, cmd_ready,
-    cmd_rm, cmd_search, cmd_ship, cmd_show, cmd_skip, cmd_start, cmd_tui,
+    cmd_rm, cmd_search, cmd_ship, cmd_show, cmd_skip, cmd_start, cmd_sync, cmd_tui,
 };
 use braid::config::Config;
 use braid::error::Result;
@@ -36,8 +36,8 @@ fn main() {
 
 fn run(cli: &Cli) -> Result<()> {
     // handle commands that don't require existing repo
-    if matches!(cli.command, Command::Init) {
-        return cmd_init(cli);
+    if let Command::Init(args) = &cli.command {
+        return cmd_init(cli, args);
     }
     if let Command::Completions { shell } = &cli.command {
         return cmd_completions(*shell);
@@ -59,7 +59,7 @@ fn run(cli: &Cli) -> Result<()> {
     );
 
     match &cli.command {
-        Command::Init => unreachable!(),
+        Command::Init(_) => unreachable!(),
         Command::Add(args) => cmd_add(cli, &paths, args),
         Command::Ls {
             status,
@@ -102,5 +102,6 @@ fn run(cli: &Cli) -> Result<()> {
             Some(AgentsAction::Inject) => cmd_agents_inject(&paths),
             Some(AgentsAction::Show) | None => cmd_agents_show(),
         },
+        Command::Sync => cmd_sync(cli, &paths),
     }
 }

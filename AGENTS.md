@@ -36,6 +36,7 @@ before cutting a release, read [docs/release-workflow.md](docs/release-workflow.
 ## braid-specific docs
 
 - [docs/agent-workflow.md](docs/agent-workflow.md) — full agent worktree workflow
+- [docs/sync-branch.md](docs/sync-branch.md) — sync branch mode (issues on dedicated branch)
 - [docs/design-issues.md](docs/design-issues.md) — design issue workflow
 - [docs/release-workflow.md](docs/release-workflow.md) — how to cut releases
 
@@ -69,6 +70,7 @@ if you're in a worktree:
 
 - each worktree has its own `.braid/` directory — sync via git pull/push
 - use `brd agent ship` to merge your work to main (rebase + fast-forward push)
+- if sync branch mode is active, use `brd sync` to push issue changes
 - if you see schema mismatch errors, rebase onto latest main
 
 ## design and meta issues

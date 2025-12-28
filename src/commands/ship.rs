@@ -3,6 +3,7 @@
 use std::process::Command;
 
 use crate::cli::Cli;
+use crate::config::Config;
 use crate::error::{BrdError, Result};
 use crate::repo::RepoPaths;
 
@@ -115,15 +116,25 @@ pub fn cmd_ship(cli: &Cli, paths: &RepoPaths) -> Result<()> {
     git_check(paths, &["fetch", "origin", "main"])?;
     git_check(paths, &["reset", "--hard", "origin/main"])?;
 
+    // check if sync branch mode is active
+    let config = Config::load(&paths.config_path()).ok();
+    let sync_branch = config.as_ref().and_then(|c| c.sync_branch.as_ref());
+
     if cli.json {
         let json = serde_json::json!({
             "ok": true,
             "branch": branch,
-            "action": "shipped"
+            "action": "shipped",
+            "sync_branch": sync_branch,
         });
         println!("{}", serde_json::to_string_pretty(&json).unwrap());
     } else {
         println!("shipped {} to main", branch);
+        if let Some(sb) = sync_branch {
+            println!();
+            println!("note: sync branch mode is active ({})", sb);
+            println!("  if you have issue changes, run `brd sync` to push them");
+        }
     }
 
     Ok(())

@@ -3,6 +3,7 @@
 use std::path::PathBuf;
 
 use crate::cli::Cli;
+use crate::config::Config;
 use crate::error::{BrdError, Result};
 use crate::repo::RepoPaths;
 
@@ -86,6 +87,17 @@ pub fn cmd_agent_init(cli: &Cli, paths: &RepoPaths, name: &str, base: Option<&st
     let agent_toml_content = format!("agent_id = \"{}\"\n", name);
     std::fs::write(&agent_toml_path, agent_toml_content)?;
 
+    // check for sync branch mode and ensure issues worktree exists
+    let config = Config::load(&paths.config_path()).ok();
+    let sync_branch = config.as_ref().and_then(|c| c.sync_branch.clone());
+
+    if let Some(ref branch) = sync_branch {
+        // ensure the shared issues worktree exists
+        if let Err(e) = paths.ensure_issues_worktree(branch) {
+            eprintln!("warning: failed to ensure issues worktree: {}", e);
+        }
+    }
+
     if cli.json {
         let json = serde_json::json!({
             "ok": true,
@@ -93,17 +105,24 @@ pub fn cmd_agent_init(cli: &Cli, paths: &RepoPaths, name: &str, base: Option<&st
             "worktree": worktree_path.to_string_lossy(),
             "branch": name,
             "base": base_branch,
+            "sync_branch": sync_branch,
         });
         println!("{}", serde_json::to_string_pretty(&json).unwrap());
     } else {
         println!("Created agent worktree: {}", name);
         println!("  path:   {}", worktree_path.display());
         println!("  branch: {} (from {})", name, base_branch);
+        if let Some(sb) = &sync_branch {
+            println!("  sync:   issues on '{}' branch", sb);
+        }
         println!();
         println!("To use this agent:");
         println!("  cd {}", worktree_path.display());
         println!("  # start your agent (claude, codex, gemini, etc.)");
         println!("  brd next  # get next issue to work on");
+        if sync_branch.is_some() {
+            println!("  brd sync  # sync issues with remote");
+        }
     }
 
     Ok(())

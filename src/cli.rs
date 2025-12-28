@@ -39,7 +39,7 @@ pub struct Cli {
 #[derive(Subcommand)]
 pub enum Command {
     /// initialize braid in the current repository
-    Init,
+    Init(InitArgs),
 
     /// add a new issue
     Add(AddArgs),
@@ -162,6 +162,9 @@ pub enum Command {
         #[command(subcommand)]
         action: Option<AgentsAction>,
     },
+
+    /// sync issues with the sync branch (sync branch mode only)
+    Sync,
 }
 
 #[derive(Subcommand)]
@@ -204,6 +207,14 @@ pub enum DepAction {
         /// the dependency to remove
         parent: String,
     },
+}
+
+/// arguments for the init command.
+#[derive(Args)]
+pub struct InitArgs {
+    /// create a sync branch for issue tracking (issues live on this branch, not main)
+    #[arg(long)]
+    pub sync_branch: Option<String>,
 }
 
 /// arguments for the add command.

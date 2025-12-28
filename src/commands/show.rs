@@ -1,6 +1,7 @@
 //! brd show command.
 
 use crate::cli::Cli;
+use crate::config::Config;
 use crate::error::{BrdError, Result};
 use crate::graph::compute_derived;
 use crate::repo::RepoPaths;
@@ -8,7 +9,8 @@ use crate::repo::RepoPaths;
 use super::{issue_to_json, load_all_issues, resolve_issue_id};
 
 pub fn cmd_show(cli: &Cli, paths: &RepoPaths, id: &str) -> Result<()> {
-    let issues = load_all_issues(paths)?;
+    let config = Config::load(&paths.config_path())?;
+    let issues = load_all_issues(paths, &config)?;
     let full_id = resolve_issue_id(id, &issues)?;
     let issue = issues
         .get(&full_id)

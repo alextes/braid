@@ -4,6 +4,7 @@ use crossterm::style::{Attribute, Color, SetAttribute, SetForegroundColor};
 use time::OffsetDateTime;
 
 use crate::cli::Cli;
+use crate::config::Config;
 use crate::error::Result;
 use crate::graph::compute_derived;
 use crate::issue::{Issue, IssueType, Priority, Status};
@@ -49,7 +50,8 @@ pub fn cmd_ls(
     tag_filter: &[String],
     show_all: bool,
 ) -> Result<()> {
-    let issues = load_all_issues(paths)?;
+    let config = Config::load(&paths.config_path())?;
+    let issues = load_all_issues(paths, &config)?;
 
     let status_filter: Option<Status> = status_filter.map(|s| s.parse()).transpose()?;
     let priority_filter: Option<Priority> = priority_filter.map(|p| p.parse()).transpose()?;

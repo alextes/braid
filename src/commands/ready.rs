@@ -3,6 +3,7 @@
 use crossterm::style::{Attribute, Color, SetAttribute, SetForegroundColor};
 
 use crate::cli::Cli;
+use crate::config::Config;
 use crate::error::Result;
 use crate::graph::get_ready_issues;
 use crate::issue::{IssueType, Priority, Status};
@@ -11,7 +12,8 @@ use crate::repo::RepoPaths;
 use super::{issue_to_json, load_all_issues};
 
 pub fn cmd_ready(cli: &Cli, paths: &RepoPaths) -> Result<()> {
-    let issues = load_all_issues(paths)?;
+    let config = Config::load(&paths.config_path())?;
+    let issues = load_all_issues(paths, &config)?;
     let ready = get_ready_issues(&issues);
 
     if cli.json {

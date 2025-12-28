@@ -15,6 +15,9 @@ pub struct Config {
     pub id_prefix: String,
     /// length of the random suffix (default 4, range 4-10)
     pub id_len: u32,
+    /// optional sync branch for issue tracking (if set, issues live on this branch)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sync_branch: Option<String>,
 }
 
 impl Default for Config {
@@ -23,6 +26,7 @@ impl Default for Config {
             schema_version: CURRENT_SCHEMA,
             id_prefix: "brd".to_string(),
             id_len: 4,
+            sync_branch: None,
         }
     }
 }
@@ -35,6 +39,11 @@ impl Config {
             id_prefix: prefix,
             ..Default::default()
         }
+    }
+
+    /// returns true if sync branch mode is enabled.
+    pub fn is_sync_branch_mode(&self) -> bool {
+        self.sync_branch.is_some()
     }
 
     /// load config from a file path.

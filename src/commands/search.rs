@@ -1,11 +1,13 @@
 //! brd search command - prints instructions for searching issues.
 
 use crate::cli::Cli;
+use crate::config::Config;
 use crate::error::Result;
 use crate::repo::RepoPaths;
 
 pub fn cmd_search(cli: &Cli, paths: &RepoPaths) -> Result<()> {
-    let issues_dir = paths.issues_dir();
+    let config = Config::load(&paths.config_path())?;
+    let issues_dir = paths.issues_dir(&config);
 
     if cli.json {
         let json = serde_json::json!({

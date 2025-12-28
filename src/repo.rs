@@ -2,6 +2,7 @@
 
 use std::path::{Path, PathBuf};
 
+use crate::config::Config;
 use crate::error::{BrdError, Result};
 
 /// paths discovered from git for a brd repository.
@@ -21,9 +22,90 @@ impl RepoPaths {
         self.worktree_root.join(".braid")
     }
 
-    /// path to `.braid/issues/`
-    pub fn issues_dir(&self) -> PathBuf {
+    /// path to `.braid/issues/` in the current worktree (default mode)
+    pub fn local_issues_dir(&self) -> PathBuf {
         self.braid_dir().join("issues")
+    }
+
+    /// path to the shared issues worktree directory (sync branch mode)
+    pub fn issues_worktree_dir(&self) -> PathBuf {
+        self.brd_common_dir.join("issues")
+    }
+
+    /// get the issues directory based on config mode.
+    /// - default mode: `.braid/issues/` in current worktree
+    /// - sync branch mode: `<git-common-dir>/brd/issues/.braid/issues/`
+    pub fn issues_dir(&self, config: &Config) -> PathBuf {
+        if config.is_sync_branch_mode() {
+            self.issues_worktree_dir().join(".braid").join("issues")
+        } else {
+            self.local_issues_dir()
+        }
+    }
+
+    /// get the config path based on mode.
+    /// - default mode: `.braid/config.toml` in current worktree
+    /// - sync branch mode: config from issues worktree
+    pub fn resolved_config_path(&self, local_config: &Config) -> PathBuf {
+        if local_config.is_sync_branch_mode() {
+            self.issues_worktree_dir()
+                .join(".braid")
+                .join("config.toml")
+        } else {
+            self.config_path()
+        }
+    }
+
+    /// ensure the issues worktree exists for sync branch mode.
+    /// creates it if it doesn't exist.
+    pub fn ensure_issues_worktree(&self, branch: &str) -> Result<PathBuf> {
+        let wt_path = self.issues_worktree_dir();
+
+        if wt_path.exists() {
+            // worktree already exists, verify it's on the right branch
+            let current = git_rev_parse(&wt_path, "--abbrev-ref HEAD")?;
+            let current_str = current.to_string_lossy();
+            if current_str.trim() != branch {
+                return Err(BrdError::Other(format!(
+                    "issues worktree exists but is on branch '{}', expected '{}'",
+                    current_str.trim(),
+                    branch
+                )));
+            }
+            return Ok(wt_path);
+        }
+
+        // create the worktree
+        let output = std::process::Command::new("git")
+            .args(["worktree", "add", "--detach"])
+            .arg(&wt_path)
+            .arg(branch)
+            .current_dir(&self.worktree_root)
+            .output()?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(BrdError::Other(format!(
+                "failed to create issues worktree: {}",
+                stderr
+            )));
+        }
+
+        // checkout the branch (worktree was created detached, now attach to branch)
+        let output = std::process::Command::new("git")
+            .args(["checkout", branch])
+            .current_dir(&wt_path)
+            .output()?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(BrdError::Other(format!(
+                "failed to checkout branch in issues worktree: {}",
+                stderr
+            )));
+        }
+
+        Ok(wt_path)
     }
 
     /// path to `.braid/config.toml`
@@ -125,11 +207,61 @@ mod tests {
         };
 
         assert_eq!(paths.braid_dir(), PathBuf::from("/repo/.braid"));
-        assert_eq!(paths.issues_dir(), PathBuf::from("/repo/.braid/issues"));
+        assert_eq!(
+            paths.local_issues_dir(),
+            PathBuf::from("/repo/.braid/issues")
+        );
         assert_eq!(
             paths.config_path(),
             PathBuf::from("/repo/.braid/config.toml")
         );
         assert_eq!(paths.lock_path(), PathBuf::from("/repo/.git/brd/lock"));
+    }
+
+    #[test]
+    fn test_issues_dir_default_mode() {
+        let paths = RepoPaths {
+            worktree_root: PathBuf::from("/repo"),
+            git_common_dir: PathBuf::from("/repo/.git"),
+            brd_common_dir: PathBuf::from("/repo/.git/brd"),
+        };
+        let config = Config::default();
+
+        assert_eq!(
+            paths.issues_dir(&config),
+            PathBuf::from("/repo/.braid/issues")
+        );
+    }
+
+    #[test]
+    fn test_issues_dir_sync_branch_mode() {
+        let paths = RepoPaths {
+            worktree_root: PathBuf::from("/repo"),
+            git_common_dir: PathBuf::from("/repo/.git"),
+            brd_common_dir: PathBuf::from("/repo/.git/brd"),
+        };
+        let config = Config {
+            sync_branch: Some("braid-issues".to_string()),
+            ..Default::default()
+        };
+
+        assert_eq!(
+            paths.issues_dir(&config),
+            PathBuf::from("/repo/.git/brd/issues/.braid/issues")
+        );
+    }
+
+    #[test]
+    fn test_issues_worktree_dir() {
+        let paths = RepoPaths {
+            worktree_root: PathBuf::from("/repo"),
+            git_common_dir: PathBuf::from("/repo/.git"),
+            brd_common_dir: PathBuf::from("/repo/.git/brd"),
+        };
+
+        assert_eq!(
+            paths.issues_worktree_dir(),
+            PathBuf::from("/repo/.git/brd/issues")
+        );
     }
 }

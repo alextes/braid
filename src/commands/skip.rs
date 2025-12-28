@@ -1,6 +1,7 @@
 //! brd skip command.
 
 use crate::cli::Cli;
+use crate::config::Config;
 use crate::error::{BrdError, Result};
 use crate::issue::Status;
 use crate::lock::LockGuard;
@@ -9,9 +10,10 @@ use crate::repo::RepoPaths;
 use super::{issue_to_json, load_all_issues, resolve_issue_id};
 
 pub fn cmd_skip(cli: &Cli, paths: &RepoPaths, id: &str) -> Result<()> {
+    let config = Config::load(&paths.config_path())?;
     let _lock = LockGuard::acquire(&paths.lock_path())?;
 
-    let mut issues = load_all_issues(paths)?;
+    let mut issues = load_all_issues(paths, &config)?;
     let full_id = resolve_issue_id(id, &issues)?;
 
     {
@@ -23,7 +25,7 @@ pub fn cmd_skip(cli: &Cli, paths: &RepoPaths, id: &str) -> Result<()> {
         issue.frontmatter.owner = None;
         issue.touch();
 
-        let issue_path = paths.issues_dir().join(format!("{}.md", full_id));
+        let issue_path = paths.issues_dir(&config).join(format!("{}.md", full_id));
         issue.save(&issue_path)?;
     }
 

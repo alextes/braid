@@ -1,13 +1,15 @@
 //! brd migrate command.
 
 use crate::cli::Cli;
+use crate::config::Config;
 use crate::error::Result;
 use crate::issue::Issue;
 use crate::migrate::{self, CURRENT_SCHEMA};
 use crate::repo::RepoPaths;
 
 pub fn cmd_migrate(cli: &Cli, paths: &RepoPaths, dry_run: bool) -> Result<()> {
-    let issues_dir = paths.issues_dir();
+    let config = Config::load(&paths.config_path())?;
+    let issues_dir = paths.issues_dir(&config);
 
     if !issues_dir.exists() {
         if cli.json {

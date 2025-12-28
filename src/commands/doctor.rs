@@ -69,8 +69,14 @@ pub fn cmd_doctor(cli: &Cli, paths: &RepoPaths) -> Result<()> {
         }));
     }
 
+    // load config for issue operations
+    let config = match crate::config::Config::load(&paths.config_path()) {
+        Ok(c) => c,
+        Err(_) => crate::config::Config::default(),
+    };
+
     // check 3: all issue files parse correctly
-    let issues = load_all_issues(paths)?;
+    let issues = load_all_issues(paths, &config)?;
     record_check(
         "issues_parse",
         "all issue files parse correctly",
@@ -79,7 +85,7 @@ pub fn cmd_doctor(cli: &Cli, paths: &RepoPaths) -> Result<()> {
 
     // check 4: all issues at current schema version (check raw files, not migrated structs)
     let mut needs_migration = Vec::new();
-    let issues_dir = paths.issues_dir();
+    let issues_dir = paths.issues_dir(&config);
     if issues_dir.exists() {
         for entry in std::fs::read_dir(&issues_dir)? {
             let entry = entry?;

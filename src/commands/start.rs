@@ -1,6 +1,7 @@
 //! brd start command.
 
 use crate::cli::Cli;
+use crate::config::Config;
 use crate::error::{BrdError, Result};
 use crate::graph::get_ready_issues;
 use crate::issue::{IssueType, Status};
@@ -10,9 +11,10 @@ use crate::repo::{self, RepoPaths};
 use super::{issue_to_json, load_all_issues, resolve_issue_id};
 
 pub fn cmd_start(cli: &Cli, paths: &RepoPaths, id: Option<&str>, force: bool) -> Result<()> {
+    let config = Config::load(&paths.config_path())?;
     let _lock = LockGuard::acquire(&paths.lock_path())?;
 
-    let mut issues = load_all_issues(paths)?;
+    let mut issues = load_all_issues(paths, &config)?;
 
     // resolve issue id: either from argument or pick next ready (skipping meta issues)
     let full_id = match id {
@@ -48,7 +50,7 @@ pub fn cmd_start(cli: &Cli, paths: &RepoPaths, id: Option<&str>, force: bool) ->
         issue.frontmatter.owner = Some(agent_id.clone());
         issue.touch();
 
-        let issue_path = paths.issues_dir().join(format!("{}.md", full_id));
+        let issue_path = paths.issues_dir(&config).join(format!("{}.md", full_id));
         issue.save(&issue_path)?;
     }
 

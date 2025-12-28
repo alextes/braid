@@ -18,6 +18,7 @@ mod ship;
 mod show;
 mod skip;
 mod start;
+mod sync;
 mod tui;
 
 pub use add::cmd_add;
@@ -38,10 +39,12 @@ pub use ship::cmd_ship;
 pub use show::cmd_show;
 pub use skip::cmd_skip;
 pub use start::cmd_start;
+pub use sync::cmd_sync;
 pub use tui::cmd_tui;
 
 use std::collections::HashMap;
 
+use crate::config::Config;
 use crate::error::Result;
 use crate::graph::compute_derived;
 use crate::issue::Issue;
@@ -51,9 +54,9 @@ use crate::repo::RepoPaths;
 pub(crate) use crate::issue::{generate_issue_id, resolve_issue_id};
 
 /// load all issues from the issues directory.
-pub(crate) fn load_all_issues(paths: &RepoPaths) -> Result<HashMap<String, Issue>> {
+pub(crate) fn load_all_issues(paths: &RepoPaths, config: &Config) -> Result<HashMap<String, Issue>> {
     let mut issues = HashMap::new();
-    let issues_dir = paths.issues_dir();
+    let issues_dir = paths.issues_dir(config);
 
     if !issues_dir.exists() {
         return Ok(issues);

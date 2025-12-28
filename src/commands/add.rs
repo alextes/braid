@@ -15,7 +15,7 @@ pub fn cmd_add(cli: &Cli, paths: &RepoPaths, args: &AddArgs) -> Result<()> {
     let issue_type: Option<IssueType> = args.r#type.as_deref().map(|s| s.parse()).transpose()?;
 
     // resolve deps to full IDs
-    let all_issues = load_all_issues(paths)?;
+    let all_issues = load_all_issues(paths, &config)?;
     let resolved_deps: Vec<String> = args
         .dep
         .iter()
@@ -23,7 +23,8 @@ pub fn cmd_add(cli: &Cli, paths: &RepoPaths, args: &AddArgs) -> Result<()> {
         .collect::<Result<Vec<_>>>()?;
 
     // generate ID
-    let id = generate_issue_id(&config, &paths.issues_dir())?;
+    let issues_dir = paths.issues_dir(&config);
+    let id = generate_issue_id(&config, &issues_dir)?;
 
     // create issue
     let mut issue = Issue::new(id.clone(), args.title.clone(), priority, resolved_deps);
@@ -36,7 +37,7 @@ pub fn cmd_add(cli: &Cli, paths: &RepoPaths, args: &AddArgs) -> Result<()> {
 
     // save with lock
     let _lock = LockGuard::acquire(&paths.lock_path())?;
-    let issue_path = paths.issues_dir().join(format!("{}.md", id));
+    let issue_path = issues_dir.join(format!("{}.md", id));
     issue.save(&issue_path)?;
 
     if cli.json {
