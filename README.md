@@ -17,6 +17,15 @@ takes inspiration from [beads](https://github.com/steveyegge/beads).
 - **multi-agent coordination** — multiple agents work in parallel using git worktrees
 - **human-friendly** — simple CLI, partial ID matching, works like you'd expect
 
+## braid vs beads
+
+| | braid | beads |
+| --- | --- | --- |
+| storage | markdown issues in `.braid/issues/` | jsonl issues in `.beads/` |
+| workflow | repo-local, explicit git pull/push | distributed with auto-sync + daemon |
+| ids | human-readable prefix + random suffix | hash-based ids + hierarchy |
+| extras | minimal cli, no background services | sqlite cache, compaction, community tools |
+
 ## installation
 
 ### install script (recommended)
