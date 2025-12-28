@@ -56,3 +56,114 @@ impl LockGuard {
 }
 
 // lock is released automatically when File is dropped (via fs2)
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::{Path, PathBuf};
+    use std::process::Command;
+    use std::thread::sleep;
+    use std::time::{Duration, Instant};
+
+    use tempfile::tempdir;
+
+    const READY_FILENAME: &str = "lock-ready";
+    const RELEASE_FILENAME: &str = "lock-release";
+
+    fn wait_for_file(path: &Path, timeout: Duration) -> bool {
+        let start = Instant::now();
+        while start.elapsed() < timeout {
+            if path.exists() {
+                return true;
+            }
+            sleep(Duration::from_millis(10));
+        }
+        false
+    }
+
+    #[test]
+    fn test_lock_acquire_creates_file() {
+        let dir = tempdir().unwrap();
+        let lock_path = dir.path().join("brd.lock");
+        assert!(!lock_path.exists());
+
+        {
+            let _guard = LockGuard::acquire(&lock_path).unwrap();
+            assert!(lock_path.exists());
+        }
+
+        assert!(lock_path.exists());
+    }
+
+    #[test]
+    fn test_try_acquire_success_and_release() {
+        let dir = tempdir().unwrap();
+        let lock_path = dir.path().join("brd.lock");
+
+        let guard = LockGuard::try_acquire(&lock_path).unwrap();
+        assert!(guard.is_some());
+        drop(guard);
+
+        let guard = LockGuard::try_acquire(&lock_path).unwrap();
+        assert!(guard.is_some());
+    }
+
+    #[test]
+    fn test_try_acquire_when_locked_returns_none() {
+        let dir = tempdir().unwrap();
+        let lock_path = dir.path().join("brd.lock");
+        let ready_path = dir.path().join(READY_FILENAME);
+        let release_path = dir.path().join(RELEASE_FILENAME);
+
+        let exe = std::env::current_exe().unwrap();
+        let mut child = Command::new(exe)
+            .arg("--ignored")
+            .env(
+                "BRD_LOCK_HELPER_LOCK",
+                lock_path.to_string_lossy().to_string(),
+            )
+            .env(
+                "BRD_LOCK_HELPER_READY",
+                ready_path.to_string_lossy().to_string(),
+            )
+            .env(
+                "BRD_LOCK_HELPER_RELEASE",
+                release_path.to_string_lossy().to_string(),
+            )
+            .spawn()
+            .unwrap();
+
+        assert!(
+            wait_for_file(&ready_path, Duration::from_secs(5)),
+            "timed out waiting for helper to lock"
+        );
+
+        let guard = LockGuard::try_acquire(&lock_path).unwrap();
+        assert!(guard.is_none());
+
+        std::fs::write(&release_path, "release").unwrap();
+        let status = child.wait().unwrap();
+        assert!(status.success());
+
+        let guard = LockGuard::try_acquire(&lock_path).unwrap();
+        assert!(guard.is_some());
+    }
+
+    #[test]
+    #[ignore]
+    fn lock_helper() {
+        let lock_path = std::env::var("BRD_LOCK_HELPER_LOCK").expect("missing lock path");
+        let ready_path =
+            PathBuf::from(std::env::var("BRD_LOCK_HELPER_READY").expect("missing ready path"));
+        let release_path =
+            PathBuf::from(std::env::var("BRD_LOCK_HELPER_RELEASE").expect("missing release path"));
+
+        let _guard = LockGuard::acquire(Path::new(&lock_path)).unwrap();
+        std::fs::write(&ready_path, "ready").unwrap();
+
+        assert!(
+            wait_for_file(&release_path, Duration::from_secs(5)),
+            "timed out waiting for release"
+        );
+    }
+}
