@@ -162,8 +162,8 @@ pub fn cmd_agent_branch(cli: &Cli, paths: &RepoPaths, issue_id: &str) -> Result<
     let mut issues = load_all_issues(paths, &config)?;
     let full_id = resolve_issue_id(issue_id, &issues)?;
 
-    // Create branch name: feature/<issue-id>
-    let branch_name = format!("feature/{}", full_id);
+    // create branch name: pr/<agent>/<issue-id>
+    let branch_name = format!("pr/{}/{}", agent_id, full_id);
 
     // Check if branch already exists
     if git(
@@ -317,9 +317,16 @@ fn get_current_branch(cwd: &std::path::Path) -> Result<String> {
     }
 }
 
-/// extract issue ID from branch name (format: <agent>/<issue-id>).
+/// extract issue ID from branch name.
+/// supports both formats:
+/// - "pr/<agent>/<issue-id>" (new format)
+/// - "<agent>/<issue-id>" (legacy format for backwards compatibility)
 fn extract_issue_id_from_branch(branch: &str) -> Option<&str> {
-    branch.split('/').nth(1)
+    if branch.starts_with("pr/") {
+        branch.split('/').nth(2)
+    } else {
+        branch.split('/').nth(1)
+    }
 }
 
 /// create a PR from the current branch using gh cli.
@@ -332,7 +339,7 @@ pub fn cmd_agent_pr(cli: &Cli, paths: &RepoPaths) -> Result<()> {
     // extract issue ID from branch name
     let issue_id = extract_issue_id_from_branch(&branch).ok_or_else(|| {
         BrdError::Other(format!(
-            "branch '{}' doesn't match expected format '<agent>/<issue-id>'",
+            "branch '{}' doesn't match expected format 'pr/<agent>/<issue-id>'",
             branch
         ))
     })?;
