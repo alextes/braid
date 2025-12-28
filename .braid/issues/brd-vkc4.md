@@ -3,13 +3,13 @@ schema_version: 4
 id: brd-vkc4
 title: add unit tests for doctor command
 priority: P1
-status: todo
+status: doing
 deps: []
-owner: null
-created_at: 2025-12-28T08:48:43.455202Z
 tags:
 - testing
-updated_at: 2025-12-28T08:48:43.455202Z
+owner: alextes
+created_at: 2025-12-28T08:48:43.455202Z
+updated_at: 2025-12-28T16:42:55.197418Z
 ---
 
 doctor performs many validation checks but only has integration coverage.
