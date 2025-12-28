@@ -39,7 +39,7 @@ before cutting a release, read [docs/release-workflow.md](docs/release-workflow.
 - [docs/design-issues.md](docs/design-issues.md) — design issue workflow
 - [docs/release-workflow.md](docs/release-workflow.md) — how to cut releases
 
-<!-- braid:agents:start v1 -->
+<!-- braid:agents:start v2 -->
 
 ## braid workflow
 
@@ -55,7 +55,6 @@ useful commands:
 
 - `brd ls` — list all issues
 - `brd ready` — show issues with no unresolved dependencies
-- `brd next` — show the next issue to work on
 - `brd show <id>` — view issue details
 
 ## working in agent worktrees
@@ -68,7 +67,7 @@ cat .braid/agent.toml 2>/dev/null && echo "yes, worktree" || echo "no, main"
 
 if you're in a worktree:
 
-- issue state is shared via the control root (usually the main repo)
+- each worktree has its own `.braid/` directory — sync via git pull/push
 - use `brd agent ship` to merge your work to main (rebase + fast-forward push)
 - if you see schema mismatch errors, rebase onto latest main
 

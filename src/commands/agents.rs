@@ -6,7 +6,7 @@ use crate::error::{BrdError, Result};
 use crate::repo::RepoPaths;
 
 /// current version of the agents block
-pub const AGENTS_BLOCK_VERSION: u32 = 1;
+pub const AGENTS_BLOCK_VERSION: u32 = 2;
 
 const BLOCK_START: &str = "<!-- braid:agents:start";
 const BLOCK_END: &str = "<!-- braid:agents:end -->";
@@ -27,7 +27,6 @@ basic flow:
 useful commands:
 - `brd ls` — list all issues
 - `brd ready` — show issues with no unresolved dependencies
-- `brd next` — show the next issue to work on
 - `brd show <id>` — view issue details
 
 ## working in agent worktrees
@@ -39,7 +38,7 @@ cat .braid/agent.toml 2>/dev/null && echo "yes, worktree" || echo "no, main"
 ```
 
 if you're in a worktree:
-- issue state is shared via the control root (usually the main repo)
+- each worktree has its own `.braid/` directory — sync via git pull/push
 - use `brd agent ship` to merge your work to main (rebase + fast-forward push)
 - if you see schema mismatch errors, rebase onto latest main
 
