@@ -145,10 +145,7 @@ impl App {
             .filter(|issue| issue.status() == Status::Doing)
             .collect();
         in_progress.sort_by(|a, b| a.frontmatter.updated_at.cmp(&b.frontmatter.updated_at));
-        self.in_progress_issues = in_progress
-            .iter()
-            .map(|i| i.id().to_string())
-            .collect();
+        self.in_progress_issues = in_progress.iter().map(|i| i.id().to_string()).collect();
 
         // build recent done list (most recent first)
         let mut recent_done: Vec<&Issue> = self
