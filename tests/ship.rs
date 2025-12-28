@@ -80,6 +80,7 @@ impl ShipEnv {
         self.git_ok(&["init"]);
         self.git_ok(&["config", "user.email", "test@test.com"]);
         self.git_ok(&["config", "user.name", "test user"]);
+        self.git_ok(&["config", "commit.gpgsign", "false"]);
         self.git_ok(&["checkout", "-b", "main"]);
 
         self.write_file("README.md", "test repo\n");
