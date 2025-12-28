@@ -1,27 +1,280 @@
-//! brd start command.
+//! brd start command with auto-sync.
+
+use std::process::Command;
 
 use crate::cli::Cli;
 use crate::config::Config;
 use crate::error::{BrdError, Result};
 use crate::graph::get_ready_issues;
-use crate::issue::{IssueType, Status};
+use crate::issue::{Issue, IssueType, Status};
 use crate::lock::LockGuard;
 use crate::repo::{self, RepoPaths};
 
 use super::{issue_to_json, load_all_issues, resolve_issue_id};
 
-pub fn cmd_start(cli: &Cli, paths: &RepoPaths, id: Option<&str>, force: bool) -> Result<()> {
-    let config = Config::load(&paths.config_path())?;
-    let _lock = LockGuard::acquire(&paths.lock_path())?;
+/// Run a git command and return success status.
+fn git(args: &[&str], cwd: &std::path::Path) -> std::io::Result<bool> {
+    let output = Command::new("git").args(args).current_dir(cwd).output()?;
+    Ok(output.status.success())
+}
 
+/// Run a git command and return stdout.
+fn git_output(args: &[&str], cwd: &std::path::Path) -> std::io::Result<String> {
+    let output = Command::new("git").args(args).current_dir(cwd).output()?;
+    Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+}
+
+/// Check if working tree is clean.
+fn is_clean(cwd: &std::path::Path) -> Result<bool> {
+    let output = git_output(&["status", "--porcelain"], cwd)?;
+    Ok(output.is_empty())
+}
+
+/// Check for done issues that haven't been pushed to main yet.
+fn check_unshipped_done_issues(
+    paths: &RepoPaths,
+    config: &Config,
+    cli: &Cli,
+) -> Result<Option<Vec<String>>> {
+    // Get list of done issues locally
+    let issues = load_all_issues(paths, config)?;
+    let local_done: Vec<&Issue> = issues
+        .values()
+        .filter(|i| i.status() == Status::Done)
+        .collect();
+
+    if local_done.is_empty() {
+        return Ok(None);
+    }
+
+    // Check which ones are different from origin/main
+    let mut unshipped = Vec::new();
+    for issue in local_done {
+        let issue_file = format!(".braid/issues/{}.md", issue.id());
+        // Check if file differs from origin/main
+        let diff_output = git_output(&["diff", "origin/main", "--", &issue_file], &paths.worktree_root)?;
+        if !diff_output.is_empty() {
+            unshipped.push(issue.id().to_string());
+        }
+    }
+
+    if unshipped.is_empty() {
+        Ok(None)
+    } else {
+        if !cli.json {
+            eprintln!(
+                "warning: {} done issue(s) not yet in main: {}",
+                unshipped.len(),
+                unshipped.join(", ")
+            );
+            eprintln!("  consider running `brd agent ship` first");
+        }
+        Ok(Some(unshipped))
+    }
+}
+
+/// Check if origin remote exists.
+fn has_origin(cwd: &std::path::Path) -> bool {
+    git(&["remote", "get-url", "origin"], cwd).unwrap_or(false)
+}
+
+/// Check if origin/main exists.
+fn has_origin_main(cwd: &std::path::Path) -> bool {
+    git(&["rev-parse", "--verify", "origin/main"], cwd).unwrap_or(false)
+}
+
+/// Fetch and rebase onto origin/main.
+fn sync_with_main(paths: &RepoPaths, cli: &Cli) -> Result<()> {
+    // Skip if no origin remote
+    if !has_origin(&paths.worktree_root) {
+        if !cli.json {
+            eprintln!("(no origin remote, skipping sync)");
+        }
+        return Ok(());
+    }
+
+    if !cli.json {
+        eprintln!("syncing with origin/main...");
+    }
+
+    // Check for clean working tree (outside .braid)
+    if !is_clean(&paths.worktree_root)? {
+        // Check if only .braid changes
+        let status = git_output(&["status", "--porcelain"], &paths.worktree_root)?;
+        let non_braid_changes = status
+            .lines()
+            .any(|line| !line.contains(".braid/"));
+        if non_braid_changes {
+            return Err(BrdError::Other(
+                "working tree has uncommitted changes outside .braid - commit or stash first".to_string(),
+            ));
+        }
+    }
+
+    // Fetch
+    if !git(&["fetch", "origin", "main"], &paths.worktree_root)? {
+        // origin exists but main branch doesn't - skip sync
+        if !cli.json {
+            eprintln!("  (origin/main not found, skipping rebase)");
+        }
+        return Ok(());
+    }
+
+    // Only rebase if origin/main exists
+    if has_origin_main(&paths.worktree_root) {
+        if !git(&["rebase", "origin/main"], &paths.worktree_root)? {
+            // Abort rebase on failure
+            let _ = git(&["rebase", "--abort"], &paths.worktree_root);
+            return Err(BrdError::Other(
+                "rebase failed - resolve conflicts manually or use --no-sync".to_string(),
+            ));
+        }
+    }
+
+    Ok(())
+}
+
+/// Commit and push the claim to main with retry logic.
+fn commit_and_push_main(paths: &RepoPaths, issue_id: &str, cli: &Cli) -> Result<()> {
+    // Commit
+    if !git(&["add", ".braid"], &paths.worktree_root)? {
+        return Err(BrdError::Other("failed to stage .braid".to_string()));
+    }
+
+    let commit_msg = format!("start: {}", issue_id);
+    if !git(&["commit", "-m", &commit_msg], &paths.worktree_root)? {
+        // Nothing to commit is ok
+        if !cli.json {
+            eprintln!("  (no changes to commit)");
+        }
+    }
+
+    // Skip push if no origin remote
+    if !has_origin(&paths.worktree_root) {
+        if !cli.json {
+            eprintln!("  (no origin remote, skipping push)");
+        }
+        return Ok(());
+    }
+
+    // Push with retry
+    const MAX_RETRIES: u32 = 2;
+    for attempt in 0..=MAX_RETRIES {
+        if git(&["push", "origin", "HEAD:main"], &paths.worktree_root)? {
+            return Ok(());
+        }
+
+        if attempt < MAX_RETRIES {
+            if !cli.json {
+                eprintln!("  push rejected, rebasing and retrying ({}/{})...", attempt + 1, MAX_RETRIES);
+            }
+
+            // Pull and rebase
+            if !git(&["fetch", "origin", "main"], &paths.worktree_root)? {
+                return Err(BrdError::Other("failed to fetch during retry".to_string()));
+            }
+            if !git(&["rebase", "origin/main"], &paths.worktree_root)? {
+                let _ = git(&["rebase", "--abort"], &paths.worktree_root);
+                return Err(BrdError::Other(
+                    "rebase failed during push retry - resolve manually".to_string(),
+                ));
+            }
+        }
+    }
+
+    Err(BrdError::Other(format!(
+        "push failed after {} retries - another agent may have pushed. \
+         run `git pull --rebase origin main` and check if issue is still available",
+        MAX_RETRIES
+    )))
+}
+
+/// Commit and push to sync branch.
+fn commit_and_push_sync_branch(
+    paths: &RepoPaths,
+    config: &Config,
+    issue_id: &str,
+    cli: &Cli,
+) -> Result<()> {
+    let branch = config.sync_branch.as_ref().ok_or_else(|| {
+        BrdError::Other("sync_branch not configured".to_string())
+    })?;
+
+    let issues_wt = paths.ensure_issues_worktree(branch)?;
+
+    // Commit
+    if !git(&["add", ".braid"], &issues_wt)? {
+        return Err(BrdError::Other("failed to stage .braid in sync worktree".to_string()));
+    }
+
+    let commit_msg = format!("start: {}", issue_id);
+    if !git(&["commit", "-m", &commit_msg], &issues_wt)? {
+        if !cli.json {
+            eprintln!("  (no changes to commit in sync branch)");
+        }
+    }
+
+    // Push with retry
+    const MAX_RETRIES: u32 = 2;
+    for attempt in 0..=MAX_RETRIES {
+        if git(&["push", "origin", branch], &issues_wt)? {
+            return Ok(());
+        }
+
+        if attempt < MAX_RETRIES {
+            if !cli.json {
+                eprintln!("  push rejected, rebasing sync branch ({}/{})...", attempt + 1, MAX_RETRIES);
+            }
+
+            if !git(&["fetch", "origin", branch], &issues_wt)? {
+                return Err(BrdError::Other("failed to fetch sync branch during retry".to_string()));
+            }
+            if !git(&["rebase", &format!("origin/{}", branch)], &issues_wt)? {
+                let _ = git(&["rebase", "--abort"], &issues_wt);
+                return Err(BrdError::Other(
+                    "rebase failed on sync branch - resolve manually".to_string(),
+                ));
+            }
+        }
+    }
+
+    Err(BrdError::Other(format!(
+        "push to sync branch failed after {} retries",
+        MAX_RETRIES
+    )))
+}
+
+pub fn cmd_start(
+    cli: &Cli,
+    paths: &RepoPaths,
+    id: Option<&str>,
+    force: bool,
+    no_sync: bool,
+    no_push: bool,
+) -> Result<()> {
+    let config = Config::load(&paths.config_path())?;
+    let is_sync_mode = config.is_sync_branch_mode();
+
+    // Step 1: Pre-flight check for unshipped done issues (git-native mode only)
+    if !no_sync && !is_sync_mode {
+        // Try to check, but don't fail if origin/main doesn't exist
+        let _ = check_unshipped_done_issues(paths, &config, cli);
+    }
+
+    // Step 2: Sync with main (git-native mode only)
+    if !no_sync && !is_sync_mode {
+        sync_with_main(paths, cli)?;
+    }
+
+    // Step 3: Reload issues and claim
+    let _lock = LockGuard::acquire(&paths.lock_path())?;
     let mut issues = load_all_issues(paths, &config)?;
 
-    // resolve issue id: either from argument or pick next ready (skipping meta issues)
+    // Resolve issue id
     let full_id = match id {
         Some(partial) => resolve_issue_id(partial, &issues)?,
         None => {
             let ready = get_ready_issues(&issues);
-            // skip meta issues - they're tracking containers, not actionable work
             ready
                 .into_iter()
                 .find(|issue| issue.issue_type() != Some(IssueType::Meta))
@@ -32,12 +285,12 @@ pub fn cmd_start(cli: &Cli, paths: &RepoPaths, id: Option<&str>, force: bool) ->
 
     let agent_id = repo::get_agent_id(&paths.worktree_root);
 
+    // Verify issue is still available and claim it
     {
         let issue = issues
             .get_mut(&full_id)
             .ok_or_else(|| BrdError::IssueNotFound(full_id.clone()))?;
 
-        // check if already being worked on
         if issue.status() == Status::Doing && !force {
             let owner = issue.frontmatter.owner.as_deref().unwrap_or("unknown");
             return Err(BrdError::Other(format!(
@@ -54,6 +307,16 @@ pub fn cmd_start(cli: &Cli, paths: &RepoPaths, id: Option<&str>, force: bool) ->
         issue.save(&issue_path)?;
     }
 
+    // Step 4: Commit and push (unless --no-push)
+    if !no_push {
+        if is_sync_mode {
+            commit_and_push_sync_branch(paths, &config, &full_id, cli)?;
+        } else {
+            commit_and_push_main(paths, &full_id, cli)?;
+        }
+    }
+
+    // Output
     if cli.json {
         let issue = issues.get(&full_id).unwrap();
         let json = issue_to_json(issue, &issues);

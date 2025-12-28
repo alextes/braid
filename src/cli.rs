@@ -94,6 +94,14 @@ pub enum Command {
         /// force start even if already being worked on
         #[arg(long)]
         force: bool,
+
+        /// skip fetch/rebase, trust local state
+        #[arg(long)]
+        no_sync: bool,
+
+        /// claim locally but don't commit/push
+        #[arg(long)]
+        no_push: bool,
     },
 
     /// mark an issue as done

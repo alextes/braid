@@ -84,7 +84,9 @@ fn run(cli: &Cli) -> Result<()> {
             DepAction::Add { child, parent } => cmd_dep_add(cli, &paths, child, parent),
             DepAction::Rm { child, parent } => cmd_dep_rm(cli, &paths, child, parent),
         },
-        Command::Start { id, force } => cmd_start(cli, &paths, id.as_deref(), *force),
+        Command::Start { id, force, no_sync, no_push } => {
+            cmd_start(cli, &paths, id.as_deref(), *force, *no_sync, *no_push)
+        }
         Command::Done { id, force } => cmd_done(cli, &paths, id, *force),
         Command::Skip { id } => cmd_skip(cli, &paths, id),
         Command::Rm { id, force } => cmd_rm(cli, &paths, id, *force),

@@ -3,12 +3,12 @@ schema_version: 4
 id: brd-t2o8
 title: smarter brd start with auto-sync
 priority: P1
-status: doing
+status: done
 type: design
 deps: []
-owner: agent-one
+owner: null
 created_at: 2025-12-28T17:30:56.763758Z
-updated_at: 2025-12-28T17:33:33.678048Z
+updated_at: 2025-12-28T17:45:40.592713Z
 ---
 
 make `brd start` handle syncing automatically to prevent stale claims and race conditions.
