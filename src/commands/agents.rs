@@ -143,3 +143,95 @@ pub fn cmd_agents_inject(paths: &RepoPaths) -> Result<()> {
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use tempfile::tempdir;
+
+    fn create_paths() -> (tempfile::TempDir, RepoPaths) {
+        let dir = tempdir().unwrap();
+        let paths = RepoPaths {
+            worktree_root: dir.path().to_path_buf(),
+            git_common_dir: dir.path().join(".git"),
+            brd_common_dir: dir.path().join(".git/brd"),
+        };
+        fs::create_dir_all(&paths.brd_common_dir).unwrap();
+        (dir, paths)
+    }
+
+    #[test]
+    fn test_extract_version_from_block() {
+        let block = generate_block();
+        let content = format!("header\n{block}\nfooter");
+        assert_eq!(extract_version(&content), Some(AGENTS_BLOCK_VERSION));
+    }
+
+    #[test]
+    fn test_extract_version_missing_block() {
+        let content = "no agents block here";
+        assert_eq!(extract_version(content), None);
+    }
+
+    #[test]
+    fn test_check_agents_block_reads_version() {
+        let (_dir, paths) = create_paths();
+        let agents_path = paths.worktree_root.join("AGENTS.md");
+        fs::write(&agents_path, generate_block()).unwrap();
+
+        assert_eq!(check_agents_block(&paths), Some(AGENTS_BLOCK_VERSION));
+    }
+
+    #[test]
+    fn test_cmd_agents_inject_creates_file() {
+        let (_dir, paths) = create_paths();
+        cmd_agents_inject(&paths).unwrap();
+
+        let content = fs::read_to_string(paths.worktree_root.join("AGENTS.md")).unwrap();
+        assert!(content.contains("Instructions for AI agents"));
+        assert!(content.contains(BLOCK_START));
+        assert!(content.contains(BLOCK_END));
+        assert!(content.contains(&format!("v{AGENTS_BLOCK_VERSION}")));
+    }
+
+    #[test]
+    fn test_cmd_agents_inject_appends_block() {
+        let (_dir, paths) = create_paths();
+        let agents_path = paths.worktree_root.join("AGENTS.md");
+        fs::write(&agents_path, "custom header\n").unwrap();
+
+        cmd_agents_inject(&paths).unwrap();
+
+        let content = fs::read_to_string(&agents_path).unwrap();
+        assert!(content.starts_with("custom header"));
+        assert!(content.contains(BLOCK_START));
+        assert!(content.contains(BLOCK_END));
+    }
+
+    #[test]
+    fn test_cmd_agents_inject_updates_existing_block() {
+        let (_dir, paths) = create_paths();
+        let agents_path = paths.worktree_root.join("AGENTS.md");
+        let old_block = format!("{BLOCK_START} v1 -->\nold\n{BLOCK_END}");
+        fs::write(&agents_path, format!("before\n{old_block}\nafter")).unwrap();
+
+        cmd_agents_inject(&paths).unwrap();
+
+        let content = fs::read_to_string(&agents_path).unwrap();
+        assert!(content.contains("before"));
+        assert!(content.contains("after"));
+        assert!(content.contains(&generate_block()));
+        assert!(!content.contains("old\n"));
+    }
+
+    #[test]
+    fn test_cmd_agents_inject_missing_end_marker() {
+        let (_dir, paths) = create_paths();
+        let agents_path = paths.worktree_root.join("AGENTS.md");
+        fs::write(&agents_path, format!("{BLOCK_START} v1 -->\nno end")).unwrap();
+
+        let err = cmd_agents_inject(&paths).unwrap_err();
+        assert!(err.to_string().contains("no end marker"));
+    }
+}
