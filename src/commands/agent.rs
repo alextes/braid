@@ -152,7 +152,12 @@ pub fn cmd_agent_branch(cli: &Cli, paths: &RepoPaths, issue_id: &str) -> Result<
     let branch_name = format!("{}/{}", agent_id, full_id);
 
     // check if branch already exists
-    if git(&["rev-parse", "--verify", &branch_name], &paths.worktree_root).unwrap_or(false) {
+    if git(
+        &["rev-parse", "--verify", &branch_name],
+        &paths.worktree_root,
+    )
+    .unwrap_or(false)
+    {
         return Err(BrdError::Other(format!(
             "branch '{}' already exists",
             branch_name
