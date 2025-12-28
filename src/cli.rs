@@ -172,8 +172,24 @@ pub enum Command {
         push: bool,
     },
 
-    /// show current workflow mode
-    Mode,
+    /// manage workflow mode
+    Mode {
+        #[command(subcommand)]
+        action: Option<ModeAction>,
+    },
+}
+
+#[derive(Subcommand)]
+pub enum ModeAction {
+    /// switch to local-sync mode (issues on a sync branch)
+    SyncLocal {
+        /// name of the sync branch (default: braid-issues)
+        #[arg(default_value = "braid-issues")]
+        branch: String,
+    },
+
+    /// switch back to git-native mode (issues on main)
+    Default,
 }
 
 #[derive(Subcommand)]

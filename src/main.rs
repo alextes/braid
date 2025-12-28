@@ -1,9 +1,9 @@
-use braid::cli::{AgentAction, Cli, Command, DepAction};
+use braid::cli::{AgentAction, Cli, Command, DepAction, ModeAction};
 use braid::commands::{
     cmd_add, cmd_agent_branch, cmd_agent_init, cmd_agents_inject, cmd_agents_show, cmd_commit,
     cmd_completions, cmd_dep_add, cmd_dep_rm, cmd_doctor, cmd_done, cmd_init, cmd_ls, cmd_migrate,
-    cmd_mode, cmd_ready, cmd_rm, cmd_search, cmd_ship, cmd_show, cmd_skip, cmd_start, cmd_sync,
-    cmd_tui,
+    cmd_mode_default, cmd_mode_show, cmd_mode_sync_local, cmd_ready, cmd_rm, cmd_search, cmd_ship,
+    cmd_show, cmd_skip, cmd_start, cmd_sync, cmd_tui,
 };
 use braid::config::Config;
 use braid::error::Result;
@@ -108,6 +108,10 @@ fn run(cli: &Cli) -> Result<()> {
         Command::Search => cmd_search(cli, &paths),
         Command::Commit { message } => cmd_commit(cli, &paths, message.as_deref()),
         Command::Sync { push } => cmd_sync(cli, &paths, *push),
-        Command::Mode => cmd_mode(cli, &paths),
+        Command::Mode { action } => match action {
+            None => cmd_mode_show(cli, &paths),
+            Some(ModeAction::SyncLocal { branch }) => cmd_mode_sync_local(cli, &paths, branch),
+            Some(ModeAction::Default) => cmd_mode_default(cli, &paths),
+        },
     }
 }
