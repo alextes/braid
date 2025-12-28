@@ -29,7 +29,14 @@ fn is_clean(cwd: &std::path::Path) -> Result<bool> {
     Ok(output.is_empty())
 }
 
-pub fn cmd_sync(cli: &Cli, paths: &RepoPaths) -> Result<()> {
+fn has_upstream(branch: &str, cwd: &std::path::Path) -> Result<bool> {
+    git(
+        &["rev-parse", "--abbrev-ref", &format!("{branch}@{{u}}")],
+        cwd,
+    )
+}
+
+pub fn cmd_sync(cli: &Cli, paths: &RepoPaths, push: bool) -> Result<()> {
     let config = Config::load(&paths.config_path())?;
 
     let branch = config.sync_branch.as_ref().ok_or_else(|| {
@@ -41,8 +48,15 @@ pub fn cmd_sync(cli: &Cli, paths: &RepoPaths) -> Result<()> {
     // ensure issues worktree exists
     let issues_wt = paths.ensure_issues_worktree(branch)?;
 
+    let has_upstream = has_upstream(branch, &issues_wt)?;
+    let should_push = has_upstream || push;
+
     if !cli.json {
-        println!("Syncing issues with remote '{}'...", branch);
+        if should_push {
+            println!("Syncing issues with remote '{}'...", branch);
+        } else {
+            println!("syncing issues locally on '{}'...", branch);
+        }
     }
 
     // 1. check for local changes in issues worktree
@@ -62,13 +76,15 @@ pub fn cmd_sync(cli: &Cli, paths: &RepoPaths) -> Result<()> {
     }
 
     // 3. fetch and rebase
-    if !cli.json {
-        println!("  fetching origin/{}...", branch);
-    }
-
-    // try to fetch; if remote doesn't exist, that's ok (first sync)
-    let fetch_result = git(&["fetch", "origin", branch], &issues_wt);
-    let remote_exists = fetch_result.unwrap_or(false);
+    let remote_exists = if has_upstream {
+        if !cli.json {
+            println!("  fetching origin/{}...", branch);
+        }
+        // try to fetch; if remote doesn't exist, that's ok (first sync)
+        git(&["fetch", "origin", branch], &issues_wt)?
+    } else {
+        false
+    };
 
     if remote_exists {
         if !cli.json {
@@ -114,16 +130,18 @@ pub fn cmd_sync(cli: &Cli, paths: &RepoPaths) -> Result<()> {
     }
 
     // 6. push to remote
-    if !cli.json {
-        println!("  pushing to origin/{}...", branch);
-    }
-    if !git(&["push", "origin", branch], &issues_wt)? {
-        // try with --set-upstream if first push
-        if !git(&["push", "--set-upstream", "origin", branch], &issues_wt)? {
-            return Err(BrdError::Other(format!(
-                "failed to push to origin/{}. you may need to pull and retry.",
-                branch
-            )));
+    if should_push {
+        if !cli.json {
+            println!("  pushing to origin/{}...", branch);
+        }
+        if !git(&["push", "origin", branch], &issues_wt)? {
+            // try with --set-upstream if first push
+            if !git(&["push", "--set-upstream", "origin", branch], &issues_wt)? {
+                return Err(BrdError::Other(format!(
+                    "failed to push to origin/{}. you may need to pull and retry.",
+                    branch
+                )));
+            }
         }
     }
 

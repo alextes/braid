@@ -166,7 +166,11 @@ pub enum Command {
     },
 
     /// sync issues with the sync branch (sync branch mode only)
-    Sync,
+    Sync {
+        /// push and set upstream if needed
+        #[arg(long)]
+        push: bool,
+    },
 
     /// show current workflow mode
     Mode,

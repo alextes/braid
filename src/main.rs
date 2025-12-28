@@ -105,7 +105,7 @@ fn run(cli: &Cli) -> Result<()> {
         Command::Migrate { dry_run } => cmd_migrate(cli, &paths, *dry_run),
         Command::Search => cmd_search(cli, &paths),
         Command::Commit { message } => cmd_commit(cli, &paths, message.as_deref()),
-        Command::Sync => cmd_sync(cli, &paths),
+        Command::Sync { push } => cmd_sync(cli, &paths, *push),
         Command::Mode => cmd_mode(cli, &paths),
     }
 }
