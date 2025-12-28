@@ -5,13 +5,13 @@ use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span, Text},
-    widgets::{Block, Borders, Clear, List, ListItem, Paragraph, Wrap},
+    widgets::{Block, Borders, Clear, List, ListItem, ListState, Paragraph, Wrap},
 };
 
 use super::app::{ActivePane, App, InputMode};
 
 /// draw the entire UI.
-pub fn draw(f: &mut Frame, app: &App) {
+pub fn draw(f: &mut Frame, app: &mut App) {
     if app.show_help {
         draw_help(f, f.area());
         return;
@@ -54,7 +54,7 @@ fn draw_footer(f: &mut Frame, area: Rect, app: &App) {
     f.render_widget(footer, area);
 }
 
-fn draw_main(f: &mut Frame, area: Rect, app: &App) {
+fn draw_main(f: &mut Frame, area: Rect, app: &mut App) {
     let chunks = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([Constraint::Percentage(40), Constraint::Percentage(60)])
@@ -64,7 +64,7 @@ fn draw_main(f: &mut Frame, area: Rect, app: &App) {
     draw_detail(f, chunks[1], app);
 }
 
-fn draw_lists(f: &mut Frame, area: Rect, app: &App) {
+fn draw_lists(f: &mut Frame, area: Rect, app: &mut App) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
@@ -74,7 +74,7 @@ fn draw_lists(f: &mut Frame, area: Rect, app: &App) {
     draw_all_list(f, chunks[1], app);
 }
 
-fn draw_ready_list(f: &mut Frame, area: Rect, app: &App) {
+fn draw_ready_list(f: &mut Frame, area: Rect, app: &mut App) {
     let is_active = app.active_pane == ActivePane::Ready;
     let border_style = if is_active {
         Style::default().fg(Color::Yellow)
@@ -90,6 +90,7 @@ fn draw_ready_list(f: &mut Frame, area: Rect, app: &App) {
 
     // calculate available width for title: area - borders(2) - id(8) - priority(2) - spaces(2)
     let title_width = area.width.saturating_sub(14) as usize;
+    let view_height = block.inner(area).height as usize;
 
     let items: Vec<ListItem> = app
         .ready_issues
@@ -115,11 +116,28 @@ fn draw_ready_list(f: &mut Frame, area: Rect, app: &App) {
         })
         .collect();
 
-    let list = List::new(items).block(block);
-    f.render_widget(list, area);
+    let selected = if app.ready_issues.is_empty() {
+        None
+    } else {
+        Some(app.ready_selected)
+    };
+    update_offset(
+        &mut app.ready_offset,
+        selected,
+        app.ready_issues.len(),
+        view_height,
+    );
+    let mut state = ListState::default()
+        .with_selected(selected)
+        .with_offset(app.ready_offset);
+    let list = List::new(items)
+        .block(block)
+        .highlight_style(Style::default())
+        .highlight_symbol("");
+    f.render_stateful_widget(list, area, &mut state);
 }
 
-fn draw_all_list(f: &mut Frame, area: Rect, app: &App) {
+fn draw_all_list(f: &mut Frame, area: Rect, app: &mut App) {
     let is_active = app.active_pane == ActivePane::All;
     let border_style = if is_active {
         Style::default().fg(Color::Yellow)
@@ -135,6 +153,7 @@ fn draw_all_list(f: &mut Frame, area: Rect, app: &App) {
 
     // calculate available width for title: area - borders(2) - status(1) - id(8) - priority(2) - spaces(3)
     let title_width = area.width.saturating_sub(16) as usize;
+    let view_height = block.inner(area).height as usize;
 
     let items: Vec<ListItem> = app
         .all_issues
@@ -173,8 +192,25 @@ fn draw_all_list(f: &mut Frame, area: Rect, app: &App) {
         })
         .collect();
 
-    let list = List::new(items).block(block);
-    f.render_widget(list, area);
+    let selected = if app.all_issues.is_empty() {
+        None
+    } else {
+        Some(app.all_selected)
+    };
+    update_offset(
+        &mut app.all_offset,
+        selected,
+        app.all_issues.len(),
+        view_height,
+    );
+    let mut state = ListState::default()
+        .with_selected(selected)
+        .with_offset(app.all_offset);
+    let list = List::new(items)
+        .block(block)
+        .highlight_style(Style::default())
+        .highlight_symbol("");
+    f.render_stateful_widget(list, area, &mut state);
 }
 
 fn draw_detail(f: &mut Frame, area: Rect, app: &App) {
@@ -581,6 +617,26 @@ fn draw_input_dialog(f: &mut Frame, app: &App) {
             f.render_widget(list, chunks[1]);
         }
         InputMode::Normal => {}
+    }
+}
+
+fn update_offset(offset: &mut usize, selected: Option<usize>, len: usize, view_height: usize) {
+    if len == 0 || view_height == 0 {
+        *offset = 0;
+        return;
+    }
+    let view_height = view_height.min(len);
+    let max_offset = len.saturating_sub(view_height);
+    if *offset > max_offset {
+        *offset = max_offset;
+    }
+    let Some(selected) = selected else {
+        return;
+    };
+    if selected < *offset {
+        *offset = selected;
+    } else if selected >= *offset + view_height {
+        *offset = selected + 1 - view_height;
     }
 }
 

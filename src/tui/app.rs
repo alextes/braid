@@ -45,8 +45,12 @@ pub struct App {
     pub all_issues: Vec<String>,
     /// currently selected index in ready pane
     pub ready_selected: usize,
+    /// scroll offset for ready list
+    pub ready_offset: usize,
     /// currently selected index in all pane
     pub all_selected: usize,
+    /// scroll offset for all list
+    pub all_offset: usize,
     /// which pane is active
     pub active_pane: ActivePane,
     /// current agent id
@@ -73,7 +77,9 @@ impl App {
             ready_issues: Vec::new(),
             all_issues: Vec::new(),
             ready_selected: 0,
+            ready_offset: 0,
             all_selected: 0,
+            all_offset: 0,
             active_pane: ActivePane::Ready,
             agent_id,
             message: None,
@@ -105,6 +111,12 @@ impl App {
         }
         if self.all_selected >= self.all_issues.len() && !self.all_issues.is_empty() {
             self.all_selected = self.all_issues.len() - 1;
+        }
+        if self.ready_offset >= self.ready_issues.len() {
+            self.ready_offset = 0;
+        }
+        if self.all_offset >= self.all_issues.len() {
+            self.all_offset = 0;
         }
 
         self.reset_dep_selection();
