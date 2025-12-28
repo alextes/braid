@@ -335,6 +335,41 @@ fn test_json_output_show() {
 }
 
 #[test]
+fn test_json_output_init() {
+    let dir = tempfile::tempdir().expect("failed to create temp dir");
+
+    // initialize git repo
+    Command::new("git")
+        .args(["init"])
+        .current_dir(dir.path())
+        .output()
+        .expect("failed to init git");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_brd"))
+        .args(["--json", "init"])
+        .current_dir(dir.path())
+        .output()
+        .expect("failed to run brd");
+
+    assert!(
+        output.status.success(),
+        "init failed: {}",
+        TestEnv::stderr(&output)
+    );
+
+    let json = TestEnv::json(&output);
+    assert!(json["ok"].as_bool().unwrap());
+    assert!(json["braid_dir"].as_str().unwrap().ends_with(".braid"));
+    assert!(
+        json["worktree"]
+            .as_str()
+            .unwrap()
+            .contains(dir.path().to_str().unwrap())
+    );
+    assert!(json["sync_branch"].is_null());
+}
+
+#[test]
 fn test_json_output_doctor() {
     let env = TestEnv::new();
 

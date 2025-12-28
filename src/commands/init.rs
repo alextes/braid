@@ -188,3 +188,158 @@ fn setup_sync_branch(
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::{Path, PathBuf};
+    use std::sync::Mutex;
+
+    use tempfile::tempdir;
+
+    static INIT_TEST_LOCK: Mutex<()> = Mutex::new(());
+
+    struct EnvGuard {
+        key: &'static str,
+        prev: Option<String>,
+    }
+
+    impl EnvGuard {
+        fn set(key: &'static str, value: Option<&str>) -> Self {
+            let prev = std::env::var(key).ok();
+            match value {
+                Some(val) => unsafe { std::env::set_var(key, val) },
+                None => unsafe { std::env::remove_var(key) },
+            }
+            Self { key, prev }
+        }
+    }
+
+    impl Drop for EnvGuard {
+        fn drop(&mut self) {
+            match &self.prev {
+                Some(val) => unsafe { std::env::set_var(self.key, val) },
+                None => unsafe { std::env::remove_var(self.key) },
+            }
+        }
+    }
+
+    struct CwdGuard {
+        prev: PathBuf,
+    }
+
+    impl CwdGuard {
+        fn enter(path: &Path) -> Self {
+            let prev = std::env::current_dir().unwrap();
+            std::env::set_current_dir(path).unwrap();
+            Self { prev }
+        }
+    }
+
+    impl Drop for CwdGuard {
+        fn drop(&mut self) {
+            std::env::set_current_dir(&self.prev).unwrap();
+        }
+    }
+
+    fn git_ok(repo: &Path, args: &[&str]) {
+        let output = std::process::Command::new("git")
+            .args(args)
+            .current_dir(repo)
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "git {:?} failed: {}",
+            args,
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+
+    fn with_repo<F: FnOnce(&Path)>(name: &str, f: F) {
+        let _lock = INIT_TEST_LOCK.lock().unwrap();
+        let dir = tempdir().unwrap();
+        let repo_path = dir.path().join(name);
+        std::fs::create_dir_all(&repo_path).unwrap();
+        git_ok(&repo_path, &["init"]);
+        let _cwd = CwdGuard::enter(&repo_path);
+        f(&repo_path);
+    }
+
+    fn make_cli(json: bool) -> Cli {
+        Cli {
+            json,
+            repo: None,
+            no_color: true,
+            verbose: false,
+            command: crate::cli::Command::Doctor,
+        }
+    }
+
+    #[test]
+    fn test_init_creates_structure() {
+        with_repo("my-repo", |repo_path| {
+            let _env = EnvGuard::set("USER", Some("tester"));
+            let cli = make_cli(false);
+            let args = InitArgs { sync_branch: None };
+
+            cmd_init(&cli, &args).unwrap();
+
+            let braid_dir = repo_path.join(".braid");
+            assert!(braid_dir.exists());
+            assert!(braid_dir.join("issues").exists());
+            assert!(braid_dir.join("config.toml").exists());
+            assert!(braid_dir.join(".gitignore").exists());
+            assert!(braid_dir.join("agent.toml").exists());
+
+            let config = Config::load(&braid_dir.join("config.toml")).unwrap();
+            let expected = Config::with_derived_prefix("my-repo");
+            assert_eq!(config.id_prefix, expected.id_prefix);
+
+            let gitignore = std::fs::read_to_string(braid_dir.join(".gitignore")).unwrap();
+            assert_eq!(gitignore, "agent.toml\nruntime/\n");
+
+            let agent_toml = std::fs::read_to_string(braid_dir.join("agent.toml")).unwrap();
+            assert!(agent_toml.contains("agent_id = \"tester\""));
+        });
+    }
+
+    #[test]
+    fn test_init_missing_user_env_uses_default() {
+        with_repo("no-user", |repo_path| {
+            let _env = EnvGuard::set("USER", None);
+            let cli = make_cli(false);
+            let args = InitArgs { sync_branch: None };
+
+            cmd_init(&cli, &args).unwrap();
+
+            let agent_toml = std::fs::read_to_string(repo_path.join(".braid/agent.toml")).unwrap();
+            assert!(agent_toml.contains("agent_id = \"default-user\""));
+        });
+    }
+
+    #[test]
+    fn test_init_idempotent_preserves_config_and_agent() {
+        with_repo("keep-config", |repo_path| {
+            let _env = EnvGuard::set("USER", Some("first"));
+            let cli = make_cli(false);
+            let args = InitArgs { sync_branch: None };
+
+            cmd_init(&cli, &args).unwrap();
+
+            let braid_dir = repo_path.join(".braid");
+            let mut config = Config::load(&braid_dir.join("config.toml")).unwrap();
+            config.id_prefix = "keep".to_string();
+            config.save(&braid_dir.join("config.toml")).unwrap();
+            std::fs::write(braid_dir.join("agent.toml"), "agent_id = \"keep\"\n").unwrap();
+
+            let _env2 = EnvGuard::set("USER", Some("second"));
+            cmd_init(&cli, &args).unwrap();
+
+            let config = Config::load(&braid_dir.join("config.toml")).unwrap();
+            assert_eq!(config.id_prefix, "keep");
+            let agent_toml = std::fs::read_to_string(braid_dir.join("agent.toml")).unwrap();
+            assert!(agent_toml.contains("agent_id = \"keep\""));
+        });
+    }
+}
