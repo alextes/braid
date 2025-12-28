@@ -1,6 +1,6 @@
 //! TUI application state and logic.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crate::config::Config;
 use crate::error::{BrdError, Result};
@@ -40,6 +40,8 @@ pub enum InputMode {
     EditPriority { issue_id: String, selected: usize },
     /// editing issue status
     EditStatus { issue_id: String, selected: usize },
+    /// filtering issues in the all pane
+    Filter(String),
 }
 
 /// TUI application state.
@@ -50,6 +52,8 @@ pub struct App {
     pub ready_issues: Vec<String>,
     /// all issues (sorted)
     pub all_issues: Vec<String>,
+    /// filtered all issues (when filter is active)
+    pub filtered_all_issues: Vec<String>,
     /// in-progress issues (sorted by age)
     pub in_progress_issues: Vec<String>,
     /// recently completed issues (sorted by updated_at)
@@ -82,6 +86,10 @@ pub struct App {
     pub config: Config,
     /// selected dependency index in detail pane
     pub detail_dep_selected: Option<usize>,
+    /// filter query for all issues pane
+    pub all_filter_query: String,
+    /// status filter for all issues (empty means show all)
+    pub all_status_filter: HashSet<Status>,
 }
 
 const RECENT_DONE_LIMIT: usize = 8;
@@ -95,6 +103,7 @@ impl App {
             issues: HashMap::new(),
             ready_issues: Vec::new(),
             all_issues: Vec::new(),
+            filtered_all_issues: Vec::new(),
             in_progress_issues: Vec::new(),
             recent_done_issues: Vec::new(),
             ready_selected: 0,
@@ -111,6 +120,8 @@ impl App {
             input_mode: InputMode::Normal,
             config,
             detail_dep_selected: None,
+            all_filter_query: String::new(),
+            all_status_filter: HashSet::new(),
         };
         app.reload_issues(paths)?;
         Ok(app)
@@ -183,10 +194,107 @@ impl App {
         }
 
         self.reset_dep_selection();
+        self.apply_filter();
         if show_message {
             self.message = Some("refreshed".to_string());
         }
         Ok(())
+    }
+
+    /// apply the current filter to the all issues list.
+    pub fn apply_filter(&mut self) {
+        let query = self.all_filter_query.to_lowercase();
+        self.filtered_all_issues = self
+            .all_issues
+            .iter()
+            .filter(|id| {
+                let Some(issue) = self.issues.get(*id) else {
+                    return false;
+                };
+                // check status filter (empty means show all)
+                if !self.all_status_filter.is_empty()
+                    && !self.all_status_filter.contains(&issue.status())
+                {
+                    return false;
+                }
+                // check query filter
+                if !query.is_empty() && !issue.title().to_lowercase().contains(&query) {
+                    return false;
+                }
+                true
+            })
+            .cloned()
+            .collect();
+
+        // clamp selection to filtered list
+        // use filtered list length directly since we just populated it
+        let visible_len = if self.has_filter() {
+            self.filtered_all_issues.len()
+        } else {
+            self.all_issues.len()
+        };
+        if self.all_selected >= visible_len && visible_len > 0 {
+            self.all_selected = visible_len - 1;
+        }
+        if self.all_offset >= visible_len {
+            self.all_offset = 0;
+        }
+    }
+
+    /// returns true if a filter is currently active.
+    pub fn has_filter(&self) -> bool {
+        !self.all_filter_query.is_empty() || !self.all_status_filter.is_empty()
+    }
+
+    /// get the visible all issues list (filtered or unfiltered).
+    pub fn visible_all_issues(&self) -> &Vec<String> {
+        if self.has_filter() {
+            &self.filtered_all_issues
+        } else {
+            &self.all_issues
+        }
+    }
+
+    /// toggle a status in the filter.
+    pub fn toggle_status_filter(&mut self, status: Status) {
+        if self.all_status_filter.contains(&status) {
+            self.all_status_filter.remove(&status);
+        } else {
+            self.all_status_filter.insert(status);
+        }
+        self.apply_filter();
+        self.message = None;
+    }
+
+    /// clear all filters.
+    pub fn clear_filter(&mut self) {
+        self.all_filter_query.clear();
+        self.all_status_filter.clear();
+        self.apply_filter();
+        self.message = Some("filter cleared".to_string());
+    }
+
+    /// start filter input mode.
+    pub fn start_filter(&mut self) {
+        self.input_mode = InputMode::Filter(self.all_filter_query.clone());
+        self.active_pane = ActivePane::All;
+        self.message = None;
+    }
+
+    /// cancel filter input.
+    pub fn cancel_filter(&mut self) {
+        self.input_mode = InputMode::Normal;
+        self.message = None;
+    }
+
+    /// confirm filter input.
+    pub fn confirm_filter(&mut self) {
+        if let InputMode::Filter(query) = &self.input_mode {
+            self.all_filter_query = query.clone();
+            self.apply_filter();
+        }
+        self.input_mode = InputMode::Normal;
+        self.message = None;
     }
 
     /// get the currently selected issue id.
@@ -202,7 +310,10 @@ impl App {
                 .ready_issues
                 .get(self.ready_selected)
                 .map(|s| s.as_str()),
-            ActivePane::All => self.all_issues.get(self.all_selected).map(|s| s.as_str()),
+            ActivePane::All => self
+                .visible_all_issues()
+                .get(self.all_selected)
+                .map(|s| s.as_str()),
         }
     }
 
@@ -259,7 +370,7 @@ impl App {
                 }
             }
             ActivePane::All => {
-                if self.all_selected + 1 < self.all_issues.len() {
+                if self.all_selected + 1 < self.visible_all_issues().len() {
                     self.all_selected += 1;
                 }
             }

@@ -189,6 +189,37 @@ fn handle_key_event(app: &mut App, paths: &RepoPaths, key: KeyEvent) -> Result<b
             }
             return Ok(false);
         }
+        InputMode::Filter(current) => {
+            match key.code {
+                KeyCode::Esc => app.cancel_filter(),
+                KeyCode::Enter => app.confirm_filter(),
+                KeyCode::Backspace => {
+                    let mut s = current.clone();
+                    s.pop();
+                    app.input_mode = InputMode::Filter(s);
+                }
+                // toggle status filters with 1-4
+                KeyCode::Char('1') => {
+                    app.toggle_status_filter(crate::issue::Status::Todo);
+                }
+                KeyCode::Char('2') => {
+                    app.toggle_status_filter(crate::issue::Status::Doing);
+                }
+                KeyCode::Char('3') => {
+                    app.toggle_status_filter(crate::issue::Status::Done);
+                }
+                KeyCode::Char('4') => {
+                    app.toggle_status_filter(crate::issue::Status::Skip);
+                }
+                KeyCode::Char(c) => {
+                    let mut s = current.clone();
+                    s.push(c);
+                    app.input_mode = InputMode::Filter(s);
+                }
+                _ => {}
+            }
+            return Ok(false);
+        }
         InputMode::Normal => {}
     }
 
@@ -224,6 +255,14 @@ fn handle_key_event(app: &mut App, paths: &RepoPaths, key: KeyEvent) -> Result<b
         }
         KeyCode::Char('v') => app.toggle_live_view(),
         KeyCode::Enter => app.open_selected_dependency(),
+
+        // filter
+        KeyCode::Char('/') => app.start_filter(),
+        KeyCode::Esc => {
+            if app.has_filter() {
+                app.clear_filter();
+            }
+        }
 
         // help
         KeyCode::Char('?') => app.toggle_help(),
