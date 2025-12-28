@@ -123,14 +123,14 @@ fn sync_with_main(paths: &RepoPaths, cli: &Cli) -> Result<()> {
     }
 
     // Only rebase if origin/main exists
-    if has_origin_main(&paths.worktree_root) {
-        if !git(&["rebase", "origin/main"], &paths.worktree_root)? {
-            // Abort rebase on failure
-            let _ = git(&["rebase", "--abort"], &paths.worktree_root);
-            return Err(BrdError::Other(
-                "rebase failed - resolve conflicts manually or use --no-sync".to_string(),
-            ));
-        }
+    if has_origin_main(&paths.worktree_root)
+        && !git(&["rebase", "origin/main"], &paths.worktree_root)?
+    {
+        // Abort rebase on failure
+        let _ = git(&["rebase", "--abort"], &paths.worktree_root);
+        return Err(BrdError::Other(
+            "rebase failed - resolve conflicts manually or use --no-sync".to_string(),
+        ));
     }
 
     Ok(())
@@ -217,10 +217,8 @@ fn commit_and_push_sync_branch(
     }
 
     let commit_msg = format!("start: {}", issue_id);
-    if !git(&["commit", "-m", &commit_msg], &issues_wt)? {
-        if !cli.json {
-            eprintln!("  (no changes to commit in sync branch)");
-        }
+    if !git(&["commit", "-m", &commit_msg], &issues_wt)? && !cli.json {
+        eprintln!("  (no changes to commit in sync branch)");
     }
 
     // Push with retry
