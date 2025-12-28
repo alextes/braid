@@ -32,39 +32,34 @@ this creates:
 from your agent worktree:
 
 ```bash
-git pull origin main   # sync latest issue state
 brd ls                 # should show all issues
 brd ready              # should show ready issues
 ```
 
+note: `brd start` will automatically sync with origin/main before claiming.
+
 ## workflow
 
-### 1. sync and pick up an issue
+### 1. pick up an issue
 
 ```bash
-git pull origin main   # get latest issue state
 brd ready              # see what's available
-brd start <issue-id>   # marks as "doing", sets you as owner
+brd start <issue-id>   # syncs, claims, commits, and pushes
 ```
 
-### 2. commit the claim
+`brd start` automatically:
+1. fetches and rebases on origin/main
+2. marks the issue as "doing" with your agent ID
+3. commits the claim
+4. pushes to origin (with auto-retry on conflicts)
 
-push your claim so other agents see it:
+if push fails after retries, you'll get an error explaining the situation.
 
-```bash
-git add .braid
-git commit -m "start: <issue-id>"
-git push origin main
-```
+**flags:**
+- `--no-sync` — skip fetch/rebase (trust local state)
+- `--no-push` — claim locally without committing/pushing
 
-if the push fails (another agent pushed first), pull and check if the issue is still available:
-
-```bash
-git pull --rebase origin main
-brd show <issue-id>    # check if someone else claimed it
-```
-
-### 3. work on the issue
+### 2. work on the issue
 
 make your changes and commit:
 
@@ -110,12 +105,7 @@ this is optimistic locking — git handles the coordination.
 
 ## troubleshooting
 
-**push conflict on claim:** another agent claimed the issue first. pull and pick a different issue:
-
-```bash
-git pull --rebase origin main
-brd ready              # pick another issue
-```
+**push conflict on claim:** `brd start` auto-retries twice. if it still fails, another agent likely claimed the issue. just run `brd start` again to pick a different one.
 
 **schema mismatch errors:** if you see "this repo uses schema vN, but this brd only supports up to vM", rebase onto the latest main:
 

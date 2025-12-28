@@ -64,7 +64,7 @@ brd start
 
 ### workflow
 
-- `brd start [<id>]` — start working on an issue (picks next ready if no id given)
+- `brd start [<id>]` — start working on an issue (auto-syncs, commits, and pushes the claim)
 - `brd done <id>` — mark issue as done
 - `brd ready` — list issues ready to work on
 
@@ -112,14 +112,8 @@ braid enables multiple AI agents to work on the same codebase in parallel withou
 **the workflow:**
 
 ```bash
-# sync before starting work
-git pull origin main
-
-# agent picks up work
+# agent picks up work (auto-syncs, commits, and pushes the claim)
 brd start              # claims next ready issue
-
-# commit the claim so other agents see it
-git add .braid && git commit -m "start: brd-xxxx" && git push origin main
 
 # agent does the work and commits
 git add . && git commit -m "feat: implement the thing"
@@ -129,5 +123,12 @@ brd done <id>
 git add .braid && git commit -m "done: <id>"
 brd agent ship         # rebase + push to main
 ```
+
+`brd start` automatically:
+- fetches and rebases on origin/main
+- claims the issue
+- commits and pushes the claim (with auto-retry on conflicts)
+
+use `--no-sync` to skip fetch/rebase, or `--no-push` to claim locally only.
 
 see [docs/agent-workflow.md](docs/agent-workflow.md) for the full guide.
