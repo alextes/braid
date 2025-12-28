@@ -256,9 +256,9 @@ pub fn cmd_agent_pr(cli: &Cli, paths: &RepoPaths) -> Result<()> {
     // load the issue
     let issues = load_all_issues(paths, &config)?;
     let full_id = resolve_issue_id(issue_id, &issues)?;
-    let issue = issues.get(&full_id).ok_or_else(|| {
-        BrdError::Other(format!("issue '{}' not found", full_id))
-    })?;
+    let issue = issues
+        .get(&full_id)
+        .ok_or_else(|| BrdError::Other(format!("issue '{}' not found", full_id)))?;
 
     // generate PR title and body
     let title = format!("feat: {} ({})", issue.title(), full_id);
@@ -294,14 +294,7 @@ pub fn cmd_agent_pr(cli: &Cli, paths: &RepoPaths) -> Result<()> {
     }
     let pr_output = Command::new("gh")
         .args([
-            "pr",
-            "create",
-            "--title",
-            &title,
-            "--body",
-            &body,
-            "--base",
-            "main",
+            "pr", "create", "--title", &title, "--body", &body, "--base", "main",
         ])
         .current_dir(&paths.worktree_root)
         .output()?;
@@ -314,7 +307,9 @@ pub fn cmd_agent_pr(cli: &Cli, paths: &RepoPaths) -> Result<()> {
         )));
     }
 
-    let pr_url = String::from_utf8_lossy(&pr_output.stdout).trim().to_string();
+    let pr_url = String::from_utf8_lossy(&pr_output.stdout)
+        .trim()
+        .to_string();
 
     if cli.json {
         let json = serde_json::json!({

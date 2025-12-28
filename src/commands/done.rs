@@ -162,12 +162,7 @@ mod tests {
         issue.save(&issue_path).unwrap();
     }
 
-    fn write_issue_with_deps(
-        paths: &RepoPaths,
-        config: &Config,
-        id: &str,
-        deps: Vec<String>,
-    ) {
+    fn write_issue_with_deps(paths: &RepoPaths, config: &Config, id: &str, deps: Vec<String>) {
         let issue = crate::issue::Issue::new(
             id.to_string(),
             format!("issue {}", id),
@@ -241,14 +236,7 @@ mod tests {
         write_issue(&paths, &config, "brd-impl", Status::Todo, None);
 
         let cli = make_cli();
-        cmd_done(
-            &cli,
-            &paths,
-            "brd-design",
-            false,
-            &["brd-impl".to_string()],
-        )
-        .unwrap();
+        cmd_done(&cli, &paths, "brd-design", false, &["brd-impl".to_string()]).unwrap();
 
         let issues = load_all_issues(&paths, &config).unwrap();
         let issue = issues.get("brd-design").unwrap();
@@ -285,14 +273,7 @@ mod tests {
         );
 
         let cli = make_cli();
-        cmd_done(
-            &cli,
-            &paths,
-            "brd-design",
-            false,
-            &["brd-impl".to_string()],
-        )
-        .unwrap();
+        cmd_done(&cli, &paths, "brd-design", false, &["brd-impl".to_string()]).unwrap();
 
         let issues = load_all_issues(&paths, &config).unwrap();
         let dependent = issues.get("brd-dependent").unwrap();

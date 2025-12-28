@@ -140,8 +140,10 @@ pub fn check_agents_block(paths: &RepoPaths) -> Option<u32> {
 pub fn cmd_agents_show() -> Result<()> {
     // Show both modes for reference
     let git_native = Config::default();
-    let mut local_sync = Config::default();
-    local_sync.sync_branch = Some("braid-issues".to_string());
+    let local_sync = Config {
+        sync_branch: Some("braid-issues".to_string()),
+        ..Default::default()
+    };
 
     println!("=== git-native mode ===\n");
     println!("{}", generate_block(&git_native));
