@@ -141,3 +141,26 @@ brd agent ship         # rebase + fast-forward merge to main
 use `--no-sync` to skip fetch/rebase, or `--no-push` to claim locally only.
 
 see [docs/agent-workflow.md](docs/agent-workflow.md) for the full guide.
+
+## workflow modes
+
+braid supports two workflow modes. check your current mode with `brd mode`.
+
+| mode | use case | issue sync |
+|------|----------|------------|
+| **git-native** (default) | solo, small teams, remote agents | via git push/pull |
+| **local-sync** | multiple local agents | instant (shared worktree) |
+
+**git-native mode** is the default. issues sync through normal git operations — `brd start` auto-syncs with origin/main.
+
+**local-sync mode** is for multiple agents on the same machine. issues live on a sync branch in a shared worktree, visible instantly to all agents.
+
+```bash
+# switch to local-sync mode
+brd mode sync-local
+
+# switch back to git-native
+brd mode default
+```
+
+see [docs/workflow-modes.md](docs/workflow-modes.md) for details.

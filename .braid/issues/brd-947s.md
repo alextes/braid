@@ -3,15 +3,15 @@ schema_version: 4
 id: brd-947s
 title: document workflow modes
 priority: P3
-status: doing
+status: done
 deps:
 - brd-ozah
 - brd-c2g4
 - brd-dje7
 - brd-tvue
-owner: agent-one
+owner: null
 created_at: 2025-12-28T16:21:56.751882Z
-updated_at: 2025-12-28T21:36:37.568014Z
+updated_at: 2025-12-28T21:38:33.367334Z
 ---
 
 create user-facing documentation for workflow modes.

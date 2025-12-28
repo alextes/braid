@@ -1,45 +1,50 @@
-# sync branch mode
+# local-sync mode
 
-sync branch mode keeps issue tracking on a dedicated branch, separating issue commit churn from your code history on main.
+local-sync mode keeps issues on a dedicated branch in a shared worktree, providing instant visibility between local agents.
 
 ## overview
 
-by default, braid stores issues in `.braid/issues/` on the main branch. every issue claim, completion, and update creates commits on main.
+by default (git-native mode), braid stores issues in `.braid/issues/` on the main branch. every issue claim and update syncs through git push/pull.
 
-sync branch mode moves all issue storage to a separate branch (e.g., `braid-issues`). code goes to main, issues go to the sync branch. this keeps your main branch history clean while still allowing issue coordination via git.
+local-sync mode moves issue storage to a separate branch (e.g., `braid-issues`) with a shared worktree. all local agents see changes instantly without git operations.
 
 ## when to use
 
-- you have multiple agents creating frequent issue commits
-- you want to keep code commits separate from issue state changes
-- you prefer a cleaner main branch history
+- multiple AI agents on the same machine
+- you want instant issue coordination (no push/pull delay)
+- you want to keep issue commits separate from code history
+- you have frequent issue state changes
 
 ## setup
 
-### new repository
+### switching to local-sync mode
 
 ```bash
-brd init --sync-branch braid-issues
-```
-
-this creates:
-1. `.braid/config.toml` on main with `sync_branch = "braid-issues"`
-2. a `braid-issues` branch containing the full `.braid/` directory
-3. a shared worktree at `<git-dir>/brd/issues/` for accessing issues
-
-### existing repository
-
-if you already have issues on main:
-
-```bash
-brd init --sync-branch braid-issues
+brd mode sync-local              # uses default branch: braid-issues
+brd mode sync-local my-issues    # custom branch name
 ```
 
 this will:
-1. create the `braid-issues` branch from HEAD
-2. copy existing issues to the sync branch
-3. update main's config to point to the sync branch
-4. create the shared issues worktree
+1. create the sync branch from HEAD (if needed)
+2. move existing issues to the sync branch
+3. set up a shared worktree at `<git-dir>/brd/issues/`
+4. update config with `sync_branch = "<name>"`
+
+### new repository
+
+you can also initialize directly in local-sync mode:
+
+```bash
+brd init --sync-branch braid-issues
+```
+
+### switching back to git-native
+
+```bash
+brd mode default
+```
+
+this copies issues back to main and removes the sync branch config.
 
 ## how it works
 
@@ -50,9 +55,9 @@ main branch:
   .braid/
     config.toml    # contains: sync_branch = "braid-issues"
 
-braid-issues branch:
+braid-issues branch (shared worktree):
   .braid/
-    config.toml    # full config (prefix, schema, etc.)
+    config.toml
     issues/
       brd-xxxx.md
       brd-yyyy.md
@@ -60,100 +65,94 @@ braid-issues branch:
 
 ### shared worktree
 
-all agents share a single issues worktree at `<git-common-dir>/brd/issues/`. this directory is checked out to the sync branch and is where all issue operations read and write.
+all agents share a single issues worktree at `<git-common-dir>/brd/issues/`. this directory is checked out to the sync branch.
 
-when you run `brd start`, `brd done`, or other issue commands, braid automatically:
-1. ensures the shared worktree exists
-2. reads/writes issues in the worktree
-3. leaves the worktree uncommitted (you push with `brd sync`)
+when you run `brd start`, `brd done`, or other issue commands:
+1. braid ensures the shared worktree exists
+2. reads/writes issues in the shared worktree
+3. changes are visible to all local agents immediately
+
+### remote sync
+
+use `brd sync` to push/pull with the remote:
+
+```bash
+brd sync           # commit, fetch, rebase, push
+brd sync --push    # also sets upstream if not configured
+```
 
 ## workflow
 
 ### claiming and completing issues
 
-the workflow is similar to default mode, but you use `brd sync` to push issue changes:
-
 ```bash
-# claim an issue
+# claim an issue (instantly visible to other agents)
 brd start <issue-id>
 
 # work on it...
 
-# mark complete
+# mark complete (instantly visible)
 brd done <issue-id>
-
-# sync issues to remote
-brd sync
 ```
 
 ### shipping code
 
-code and issues are now separate. use `brd agent ship` for code:
+code and issues sync separately:
 
 ```bash
 # ship code to main
 brd agent ship
 
-# sync issues to the sync branch
+# sync issues to remote (optional)
 brd sync
 ```
 
-### brd sync
-
-the `brd sync` command handles issue synchronization:
-
-1. stashes local issue changes
-2. fetches and rebases onto `origin/<sync-branch>`
-3. restores local changes
-4. commits any uncommitted issue changes
-5. pushes to `origin/<sync-branch>`
-
-if there are conflicts, resolve them in the issues worktree (`<git-dir>/brd/issues/`).
-
 ## agent worktrees
 
-when using sync branch mode with agent worktrees, each agent:
-- has their own code worktree and branch (as usual)
-- shares the single issues worktree with all other agents
+when using local-sync mode with agent worktrees:
+- each agent has their own code worktree and branch
+- all agents share the single issues worktree
 
 ```bash
 # from main worktree
 brd agent init agent-one
 
-# agent-one's worktree will use the shared issues worktree
-cd ~/.braid/worktrees/braid/agent-one
-brd start <issue-id>   # writes to shared worktree
-brd sync               # pushes to sync branch
+# agent-one's worktree uses the shared issues worktree
+cd ~/.braid/worktrees/repo/agent-one
+brd start <issue-id>   # writes to shared worktree, visible to all
 ```
-
-## merging to main
-
-the sync branch is a regular branch (not orphan), so you can merge it to main if desired:
-
-```bash
-git checkout main
-git merge braid-issues
-```
-
-this brings all issue history into main. you might do this for releases or to archive the issue state.
 
 ## troubleshooting
 
-**"not in sync branch mode" error:** your config doesn't have `sync_branch` set. initialize with:
+**"already in git-native mode" error:**
+
+you're trying to switch to default mode but you're already there. check with:
 
 ```bash
-brd init --sync-branch <branch-name>
+brd mode
 ```
 
-**issues worktree missing:** braid creates it automatically, but if it's corrupted:
+**"already in sync mode" error:**
+
+switch to default first, then back to sync-local:
 
 ```bash
-# remove and let braid recreate it
+brd mode default
+brd mode sync-local
+```
+
+**issues worktree missing:**
+
+braid creates it automatically, but if corrupted:
+
+```bash
 rm -rf "$(git rev-parse --git-common-dir)/brd/issues"
-brd sync
+brd ls   # triggers recreation
 ```
 
-**sync conflicts:** resolve conflicts in the issues worktree:
+**sync conflicts:**
+
+resolve in the issues worktree:
 
 ```bash
 cd "$(git rev-parse --git-common-dir)/brd/issues"
@@ -161,11 +160,9 @@ git status
 # resolve conflicts
 git add .
 git rebase --continue
-brd sync
 ```
 
-**agent can't find issues:** ensure the agent is running a recent version of brd that supports sync branch mode. check with:
+## see also
 
-```bash
-brd doctor
-```
+- [workflow-modes.md](workflow-modes.md) — overview of all modes
+- [agent-workflow.md](agent-workflow.md) — full agent worktree guide
