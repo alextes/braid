@@ -3,7 +3,7 @@ schema_version: 4
 id: brd-kxnu
 title: make tags visually distinct in brd ls
 priority: P2
-status: done
+status: todo
 deps: []
 tags:
 - visual
