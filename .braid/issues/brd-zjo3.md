@@ -3,13 +3,13 @@ schema_version: 4
 id: brd-zjo3
 title: add unit tests for show command
 priority: P3
-status: doing
+status: done
 deps: []
 tags:
 - testing
-owner: agent-three
+owner: null
 created_at: 2025-12-28T08:49:45.008596Z
-updated_at: 2025-12-28T20:24:12.504875Z
+updated_at: 2025-12-28T20:28:20.222964Z
 ---
 
 show command displays issue details but has no unit tests.
