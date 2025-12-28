@@ -1,4 +1,4 @@
-use braid::cli::{AgentAction, AgentsAction, Cli, Command, DepAction};
+use braid::cli::{AgentAction, Cli, Command, DepAction};
 use braid::commands::{
     cmd_add, cmd_agent_init, cmd_agents_inject, cmd_agents_show, cmd_commit, cmd_completions,
     cmd_dep_add, cmd_dep_rm, cmd_doctor, cmd_done, cmd_init, cmd_ls, cmd_migrate, cmd_mode,
@@ -93,6 +93,8 @@ fn run(cli: &Cli) -> Result<()> {
         Command::Agent { action } => match action {
             AgentAction::Init { name, base } => cmd_agent_init(cli, &paths, name, base.as_deref()),
             AgentAction::Ship => cmd_ship(cli, &paths),
+            AgentAction::Inject => cmd_agents_inject(&paths),
+            AgentAction::Instructions => cmd_agents_show(),
         },
         Command::Doctor => cmd_doctor(cli, &paths),
         Command::Completions { .. } => unreachable!(),
@@ -100,10 +102,6 @@ fn run(cli: &Cli) -> Result<()> {
         Command::Migrate { dry_run } => cmd_migrate(cli, &paths, *dry_run),
         Command::Search => cmd_search(cli, &paths),
         Command::Commit { message } => cmd_commit(cli, &paths, message.as_deref()),
-        Command::Agents { action } => match action {
-            Some(AgentsAction::Inject) => cmd_agents_inject(&paths),
-            Some(AgentsAction::Show) | None => cmd_agents_show(),
-        },
         Command::Sync => cmd_sync(cli, &paths),
         Command::Mode => cmd_mode(cli, &paths),
     }

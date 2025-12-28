@@ -1,4 +1,4 @@
-//! brd agents command - manage agent instructions block.
+//! brd agent inject/instructions - manage agent instructions block in AGENTS.md.
 
 use std::fs;
 

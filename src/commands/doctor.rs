@@ -173,13 +173,13 @@ pub fn cmd_doctor(cli: &Cli, paths: &RepoPaths) -> Result<()> {
                 false,
             );
             if !cli.json {
-                eprintln!("  hint: run `brd agents inject` to update");
+                eprintln!("  hint: run `brd agent inject` to update");
             }
         }
         None => {
             record_check("agents_block", "AGENTS.md braid block not found", false);
             if !cli.json {
-                eprintln!("  hint: run `brd agents inject` to add");
+                eprintln!("  hint: run `brd agent inject` to add");
             }
         }
     }

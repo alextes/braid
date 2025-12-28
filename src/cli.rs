@@ -165,25 +165,11 @@ pub enum Command {
         message: Option<String>,
     },
 
-    /// manage agent instructions block for AGENTS.md
-    Agents {
-        #[command(subcommand)]
-        action: Option<AgentsAction>,
-    },
-
     /// sync issues with the sync branch (sync branch mode only)
     Sync,
 
     /// show current workflow mode
     Mode,
-}
-
-#[derive(Subcommand)]
-pub enum AgentsAction {
-    /// print the agents block to stdout (default)
-    Show,
-    /// inject/update the agents block in AGENTS.md
-    Inject,
 }
 
 #[derive(Subcommand)]
@@ -200,6 +186,12 @@ pub enum AgentAction {
 
     /// push changes to main (rebase + fast-forward push)
     Ship,
+
+    /// inject/update the braid instructions block in AGENTS.md
+    Inject,
+
+    /// print the AGENTS.md instructions block to stdout
+    Instructions,
 }
 
 #[derive(Subcommand)]

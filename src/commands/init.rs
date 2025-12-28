@@ -92,7 +92,7 @@ pub fn cmd_init(cli: &Cli, args: &InitArgs) -> Result<()> {
         println!();
         println!("next steps:");
         println!("  brd add \"my first task\"     # create an issue");
-        println!("  brd agents inject           # add agent instructions to AGENTS.md");
+        println!("  brd agent inject            # add agent instructions to AGENTS.md");
         if args.sync_branch.is_some() {
             println!("  brd sync                    # sync issues to remote");
         }
