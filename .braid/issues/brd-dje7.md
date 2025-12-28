@@ -3,12 +3,12 @@ schema_version: 4
 id: brd-dje7
 title: 'brd mode: add sync-local and default subcommands'
 priority: P2
-status: todo
+status: doing
 deps:
 - brd-ozah
-owner: null
+owner: agent-one
 created_at: 2025-12-28T16:21:56.472458Z
-updated_at: 2025-12-28T16:22:08.631692Z
+updated_at: 2025-12-28T21:06:18.776844Z
 ---
 
 add mode switching to `brd mode` command.
