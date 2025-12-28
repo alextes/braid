@@ -3,12 +3,12 @@ schema_version: 4
 id: brd-jpux
 title: design braid workflow modes and configuration
 priority: P1
-status: todo
+status: done
 type: design
 deps: []
 owner: null
 created_at: 2025-12-28T16:05:42.310892Z
-updated_at: 2025-12-28T16:05:42.310892Z
+updated_at: 2025-12-28T17:10:17.693318Z
 ---
 
 braid needs clear documentation and configuration for different workflow modes. current implementation has sync branch mode, but the full picture of supported workflows isn't coherent.
@@ -41,45 +41,29 @@ braid needs clear documentation and configuration for different workflow modes. 
 - sync branch provides the shared state
 - **config**: `sync_branch` mode with local worktree
 
-## open questions
+## design decisions
 
-### for mode 4 (local multi-agent)
-- should the sync branch be purely local, or also pushed to remote?
-- if local-only, how do we prevent accidental push?
-- should there be a `local_sync = true` option that skips remote operations?
-- how does `brd sync` behave in local-only mode? (just commit, no push?)
+### mode 4 (local multi-agent)
+- remote sync inferred from git upstream tracking (no explicit config needed)
+- if sync branch has upstream → sync with remote
+- if no upstream → local-only (just commit, no push)
+- `brd sync --push` to set upstream for first-time remote setup
 
 ### mode switching
-- can we switch from mode 1/2/3 to mode 4 seamlessly?
-- what happens to existing issues on main when enabling sync branch?
-- should there be a `brd mode` command to switch/show current mode?
-- how do we validate the switch won't cause data loss?
+- `brd mode` command shows current mode
+- `brd mode sync-local [branch]` enables local sync mode
+- `brd mode default` switches back, merges sync branch into current branch
+- guided migration handles issue movement
 
 ### AGENTS.md injection
-- current injection is static
-- should have mode-aware sections
-- static part: how to use brd commands
-- dynamic part: how to sync in current mode
-- need to update `brd agents inject` to be mode-aware
+- split into static (brd commands) + dynamic (sync instructions)
+- dynamic section generated based on current mode
+- bump to v2 format
 
-## design goals
+## implementation issues
 
-1. **clear mental models**: each mode should be easy to explain
-2. **seamless transitions**: switching modes shouldn't break things
-3. **git-native**: leverage git's model, don't fight it
-4. **progressive complexity**: simple cases stay simple
-
-## tasks
-
-- [ ] document all four workflow modes in detail
-- [ ] design mode switching command (`brd mode`?)
-- [ ] design local-only sync branch variant
-- [ ] update AGENTS.md injection to be mode-aware
-- [ ] create user-facing docs explaining when to use each mode
-- [ ] implementation issues for each piece
-
-## notes
-
-current sync branch implementation (just completed) handles mode 4 partially, but assumes remote sync. need to think through local-only variant.
-
-mode 3 vs mode 4 distinction: remote agents MUST use git for coordination (mode 3). local agents CAN use sync branch for smoother UX (mode 4). the key insight is that local agents share filesystem access.
+- [x] brd-ozah - add brd mode command (show only)
+- [ ] brd-c2g4 - brd sync: detect upstream, support local-only
+- [ ] brd-dje7 - brd mode: add sync-local and default subcommands
+- [ ] brd-tvue - mode-aware AGENTS.md injection
+- [ ] brd-947s - document workflow modes
