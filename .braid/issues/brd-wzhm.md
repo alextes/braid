@@ -3,13 +3,13 @@ schema_version: 4
 id: brd-wzhm
 title: add unit tests for lock module
 priority: P2
-status: todo
+status: doing
 deps: []
-owner: null
-created_at: 2025-12-28T08:49:25.071656Z
 tags:
 - testing
-updated_at: 2025-12-28T08:49:25.071656Z
+owner: agent-three
+created_at: 2025-12-28T08:49:25.071656Z
+updated_at: 2025-12-28T19:55:40.811997Z
 ---
 
 file locking is critical for multi-agent coordination but untested.
