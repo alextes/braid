@@ -26,20 +26,9 @@ pub fn cmd_rm(cli: &Cli, paths: &RepoPaths, id: &str, force: bool) -> Result<()>
         )));
     }
 
-    // delete from control root
+    // delete issue file
     let issue_path = paths.issues_dir().join(format!("{}.md", full_id));
     std::fs::remove_file(&issue_path)?;
-
-    // dual-write: also delete from local worktree if different from control root
-    if paths.worktree_root != paths.control_root {
-        let local_issue_path = paths
-            .worktree_root
-            .join(".braid/issues")
-            .join(format!("{}.md", full_id));
-        if local_issue_path.exists() {
-            std::fs::remove_file(&local_issue_path)?;
-        }
-    }
 
     if cli.json {
         let json = serde_json::json!({

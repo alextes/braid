@@ -25,7 +25,6 @@ pub fn cmd_init(cli: &Cli) -> Result<()> {
     let gitignore_path = braid_dir.join(".gitignore");
 
     let brd_common_dir = git_common_dir.join("brd");
-    let control_root_file = brd_common_dir.join("control_root");
 
     // create directories
     std::fs::create_dir_all(&issues_dir)?;
@@ -59,23 +58,15 @@ pub fn cmd_init(cli: &Cli) -> Result<()> {
         std::fs::write(&agent_toml_path, agent_toml_content)?;
     }
 
-    // set control root if not already set
-    if !control_root_file.exists() {
-        std::fs::write(&control_root_file, worktree_root.to_string_lossy().as_ref())?;
-    }
-
     if cli.json {
         let json = serde_json::json!({
             "ok": true,
             "braid_dir": braid_dir.to_string_lossy(),
-            "control_root": worktree_root.to_string_lossy(),
-            "common_dir": brd_common_dir.to_string_lossy(),
+            "worktree": worktree_root.to_string_lossy(),
         });
         println!("{}", serde_json::to_string_pretty(&json).unwrap());
     } else {
         println!("Initialized braid in {}", braid_dir.display());
-        println!("  control root: {}", worktree_root.display());
-        println!("  common dir:   {}", brd_common_dir.display());
         println!();
         println!("next steps:");
         println!("  brd add \"my first task\"     # create an issue");

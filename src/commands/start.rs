@@ -50,15 +50,6 @@ pub fn cmd_start(cli: &Cli, paths: &RepoPaths, id: Option<&str>, force: bool) ->
 
         let issue_path = paths.issues_dir().join(format!("{}.md", full_id));
         issue.save(&issue_path)?;
-
-        // dual-write: also save to local worktree if different from control root
-        if paths.worktree_root != paths.control_root {
-            let local_issue_path = paths
-                .worktree_root
-                .join(".braid/issues")
-                .join(format!("{}.md", full_id));
-            issue.save(&local_issue_path)?;
-        }
     }
 
     if cli.json {

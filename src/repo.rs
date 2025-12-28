@@ -1,4 +1,4 @@
-//! git repository discovery and control root resolution.
+//! git repository discovery.
 
 use std::path::{Path, PathBuf};
 
@@ -11,16 +11,14 @@ pub struct RepoPaths {
     pub worktree_root: PathBuf,
     /// the git common directory (from `git rev-parse --git-common-dir`)
     pub git_common_dir: PathBuf,
-    /// the control root where `.braid/` lives
-    pub control_root: PathBuf,
     /// the brd directory inside git common dir (`<git-common-dir>/brd/`)
     pub brd_common_dir: PathBuf,
 }
 
 impl RepoPaths {
-    /// path to `.braid/` in the control root
+    /// path to `.braid/` in the current worktree
     pub fn braid_dir(&self) -> PathBuf {
-        self.control_root.join(".braid")
+        self.worktree_root.join(".braid")
     }
 
     /// path to `.braid/issues/`
@@ -33,14 +31,9 @@ impl RepoPaths {
         self.braid_dir().join("config.toml")
     }
 
-    /// path to the global lock file
+    /// path to the local lock file (for single-machine coordination)
     pub fn lock_path(&self) -> PathBuf {
         self.brd_common_dir.join("lock")
-    }
-
-    /// path to the control_root file in git common dir
-    pub fn control_root_file(&self) -> PathBuf {
-        self.brd_common_dir.join("control_root")
     }
 }
 
@@ -96,13 +89,9 @@ pub fn discover(from: Option<&std::path::Path>) -> Result<RepoPaths> {
 
     let brd_common_dir = git_common_dir.join("brd");
 
-    // resolve control root (per spec section 5.3)
-    let control_root = resolve_control_root(&worktree_root, &brd_common_dir)?;
-
     Ok(RepoPaths {
         worktree_root,
         git_common_dir,
-        control_root,
         brd_common_dir,
     })
 }
@@ -123,35 +112,6 @@ pub fn git_rev_parse(cwd: &std::path::Path, arg: &str) -> Result<PathBuf> {
     Ok(PathBuf::from(path_str))
 }
 
-/// resolve the control root per spec section 5.3:
-/// 1. BRD_CONTROL_ROOT env var
-/// 2. <git-common-dir>/brd/control_root file
-/// 3. fallback to current worktree root (with warning)
-fn resolve_control_root(worktree_root: &Path, brd_common_dir: &Path) -> Result<PathBuf> {
-    // 1. check env var
-    if let Ok(env_root) = std::env::var("BRD_CONTROL_ROOT") {
-        let path = PathBuf::from(&env_root);
-        let resolved = if path.is_absolute() {
-            path
-        } else {
-            std::env::current_dir()?.join(path)
-        };
-        return Ok(resolved.canonicalize().unwrap_or(resolved));
-    }
-
-    // 2. check control_root file
-    let control_root_file = brd_common_dir.join("control_root");
-    if control_root_file.exists() {
-        let content = std::fs::read_to_string(&control_root_file)?;
-        let path = PathBuf::from(content.trim());
-        return Ok(path);
-    }
-
-    // 3. fallback to current worktree root
-    // note: in a real implementation, we'd emit a warning here
-    Ok(worktree_root.to_path_buf())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -161,7 +121,6 @@ mod tests {
         let paths = RepoPaths {
             worktree_root: PathBuf::from("/repo"),
             git_common_dir: PathBuf::from("/repo/.git"),
-            control_root: PathBuf::from("/repo"),
             brd_common_dir: PathBuf::from("/repo/.git/brd"),
         };
 

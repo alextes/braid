@@ -197,18 +197,9 @@ impl App {
         issue.frontmatter.owner = Some(self.agent_id.clone());
         issue.touch();
 
-        // save to control root
+        // save issue
         let issue_path = paths.issues_dir().join(format!("{}.md", issue_id));
         issue.save(&issue_path)?;
-
-        // dual-write to local worktree if different
-        if paths.worktree_root != paths.control_root {
-            let local_path = paths
-                .worktree_root
-                .join(".braid/issues")
-                .join(format!("{}.md", issue_id));
-            issue.save(&local_path)?;
-        }
 
         self.message = Some(format!("started {}", issue_id));
         self.reload_issues(paths)?;
@@ -233,18 +224,9 @@ impl App {
         issue.frontmatter.owner = None;
         issue.touch();
 
-        // save to control root
+        // save issue
         let issue_path = paths.issues_dir().join(format!("{}.md", issue_id));
         issue.save(&issue_path)?;
-
-        // dual-write to local worktree if different
-        if paths.worktree_root != paths.control_root {
-            let local_path = paths
-                .worktree_root
-                .join(".braid/issues")
-                .join(format!("{}.md", issue_id));
-            issue.save(&local_path)?;
-        }
 
         self.message = Some(format!("done {}", issue_id));
         self.reload_issues(paths)?;
@@ -298,18 +280,9 @@ impl App {
 
         let _lock = LockGuard::acquire(&paths.lock_path())?;
 
-        // save to control root
+        // save issue
         let issue_path = paths.issues_dir().join(format!("{}.md", id));
         issue.save(&issue_path)?;
-
-        // dual-write to local worktree if different
-        if paths.worktree_root != paths.control_root {
-            let local_path = paths
-                .worktree_root
-                .join(".braid/issues")
-                .join(format!("{}.md", id));
-            issue.save(&local_path)?;
-        }
 
         self.input_mode = InputMode::Normal;
         self.message = Some(format!("created {}", id));
@@ -443,18 +416,9 @@ impl App {
         }
         issue.touch();
 
-        // save to control root
+        // save issue
         let issue_path = paths.issues_dir().join(format!("{}.md", issue_id));
         issue.save(&issue_path)?;
-
-        // dual-write to local worktree if different
-        if paths.worktree_root != paths.control_root {
-            let local_path = paths
-                .worktree_root
-                .join(".braid/issues")
-                .join(format!("{}.md", issue_id));
-            issue.save(&local_path)?;
-        }
 
         self.input_mode = InputMode::Normal;
         self.message = Some(format!("saved {}", issue_id));

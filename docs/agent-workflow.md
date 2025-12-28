@@ -4,12 +4,13 @@ this document describes the workflow for AI agents working in git worktrees with
 
 ## overview
 
-braid supports multiple agents working in parallel using git worktrees. each agent gets their own worktree with a dedicated branch, while sharing the same issue state.
+braid supports multiple agents working in parallel using git worktrees. each agent gets their own worktree with a dedicated branch and their own `.braid/` directory.
 
 key concepts:
 
-- **control root**: the main worktree that owns the canonical `.braid/issues/` directory
-- **dual-write**: when agents modify issue status, changes go to both control root (for immediate visibility) and the local worktree (for git commits)
+- **git as source of truth**: issue state is synchronized via git pull/push
+- **issue files are claims**: `status: doing` + `owner: agent-id` = claimed
+- **optimistic locking**: git push conflicts prevent duplicate claims
 
 ## setup
 
@@ -31,23 +32,39 @@ this creates:
 from your agent worktree:
 
 ```bash
-brd ls          # should show all issues
-brd ready       # should show ready issues
+git pull origin main   # sync latest issue state
+brd ls                 # should show all issues
+brd ready              # should show ready issues
 ```
 
 ## workflow
 
-### 1. pick up an issue
+### 1. sync and pick up an issue
 
 ```bash
+git pull origin main   # get latest issue state
 brd ready              # see what's available
-brd next               # get highest priority ready issue
 brd start <issue-id>   # marks as "doing", sets you as owner
 ```
 
-`brd start` writes to both control root and your local worktree, so you can commit the status change with your code.
+### 2. commit the claim
 
-### 2. work on the issue
+push your claim so other agents see it:
+
+```bash
+git add .braid
+git commit -m "start: <issue-id>"
+git push origin main
+```
+
+if the push fails (another agent pushed first), pull and check if the issue is still available:
+
+```bash
+git pull --rebase origin main
+brd show <issue-id>    # check if someone else claimed it
+```
+
+### 3. work on the issue
 
 make your changes and commit:
 
@@ -56,27 +73,22 @@ git add .
 git commit -m "feat: implement the thing"
 ```
 
-the issue status change (from `brd start`) is included in your commit automatically.
-
-### 3. mark done
+### 4. mark done and ship
 
 when finished:
 
 ```bash
 brd done <issue-id>
-git add .braid/issues/<issue-id>.md
-git commit -m "chore(braid): close <issue-id>"
+git add .braid
+git commit -m "done: <issue-id>"
+brd agent ship         # rebase + push to main
 ```
 
-### 4. ship to main
+now you're ready to pick up the next issue.
 
-use `brd agent ship` to push your changes to main:
+## brd agent ship
 
-```bash
-brd agent ship
-```
-
-this command:
+the `brd agent ship` command handles the rebase+push workflow:
 
 1. fetches `origin main`
 2. rebases your branch onto `origin/main`
@@ -85,34 +97,34 @@ this command:
 
 if main has moved and the push fails, just run `brd agent ship` again.
 
-now you're ready to pick up the next issue.
+## how race conditions are handled
 
-## how it works
+if two agents try to claim the same issue:
 
-### issue visibility
+1. first agent to push wins
+2. second agent gets a push conflict
+3. second agent pulls, sees the issue already has an owner
+4. second agent picks a different issue
 
-all worktrees share the same issue state via the control root mechanism:
-
-```
-git common dir:  /path/to/repo/.git
-control root:    /path/to/repo  (main worktree)
-```
-
-when you run `brd ls` from any worktree, it reads from the control root's `.braid/issues/`.
-
-### dual-write
-
-when you run `brd start` or `brd done` from a non-control-root worktree:
-
-1. writes to control root (other agents see the change immediately)
-2. writes to your local `.braid/issues/` (so you can commit it)
-
-this way, issue status changes flow through git like code changes.
+this is optimistic locking — git handles the coordination.
 
 ## troubleshooting
+
+**push conflict on claim:** another agent claimed the issue first. pull and pick a different issue:
+
+```bash
+git pull --rebase origin main
+brd ready              # pick another issue
+```
 
 **schema mismatch errors:** if you see "this repo uses schema vN, but this brd only supports up to vM", rebase onto the latest main:
 
 ```bash
 git fetch origin main && git rebase origin/main && cargo build --release
+```
+
+**stale claim:** if an issue is stuck as "doing" but the agent crashed, the owner can reclaim it:
+
+```bash
+brd start <issue-id>   # if you're the owner, you can restart it
 ```

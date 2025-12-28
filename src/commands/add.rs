@@ -39,15 +39,6 @@ pub fn cmd_add(cli: &Cli, paths: &RepoPaths, args: &AddArgs) -> Result<()> {
     let issue_path = paths.issues_dir().join(format!("{}.md", id));
     issue.save(&issue_path)?;
 
-    // dual-write: also save to local worktree if different from control root
-    if paths.worktree_root != paths.control_root {
-        let local_issue_path = paths
-            .worktree_root
-            .join(".braid/issues")
-            .join(format!("{}.md", id));
-        issue.save(&local_issue_path)?;
-    }
-
     if cli.json {
         let json = issue_to_json(&issue, &all_issues);
         println!("{}", serde_json::to_string_pretty(&json).unwrap());

@@ -20,7 +20,7 @@ pub fn cmd_commit(cli: &Cli, paths: &RepoPaths, message: Option<&str>) -> Result
     verbose!(cli, "staging .braid changes");
     let add_output = Command::new("git")
         .args(["add", ".braid"])
-        .current_dir(&paths.control_root)
+        .current_dir(&paths.worktree_root)
         .output()?;
 
     if !add_output.status.success() {
@@ -31,7 +31,7 @@ pub fn cmd_commit(cli: &Cli, paths: &RepoPaths, message: Option<&str>) -> Result
     // check if there are staged changes in .braid
     let diff_output = Command::new("git")
         .args(["diff", "--cached", "--quiet", ".braid"])
-        .current_dir(&paths.control_root)
+        .current_dir(&paths.worktree_root)
         .output()?;
 
     if diff_output.status.success() {
@@ -47,7 +47,7 @@ pub fn cmd_commit(cli: &Cli, paths: &RepoPaths, message: Option<&str>) -> Result
     // generate commit message if not provided
     let commit_msg = match message {
         Some(msg) => msg.to_string(),
-        None => generate_commit_message(&paths.control_root)?,
+        None => generate_commit_message(&paths.worktree_root)?,
     };
 
     verbose!(cli, "committing with message: {}", commit_msg);
@@ -55,7 +55,7 @@ pub fn cmd_commit(cli: &Cli, paths: &RepoPaths, message: Option<&str>) -> Result
     // commit only .braid changes (not other staged files)
     let commit_output = Command::new("git")
         .args(["commit", "-m", &commit_msg, "--", ".braid"])
-        .current_dir(&paths.control_root)
+        .current_dir(&paths.worktree_root)
         .output()?;
 
     if !commit_output.status.success() {
