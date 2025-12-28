@@ -3,13 +3,13 @@ schema_version: 4
 id: brd-4dto
 title: add unit tests for start/done/skip commands
 priority: P2
-status: doing
+status: done
 deps: []
 tags:
 - testing
-owner: agent-three
+owner: null
 created_at: 2025-12-28T08:49:06.106631Z
-updated_at: 2025-12-28T18:35:43.908711Z
+updated_at: 2025-12-28T19:10:27.640621Z
 ---
 
 core workflow commands have no unit tests.
