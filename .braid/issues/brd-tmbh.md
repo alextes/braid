@@ -3,13 +3,13 @@ schema_version: 4
 id: brd-tmbh
 title: add unit tests for repo module
 priority: P3
-status: doing
+status: done
 deps: []
 tags:
 - testing
-owner: agent-three
+owner: null
 created_at: 2025-12-28T08:57:23.304532Z
-updated_at: 2025-12-28T21:08:59.420406Z
+updated_at: 2025-12-28T21:10:33.338981Z
 ---
 
 repo module has complex path resolution logic but only 1 basic test.
