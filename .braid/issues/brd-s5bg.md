@@ -3,13 +3,13 @@ schema_version: 4
 id: brd-s5bg
 title: add unit tests for init command
 priority: P2
-status: doing
+status: done
 deps: []
 tags:
 - testing
-owner: agent-three
+owner: null
 created_at: 2025-12-28T08:49:24.962784Z
-updated_at: 2025-12-28T19:39:14.590517Z
+updated_at: 2025-12-28T19:43:54.075002Z
 ---
 
 init command creates repo structure but has no unit tests.
