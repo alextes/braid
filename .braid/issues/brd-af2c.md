@@ -3,13 +3,13 @@ schema_version: 4
 id: brd-af2c
 title: add unit tests for add command
 priority: P2
-status: todo
+status: doing
 deps: []
-owner: null
-created_at: 2025-12-28T08:49:05.99492Z
 tags:
 - testing
-updated_at: 2025-12-28T08:49:05.99492Z
+owner: alextes
+created_at: 2025-12-28T08:49:05.99492Z
+updated_at: 2025-12-28T17:44:42.858051Z
 ---
 
 the add command has complex logic for issue creation but no unit tests.
