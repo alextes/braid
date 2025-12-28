@@ -1,5 +1,7 @@
 //! brd ls command.
 
+use std::time::Instant;
+
 use crossterm::style::{Attribute, Color, SetAttribute, SetForegroundColor};
 use time::OffsetDateTime;
 
@@ -50,6 +52,7 @@ pub fn cmd_ls(
     tag_filter: &[String],
     show_all: bool,
 ) -> Result<()> {
+    let start = Instant::now();
     let config = Config::load(&paths.config_path())?;
     let issues = load_all_issues(paths, &config)?;
 
@@ -118,10 +121,17 @@ pub fn cmd_ls(
             .map(|issue| issue_to_json(issue, &issues))
             .collect();
         println!("{}", serde_json::to_string_pretty(&json).unwrap());
-    } else if filtered.is_empty() {
-        println!("No issues found.");
     } else {
-        for issue in filtered {
+        let open_count = filtered
+            .iter()
+            .filter(|issue| !matches!(issue.status(), Status::Done | Status::Skip))
+            .count();
+
+        if filtered.is_empty() {
+            println!("No issues found.");
+        }
+
+        for issue in &filtered {
             let derived = compute_derived(issue, &issues);
             let deps_info = if issue.deps().is_empty() {
                 String::new()
@@ -213,7 +223,11 @@ pub fn cmd_ls(
             }
             print!(
                 "  {}  {}{}  {}{}",
-                age_col, type_col, status_col, issue.title(), deps_info
+                age_col,
+                type_col,
+                status_col,
+                issue.title(),
+                deps_info
             );
 
             if use_color && (is_resolved || is_doing || issue.issue_type().is_some()) {
@@ -235,6 +249,9 @@ pub fn cmd_ls(
             }
             println!();
         }
+
+        let elapsed_ms = start.elapsed().as_millis();
+        println!("open: {} | time: {}ms", open_count, elapsed_ms);
     }
 
     Ok(())

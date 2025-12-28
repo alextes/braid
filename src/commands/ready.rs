@@ -1,5 +1,7 @@
 //! brd ready command.
 
+use std::time::Instant;
+
 use crossterm::style::{Attribute, Color, SetAttribute, SetForegroundColor};
 
 use crate::cli::Cli;
@@ -12,6 +14,7 @@ use crate::repo::RepoPaths;
 use super::{issue_to_json, load_all_issues};
 
 pub fn cmd_ready(cli: &Cli, paths: &RepoPaths) -> Result<()> {
+    let start = Instant::now();
     let config = Config::load(&paths.config_path())?;
     let issues = load_all_issues(paths, &config)?;
     let ready = get_ready_issues(&issues);
@@ -22,10 +25,14 @@ pub fn cmd_ready(cli: &Cli, paths: &RepoPaths) -> Result<()> {
             .map(|issue| issue_to_json(issue, &issues))
             .collect();
         println!("{}", serde_json::to_string_pretty(&json).unwrap());
-    } else if ready.is_empty() {
-        println!("No ready issues.");
     } else {
-        for issue in ready {
+        let open_count = ready.len();
+
+        if ready.is_empty() {
+            println!("No ready issues.");
+        }
+
+        for issue in &ready {
             let is_doing = issue.status() == Status::Doing;
             let use_color = !cli.no_color;
             let priority_color = if use_color {
@@ -58,10 +65,7 @@ pub fn cmd_ready(cli: &Cli, paths: &RepoPaths) -> Result<()> {
                 None => "        ",
             };
 
-            print!(
-                "{}  ",
-                issue.id()
-            );
+            print!("{}  ", issue.id());
             if let Some(color) = priority_color {
                 print!("{}", SetForegroundColor(color));
             }
@@ -76,6 +80,9 @@ pub fn cmd_ready(cli: &Cli, paths: &RepoPaths) -> Result<()> {
             }
             println!();
         }
+
+        let elapsed_ms = start.elapsed().as_millis();
+        println!("open: {} | time: {}ms", open_count, elapsed_ms);
     }
 
     Ok(())
