@@ -3,12 +3,12 @@ schema_version: 4
 id: brd-ztwj
 title: design PR-based multi-agent workflow
 priority: P2
-status: todo
+status: doing
 type: design
 deps: []
-owner: null
+owner: agent-two
 created_at: 2025-12-27T22:04:41.412418Z
-updated_at: 2025-12-27T22:04:41.412418Z
+updated_at: 2025-12-28T19:56:00.663136Z
 ---
 
 current workflow: agents work in worktrees and ship directly to main via `brd agent ship` (rebase + fast-forward push).
