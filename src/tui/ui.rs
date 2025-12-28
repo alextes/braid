@@ -49,7 +49,7 @@ fn draw_header(f: &mut Frame, area: Rect, app: &App) {
 
 fn draw_footer(f: &mut Frame, area: Rect, app: &App) {
     let msg = app.message.as_deref().unwrap_or("");
-    let help = "[a]dd [e]dit [s]tart [d]one [r]efresh [v]live [↑↓/jk]nav [Tab]switch [h/l]dep [enter]open dep [?]help [q]uit";
+    let help = "[a]dd [e]dit [s]tart [d]one [r]efresh [/]filter [v]live [↑↓/jk]nav [Tab]switch [?]help [q]uit";
     let text = if msg.is_empty() {
         help.to_string()
     } else {
@@ -291,7 +291,35 @@ fn draw_all_list(f: &mut Frame, area: Rect, app: &mut App) {
         Style::default().fg(Color::DarkGray)
     };
 
-    let title = format!(" All ({}) ", app.all_issues.len());
+    // build title with filter info
+    let visible = app.visible_all_issues();
+    let title = if app.has_filter() {
+        let mut filter_parts = Vec::new();
+        if !app.all_filter_query.is_empty() {
+            filter_parts.push(format!("\"{}\"", app.all_filter_query));
+        }
+        if !app.all_status_filter.is_empty() {
+            let statuses: Vec<&str> = app
+                .all_status_filter
+                .iter()
+                .map(|s| match s {
+                    crate::issue::Status::Todo => "T",
+                    crate::issue::Status::Doing => "D",
+                    crate::issue::Status::Done => "✓",
+                    crate::issue::Status::Skip => "⊘",
+                })
+                .collect();
+            filter_parts.push(statuses.join(""));
+        }
+        format!(
+            " All ({}/{}) [{}] ",
+            visible.len(),
+            app.all_issues.len(),
+            filter_parts.join(" ")
+        )
+    } else {
+        format!(" All ({}) ", app.all_issues.len())
+    };
     let block = Block::default()
         .title(title)
         .borders(Borders::ALL)
@@ -301,8 +329,7 @@ fn draw_all_list(f: &mut Frame, area: Rect, app: &mut App) {
     let title_width = area.width.saturating_sub(16) as usize;
     let view_height = block.inner(area).height as usize;
 
-    let items: Vec<ListItem> = app
-        .all_issues
+    let items: Vec<ListItem> = visible
         .iter()
         .enumerate()
         .map(|(i, id)| {
@@ -348,17 +375,13 @@ fn draw_all_list(f: &mut Frame, area: Rect, app: &mut App) {
         })
         .collect();
 
-    let selected = if app.all_issues.is_empty() {
+    let visible_len = visible.len();
+    let selected = if visible_len == 0 {
         None
     } else {
         Some(app.all_selected)
     };
-    update_offset(
-        &mut app.all_offset,
-        selected,
-        app.all_issues.len(),
-        view_height,
-    );
+    update_offset(&mut app.all_offset, selected, visible_len, view_height);
     let mut state = ListState::default()
         .with_selected(selected)
         .with_offset(app.all_offset);
@@ -558,6 +581,14 @@ fn draw_help(f: &mut Frame, area: Rect) {
         Line::from("  enter      open selected dependency"),
         Line::from("  r          Refresh issues from disk"),
         Line::from("  v          Toggle live view"),
+        Line::from(""),
+        Line::from(Span::styled(
+            "Filter (All pane)",
+            Style::default().add_modifier(Modifier::BOLD),
+        )),
+        Line::from("  /          Open filter dialog"),
+        Line::from("  1-4        Toggle status (1=todo 2=doing 3=done 4=skip)"),
+        Line::from("  Esc        Clear filter"),
         Line::from(""),
         Line::from(Span::styled(
             "Other",
@@ -810,6 +841,51 @@ fn draw_input_dialog(f: &mut Frame, app: &App) {
 
             let list = List::new(items);
             f.render_widget(list, chunks[1]);
+        }
+        InputMode::Filter(query) => {
+            let block = Block::default()
+                .title(" Filter (Enter to apply, Esc to cancel) ")
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::Yellow));
+
+            let inner = block.inner(area);
+            f.render_widget(block, area);
+
+            let chunks = Layout::default()
+                .direction(Direction::Vertical)
+                .constraints([
+                    Constraint::Length(1),
+                    Constraint::Length(1),
+                    Constraint::Min(0),
+                ])
+                .split(inner);
+
+            let hint = Paragraph::new("Type to filter by title. Use 1-4 to toggle status filters.")
+                .style(Style::default().fg(Color::DarkGray));
+            f.render_widget(hint, chunks[0]);
+
+            let input =
+                Paragraph::new(format!("/{}_", query)).style(Style::default().fg(Color::White));
+            f.render_widget(input, chunks[1]);
+
+            // show current status filter
+            let status_line = if app.all_status_filter.is_empty() {
+                "Status: all".to_string()
+            } else {
+                let statuses: Vec<&str> = [
+                    (crate::issue::Status::Todo, "todo"),
+                    (crate::issue::Status::Doing, "doing"),
+                    (crate::issue::Status::Done, "done"),
+                    (crate::issue::Status::Skip, "skip"),
+                ]
+                .iter()
+                .filter(|(s, _)| app.all_status_filter.contains(s))
+                .map(|(_, name)| *name)
+                .collect();
+                format!("Status: {}", statuses.join(", "))
+            };
+            let status = Paragraph::new(status_line).style(Style::default().fg(Color::Cyan));
+            f.render_widget(status, chunks[2]);
         }
         InputMode::Normal => {}
     }
