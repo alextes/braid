@@ -3,11 +3,11 @@ schema_version: 4
 id: brd-0jtz
 title: require result issues when closing design issues
 priority: P1
-status: doing
+status: done
 deps: []
-owner: alextes
+owner: null
 created_at: 2025-12-28T21:33:58.805982Z
-updated_at: 2025-12-28T21:35:17.98844Z
+updated_at: 2025-12-28T21:39:11.440357Z
 ---
 
 when marking a design issue as done, require specifying which issues were created as a result.

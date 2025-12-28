@@ -54,7 +54,28 @@ only after:
 - follow-up issues have been created
 
 ```bash
-brd done <design-issue-id>
+brd done <design-issue-id> --result <impl-issue-1> --result <impl-issue-2>
+```
+
+the `--result` flag is **required** for design issues. it:
+- verifies the result issues exist
+- automatically propagates dependencies (issues depending on this design now also depend on the results)
+
+use `--force` to close without specifying results (not recommended).
+
+## transitive dependencies
+
+if issue X depends on a design issue D, closing D with `--result A, B` makes X depend on A and B. this allows you to declare dependencies on design issues before knowing what implementation work will result.
+
+example:
+```bash
+# v1.0 depends on a design issue
+brd dep add brd-v1 brd-design
+
+# later, close the design with its results
+brd done brd-design --result brd-impl-1 --result brd-impl-2
+
+# now brd-v1 also depends on brd-impl-1 and brd-impl-2
 ```
 
 ## when to skip discussion

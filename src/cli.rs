@@ -109,9 +109,13 @@ pub enum Command {
         /// issue ID
         id: String,
 
-        /// force completion even if not claimed by you
+        /// force completion even if not claimed by you, or close design issue without results
         #[arg(long)]
         force: bool,
+
+        /// issue IDs created as a result of this design issue (required for design issues)
+        #[arg(long, short)]
+        result: Vec<String>,
     },
 
     /// mark an issue as skipped (won't do)
