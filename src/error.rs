@@ -120,7 +120,7 @@ mod tests {
             ExitCode::ParseError
         );
         assert_eq!(
-            BrdError::Io(std::io::Error::new(std::io::ErrorKind::Other, "io")).exit_code(),
+            BrdError::Io(std::io::Error::other("io")).exit_code(),
             ExitCode::GenericFailure
         );
         assert_eq!(
@@ -154,7 +154,7 @@ mod tests {
             "parse_error"
         );
         assert_eq!(
-            BrdError::Io(std::io::Error::new(std::io::ErrorKind::Other, "io")).code_str(),
+            BrdError::Io(std::io::Error::other("io")).code_str(),
             "io_error"
         );
         assert_eq!(BrdError::Other("oops".into()).code_str(), "error");

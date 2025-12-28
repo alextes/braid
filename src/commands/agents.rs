@@ -248,8 +248,10 @@ mod tests {
 
     #[test]
     fn test_generate_block_local_sync() {
-        let mut config = Config::default();
-        config.sync_branch = Some("braid-issues".to_string());
+        let config = Config {
+            sync_branch: Some("braid-issues".to_string()),
+            ..Default::default()
+        };
         let block = generate_block(&config);
         assert!(block.contains("## syncing issues (local-sync mode)"));
         assert!(block.contains("braid-issues"));
