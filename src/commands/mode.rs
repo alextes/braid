@@ -27,14 +27,21 @@ fn git_output(args: &[&str], cwd: &Path) -> std::io::Result<String> {
 
 /// Check if a branch has an upstream tracking branch.
 fn has_upstream(branch: &str, cwd: &Path) -> bool {
-    git(&["rev-parse", "--abbrev-ref", &format!("{}@{{u}}", branch)], cwd).unwrap_or(false)
+    git(
+        &["rev-parse", "--abbrev-ref", &format!("{}@{{u}}", branch)],
+        cwd,
+    )
+    .unwrap_or(false)
 }
 
 /// Get the upstream tracking branch name.
 fn get_upstream(branch: &str, cwd: &Path) -> Option<String> {
-    git_output(&["rev-parse", "--abbrev-ref", &format!("{}@{{u}}", branch)], cwd)
-        .ok()
-        .filter(|s| !s.is_empty())
+    git_output(
+        &["rev-parse", "--abbrev-ref", &format!("{}@{{u}}", branch)],
+        cwd,
+    )
+    .ok()
+    .filter(|s| !s.is_empty())
 }
 
 /// Check if working tree is clean.
@@ -165,7 +172,9 @@ pub fn cmd_mode_sync_local(cli: &Cli, paths: &RepoPaths, branch: &str) -> Result
 
     // 5. commit the changes
     if !git(&["add", ".braid"], &paths.worktree_root)? {
-        return Err(BrdError::Other("failed to stage .braid changes".to_string()));
+        return Err(BrdError::Other(
+            "failed to stage .braid changes".to_string(),
+        ));
     }
 
     let commit_msg = format!("chore(braid): switch to local-sync mode ({})", branch);
@@ -178,7 +187,10 @@ pub fn cmd_mode_sync_local(cli: &Cli, paths: &RepoPaths, branch: &str) -> Result
             "failed to stage .braid in issues worktree".to_string(),
         ));
     }
-    let _ = git(&["commit", "-m", "chore(braid): initial issues"], &issues_wt);
+    let _ = git(
+        &["commit", "-m", "chore(braid): initial issues"],
+        &issues_wt,
+    );
 
     if cli.json {
         let json = serde_json::json!({
@@ -208,7 +220,7 @@ pub fn cmd_mode_default(cli: &Cli, paths: &RepoPaths) -> Result<()> {
         None => {
             return Err(BrdError::Other(
                 "already in git-native mode (no sync branch configured)".to_string(),
-            ))
+            ));
         }
     };
 
@@ -262,7 +274,9 @@ pub fn cmd_mode_default(cli: &Cli, paths: &RepoPaths) -> Result<()> {
 
     // 4. commit the changes
     if !git(&["add", ".braid"], &paths.worktree_root)? {
-        return Err(BrdError::Other("failed to stage .braid changes".to_string()));
+        return Err(BrdError::Other(
+            "failed to stage .braid changes".to_string(),
+        ));
     }
 
     let commit_msg = format!("chore(braid): switch to git-native mode (from {})", branch);
@@ -279,7 +293,10 @@ pub fn cmd_mode_default(cli: &Cli, paths: &RepoPaths) -> Result<()> {
                 "Note: issues worktree still exists at {}",
                 issues_wt.display()
             );
-            println!("You can remove it with: git worktree remove {}", issues_wt.display());
+            println!(
+                "You can remove it with: git worktree remove {}",
+                issues_wt.display()
+            );
         }
     }
 
