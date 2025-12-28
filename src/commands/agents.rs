@@ -6,7 +6,7 @@ use crate::error::{BrdError, Result};
 use crate::repo::RepoPaths;
 
 /// current version of the agents block
-pub const AGENTS_BLOCK_VERSION: u32 = 2;
+pub const AGENTS_BLOCK_VERSION: u32 = 3;
 
 const BLOCK_START: &str = "<!-- braid:agents:start";
 const BLOCK_END: &str = "<!-- braid:agents:end -->";
@@ -20,9 +20,12 @@ pub fn generate_block() -> String {
 this repo uses braid (`brd`) for issue tracking. issues live in `.braid/issues/` as markdown files.
 
 basic flow:
-1. `brd start` — claim the next ready issue (or `brd start <id>` for a specific one)
+1. `brd start` — claim the next ready issue (auto-syncs, commits, and pushes)
 2. do the work, commit as usual
 3. `brd done <id>` — mark the issue complete
+4. `brd agent ship` — push your work to main
+
+`brd start` automatically syncs with origin/main, claims the issue, and pushes the claim. use `--no-sync` to skip sync or `--no-push` to claim locally only.
 
 useful commands:
 - `brd ls` — list all issues
@@ -38,7 +41,7 @@ cat .braid/agent.toml 2>/dev/null && echo "yes, worktree" || echo "no, main"
 ```
 
 if you're in a worktree:
-- each worktree has its own `.braid/` directory — sync via git pull/push
+- `brd start` handles syncing automatically
 - use `brd agent ship` to merge your work to main (rebase + fast-forward push)
 - if you see schema mismatch errors, rebase onto latest main
 
