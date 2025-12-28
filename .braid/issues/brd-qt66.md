@@ -3,14 +3,14 @@ schema_version: 4
 id: brd-qt66
 title: design TUI live view for in-progress issues
 priority: P2
-status: todo
+status: doing
 type: design
 deps: []
 tags:
 - tui
-owner: null
+owner: agent-two
 created_at: 2025-12-28T17:22:29.424528Z
-updated_at: 2025-12-28T17:22:29.424528Z
+updated_at: 2025-12-28T21:13:14.182345Z
 ---
 
 design a TUI view that makes it easy to follow the live state of in-progress issues.
