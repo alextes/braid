@@ -23,7 +23,7 @@ mod sync;
 mod tui;
 
 pub use add::cmd_add;
-pub use agent::cmd_agent_init;
+pub use agent::{cmd_agent_branch, cmd_agent_init};
 pub use agents::{AGENTS_BLOCK_VERSION, check_agents_block, cmd_agents_inject, cmd_agents_show};
 pub use commit::cmd_commit;
 pub use completions::cmd_completions;

@@ -188,6 +188,12 @@ pub enum AgentAction {
         base: Option<String>,
     },
 
+    /// create feature branch for PR workflow
+    Branch {
+        /// issue ID to create branch for
+        id: String,
+    },
+
     /// push changes to main (rebase + fast-forward push)
     Ship,
 

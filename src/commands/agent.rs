@@ -1,11 +1,14 @@
 //! brd agent commands.
 
 use std::path::PathBuf;
+use std::process::Command;
 
 use crate::cli::Cli;
 use crate::config::Config;
 use crate::error::{BrdError, Result};
-use crate::repo::RepoPaths;
+use crate::repo::{self, RepoPaths};
+
+use super::{load_all_issues, resolve_issue_id};
 
 pub fn cmd_agent_init(cli: &Cli, paths: &RepoPaths, name: &str, base: Option<&str>) -> Result<()> {
     // validate agent name (alphanumeric + hyphens)
@@ -123,6 +126,90 @@ pub fn cmd_agent_init(cli: &Cli, paths: &RepoPaths, name: &str, base: Option<&st
         if sync_branch.is_some() {
             println!("  brd sync  # sync issues with remote");
         }
+    }
+
+    Ok(())
+}
+
+/// run a git command and return success status.
+fn git(args: &[&str], cwd: &std::path::Path) -> std::io::Result<bool> {
+    let output = Command::new("git").args(args).current_dir(cwd).output()?;
+    Ok(output.status.success())
+}
+
+/// create a feature branch for PR workflow.
+pub fn cmd_agent_branch(cli: &Cli, paths: &RepoPaths, issue_id: &str) -> Result<()> {
+    let config = Config::load(&paths.config_path())?;
+
+    // get agent name
+    let agent_id = repo::get_agent_id(&paths.worktree_root);
+
+    // load issues and resolve the ID
+    let issues = load_all_issues(paths, &config)?;
+    let full_id = resolve_issue_id(issue_id, &issues)?;
+
+    // create branch name: <agent>/<issue-id>
+    let branch_name = format!("{}/{}", agent_id, full_id);
+
+    // check if branch already exists
+    if git(&["rev-parse", "--verify", &branch_name], &paths.worktree_root).unwrap_or(false) {
+        return Err(BrdError::Other(format!(
+            "branch '{}' already exists",
+            branch_name
+        )));
+    }
+
+    // fetch latest main
+    if !cli.json {
+        eprintln!("fetching origin/main...");
+    }
+    let _ = git(&["fetch", "origin", "main"], &paths.worktree_root);
+
+    // create branch from origin/main (or main if no remote)
+    let base = if git(
+        &["rev-parse", "--verify", "origin/main"],
+        &paths.worktree_root,
+    )
+    .unwrap_or(false)
+    {
+        "origin/main"
+    } else {
+        "main"
+    };
+
+    if !cli.json {
+        eprintln!("creating branch {} from {}...", branch_name, base);
+    }
+
+    let output = Command::new("git")
+        .args(["checkout", "-b", &branch_name, base])
+        .current_dir(&paths.worktree_root)
+        .output()?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(BrdError::Other(format!(
+            "failed to create branch: {}",
+            stderr.trim()
+        )));
+    }
+
+    if cli.json {
+        let json = serde_json::json!({
+            "ok": true,
+            "branch": branch_name,
+            "issue_id": full_id,
+            "base": base,
+        });
+        println!("{}", serde_json::to_string_pretty(&json).unwrap());
+    } else {
+        println!("created branch: {}", branch_name);
+        println!();
+        println!("next steps:");
+        println!("  brd start {}   # claim the issue", full_id);
+        println!("  # do the work, commit as usual");
+        println!("  brd done {}    # mark done", full_id);
+        println!("  brd agent pr   # create PR");
     }
 
     Ok(())
