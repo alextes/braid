@@ -53,7 +53,10 @@ pub fn cmd_sync(cli: &Cli, paths: &RepoPaths) -> Result<()> {
         if !cli.json {
             println!("  stashing local changes...");
         }
-        if !git(&["stash", "push", "-m", "brd sync: stashing local changes"], &issues_wt)? {
+        if !git(
+            &["stash", "push", "-m", "brd sync: stashing local changes"],
+            &issues_wt,
+        )? {
             return Err(BrdError::Other("failed to stash changes".to_string()));
         }
     }

@@ -56,7 +56,10 @@ use crate::repo::RepoPaths;
 pub(crate) use crate::issue::{generate_issue_id, resolve_issue_id};
 
 /// load all issues from the issues directory.
-pub(crate) fn load_all_issues(paths: &RepoPaths, config: &Config) -> Result<HashMap<String, Issue>> {
+pub(crate) fn load_all_issues(
+    paths: &RepoPaths,
+    config: &Config,
+) -> Result<HashMap<String, Issue>> {
     let mut issues = HashMap::new();
     let issues_dir = paths.issues_dir(config);
 

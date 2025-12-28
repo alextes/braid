@@ -202,7 +202,9 @@ impl App {
         issue.touch();
 
         // save issue
-        let issue_path = paths.issues_dir(&self.config).join(format!("{}.md", issue_id));
+        let issue_path = paths
+            .issues_dir(&self.config)
+            .join(format!("{}.md", issue_id));
         issue.save(&issue_path)?;
 
         self.message = Some(format!("started {}", issue_id));
@@ -229,7 +231,9 @@ impl App {
         issue.touch();
 
         // save issue
-        let issue_path = paths.issues_dir(&self.config).join(format!("{}.md", issue_id));
+        let issue_path = paths
+            .issues_dir(&self.config)
+            .join(format!("{}.md", issue_id));
         issue.save(&issue_path)?;
 
         self.message = Some(format!("done {}", issue_id));
@@ -421,7 +425,9 @@ impl App {
         issue.touch();
 
         // save issue
-        let issue_path = paths.issues_dir(&self.config).join(format!("{}.md", issue_id));
+        let issue_path = paths
+            .issues_dir(&self.config)
+            .join(format!("{}.md", issue_id));
         issue.save(&issue_path)?;
 
         self.input_mode = InputMode::Normal;
