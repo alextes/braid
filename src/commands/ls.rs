@@ -149,7 +149,7 @@ pub fn cmd_ls(
             };
 
             let tags_info = if issue.tags().is_empty() {
-                String::new()
+                None
             } else {
                 let tags = issue
                     .tags()
@@ -157,7 +157,7 @@ pub fn cmd_ls(
                     .map(|tag| format!("#{tag}"))
                     .collect::<Vec<_>>()
                     .join(" ");
-                format!(" {}", tags)
+                Some(tags)
             };
 
             // show owner for doing issues (max 12 chars)
@@ -234,14 +234,26 @@ pub fn cmd_ls(
                 print!("{}", SetForegroundColor(Color::Reset));
             }
             print!(
-                "  {}  {}{}  {}{}{}",
+                "  {}  {}{}  {}{}",
                 age_col,
                 type_col,
                 status_col,
                 issue.title(),
-                deps_info,
-                tags_info
+                deps_info
             );
+
+            if let Some(tags) = tags_info.as_ref() {
+                if use_color {
+                    print!(
+                        " {}{}{}",
+                        SetForegroundColor(Color::Cyan),
+                        tags,
+                        SetForegroundColor(Color::Reset)
+                    );
+                } else {
+                    print!(" {}", tags);
+                }
+            }
 
             if use_color && (is_resolved || is_doing || issue.issue_type().is_some()) {
                 print!("{}", SetAttribute(Attribute::Reset));
