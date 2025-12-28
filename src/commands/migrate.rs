@@ -136,3 +136,86 @@ fn parse_frontmatter(content: &str) -> Result<(String, String)> {
 
     Ok((frontmatter, body))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::issue::{Priority, Status};
+    use std::fs;
+    use tempfile::tempdir;
+
+    fn create_test_repo() -> (tempfile::TempDir, RepoPaths, Config) {
+        let dir = tempdir().unwrap();
+        let paths = RepoPaths {
+            worktree_root: dir.path().to_path_buf(),
+            git_common_dir: dir.path().join(".git"),
+            brd_common_dir: dir.path().join(".git/brd"),
+        };
+        fs::create_dir_all(&paths.brd_common_dir).unwrap();
+        fs::create_dir_all(paths.braid_dir().join("issues")).unwrap();
+        let config = Config::default();
+        config.save(&paths.config_path()).unwrap();
+        (dir, paths, config)
+    }
+
+    fn write_issue(paths: &RepoPaths, config: &Config, issue: &Issue) -> std::path::PathBuf {
+        let issue_path = paths.issues_dir(config).join(format!("{}.md", issue.id()));
+        issue.save(&issue_path).unwrap();
+        issue_path
+    }
+
+    fn make_cli(json: bool) -> Cli {
+        Cli {
+            json,
+            repo: None,
+            no_color: true,
+            verbose: false,
+            command: crate::cli::Command::Doctor,
+        }
+    }
+
+    fn read_schema_version(path: &std::path::Path) -> u32 {
+        let content = fs::read_to_string(path).unwrap();
+        let (frontmatter, _) = parse_frontmatter(&content).unwrap();
+        let frontmatter: serde_yaml::Value = serde_yaml::from_str(&frontmatter).unwrap();
+        migrate::get_schema_version(&frontmatter).unwrap()
+    }
+
+    #[test]
+    fn test_cmd_migrate_dry_run_does_not_modify_issue() {
+        let (_dir, paths, config) = create_test_repo();
+        let mut issue = Issue::new(
+            "brd-aaaa".to_string(),
+            "issue a".to_string(),
+            Priority::P2,
+            vec![],
+        );
+        issue.frontmatter.status = Status::Todo;
+        issue.frontmatter.schema_version = CURRENT_SCHEMA - 1;
+        let issue_path = write_issue(&paths, &config, &issue);
+
+        let cli = make_cli(false);
+        cmd_migrate(&cli, &paths, true).unwrap();
+
+        assert_eq!(read_schema_version(&issue_path), CURRENT_SCHEMA - 1);
+    }
+
+    #[test]
+    fn test_cmd_migrate_updates_issue_schema() {
+        let (_dir, paths, config) = create_test_repo();
+        let mut issue = Issue::new(
+            "brd-aaaa".to_string(),
+            "issue a".to_string(),
+            Priority::P2,
+            vec![],
+        );
+        issue.frontmatter.status = Status::Todo;
+        issue.frontmatter.schema_version = CURRENT_SCHEMA - 1;
+        let issue_path = write_issue(&paths, &config, &issue);
+
+        let cli = make_cli(true);
+        cmd_migrate(&cli, &paths, false).unwrap();
+
+        assert_eq!(read_schema_version(&issue_path), CURRENT_SCHEMA);
+    }
+}
