@@ -39,3 +39,86 @@ pub fn cmd_skip(cli: &Cli, paths: &RepoPaths, id: &str) -> Result<()> {
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use tempfile::tempdir;
+
+    fn create_test_repo() -> (tempfile::TempDir, RepoPaths, Config) {
+        let dir = tempdir().unwrap();
+        let paths = RepoPaths {
+            worktree_root: dir.path().to_path_buf(),
+            git_common_dir: dir.path().join(".git"),
+            brd_common_dir: dir.path().join(".git/brd"),
+        };
+        fs::create_dir_all(&paths.brd_common_dir).unwrap();
+        fs::create_dir_all(paths.braid_dir().join("issues")).unwrap();
+        let config = Config::default();
+        config.save(&paths.config_path()).unwrap();
+        (dir, paths, config)
+    }
+
+    fn write_issue(
+        paths: &RepoPaths,
+        config: &Config,
+        id: &str,
+        status: Status,
+        owner: Option<&str>,
+    ) {
+        let mut issue = crate::issue::Issue::new(
+            id.to_string(),
+            format!("issue {}", id),
+            crate::issue::Priority::P2,
+            vec![],
+        );
+        issue.frontmatter.status = status;
+        issue.frontmatter.owner = owner.map(|o| o.to_string());
+        let issue_path = paths.issues_dir(config).join(format!("{}.md", id));
+        issue.save(&issue_path).unwrap();
+    }
+
+    fn make_cli() -> Cli {
+        Cli {
+            json: false,
+            repo: None,
+            no_color: true,
+            verbose: false,
+            command: crate::cli::Command::Doctor,
+        }
+    }
+
+    #[test]
+    fn test_skip_sets_status_and_clears_owner() {
+        let (_dir, paths, config) = create_test_repo();
+        write_issue(&paths, &config, "brd-aaaa", Status::Doing, Some("tester"));
+
+        let cli = make_cli();
+        cmd_skip(&cli, &paths, "brd-aaaa").unwrap();
+
+        let issues = load_all_issues(&paths, &config).unwrap();
+        let issue = issues.get("brd-aaaa").unwrap();
+        assert_eq!(issue.status(), Status::Skip);
+        assert!(issue.frontmatter.owner.is_none());
+    }
+
+    #[test]
+    fn test_skip_issue_not_found() {
+        let (_dir, paths, _config) = create_test_repo();
+        let cli = make_cli();
+        let err = cmd_skip(&cli, &paths, "brd-missing").unwrap_err();
+        assert!(matches!(err, BrdError::IssueNotFound(_)));
+    }
+
+    #[test]
+    fn test_skip_ambiguous_id() {
+        let (_dir, paths, config) = create_test_repo();
+        write_issue(&paths, &config, "brd-aaaa", Status::Todo, None);
+        write_issue(&paths, &config, "brd-aaab", Status::Todo, None);
+
+        let cli = make_cli();
+        let err = cmd_skip(&cli, &paths, "aaa").unwrap_err();
+        assert!(matches!(err, BrdError::AmbiguousId(_, _)));
+    }
+}
