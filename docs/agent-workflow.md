@@ -151,14 +151,14 @@ for teams that want CI gates and human review before merging, braid supports a P
 ### new commands
 
 ```bash
-brd agent branch <issue-id>   # create feature branch <agent>/<issue-id> from main
+brd agent branch <issue-id>   # create feature branch pr/<agent>/<issue-id> from main
 brd agent pr                  # create PR from current branch to main
 ```
 
 ### simple PR workflow (no sync branch)
 
 ```bash
-brd agent branch brd-xyz   # create branch agent-one/brd-xyz from main
+brd agent branch brd-xyz   # create branch pr/agent-one/brd-xyz from main
 brd start brd-xyz          # claim issue (committed in branch)
 # ... do work, commit as usual ...
 brd done brd-xyz           # mark done (committed in branch)
