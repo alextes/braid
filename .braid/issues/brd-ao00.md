@@ -3,13 +3,13 @@ schema_version: 4
 id: brd-ao00
 title: add unit tests for rm command
 priority: P3
-status: todo
+status: doing
 deps: []
-owner: null
-created_at: 2025-12-28T08:49:45.127324Z
 tags:
 - testing
-updated_at: 2025-12-28T08:49:45.127324Z
+owner: agent-three
+created_at: 2025-12-28T08:49:45.127324Z
+updated_at: 2025-12-28T20:28:38.338566Z
 ---
 
 rm command deletes issues but has no unit tests.
