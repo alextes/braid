@@ -59,6 +59,8 @@ pub struct App {
     pub input_mode: InputMode,
     /// current config
     pub config: Config,
+    /// selected dependency index in detail pane
+    pub detail_dep_selected: Option<usize>,
 }
 
 impl App {
@@ -78,6 +80,7 @@ impl App {
             show_help: false,
             input_mode: InputMode::Normal,
             config,
+            detail_dep_selected: None,
         };
         app.reload_issues(paths)?;
         Ok(app)
@@ -104,6 +107,7 @@ impl App {
             self.all_selected = self.all_issues.len() - 1;
         }
 
+        self.reset_dep_selection();
         self.message = Some("refreshed".to_string());
         Ok(())
     }
@@ -143,6 +147,7 @@ impl App {
                 }
             }
         }
+        self.reset_dep_selection();
         self.message = None;
     }
 
@@ -160,6 +165,7 @@ impl App {
                 }
             }
         }
+        self.reset_dep_selection();
         self.message = None;
     }
 
@@ -169,12 +175,78 @@ impl App {
             ActivePane::Ready => ActivePane::All,
             ActivePane::All => ActivePane::Ready,
         };
+        self.reset_dep_selection();
         self.message = None;
     }
 
     /// toggle help display.
     pub fn toggle_help(&mut self) {
         self.show_help = !self.show_help;
+    }
+
+    /// move selection to previous dependency.
+    pub fn move_dep_prev(&mut self) {
+        let Some(issue) = self.selected_issue() else {
+            self.message = Some("no issue selected".to_string());
+            return;
+        };
+        if issue.deps().is_empty() {
+            self.message = Some("no dependencies".to_string());
+            return;
+        }
+        let current = self.detail_dep_selected.unwrap_or(0);
+        let next = current.saturating_sub(1);
+        self.detail_dep_selected = Some(next);
+        self.message = None;
+    }
+
+    /// move selection to next dependency.
+    pub fn move_dep_next(&mut self) {
+        let Some(issue) = self.selected_issue() else {
+            self.message = Some("no issue selected".to_string());
+            return;
+        };
+        if issue.deps().is_empty() {
+            self.message = Some("no dependencies".to_string());
+            return;
+        }
+        let current = self.detail_dep_selected.unwrap_or(0);
+        let next = if current + 1 < issue.deps().len() {
+            current + 1
+        } else {
+            current
+        };
+        self.detail_dep_selected = Some(next);
+        self.message = None;
+    }
+
+    /// open the selected dependency in the list view.
+    pub fn open_selected_dependency(&mut self) {
+        let dep_id = {
+            let Some(issue) = self.selected_issue() else {
+                self.message = Some("no issue selected".to_string());
+                return;
+            };
+            if issue.deps().is_empty() {
+                self.message = Some("no dependencies".to_string());
+                return;
+            }
+            let Some(dep_idx) = self.detail_dep_selected else {
+                self.message = Some("no dependency selected".to_string());
+                return;
+            };
+            let Some(dep_id) = issue.deps().get(dep_idx) else {
+                self.message = Some("dependency not found".to_string());
+                return;
+            };
+            dep_id.to_string()
+        };
+
+        if self.select_issue_by_id(&dep_id) {
+            self.message = None;
+        } else {
+            self.message = Some("dependency issue missing".to_string());
+        }
     }
 
     /// start the selected issue.
@@ -434,6 +506,28 @@ impl App {
         self.message = Some(format!("saved {}", issue_id));
         self.reload_issues(paths)?;
         Ok(())
+    }
+
+    fn reset_dep_selection(&mut self) {
+        let deps_len = self
+            .selected_issue()
+            .map(|issue| issue.deps().len())
+            .unwrap_or(0);
+        if deps_len == 0 {
+            self.detail_dep_selected = None;
+        } else {
+            self.detail_dep_selected = Some(0);
+        }
+    }
+
+    fn select_issue_by_id(&mut self, issue_id: &str) -> bool {
+        if let Some(index) = self.all_issues.iter().position(|id| id == issue_id) {
+            self.all_selected = index;
+            self.active_pane = ActivePane::All;
+            self.reset_dep_selection();
+            return true;
+        }
+        false
     }
 }
 

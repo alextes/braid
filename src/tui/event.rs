@@ -201,6 +201,8 @@ fn handle_key_event(app: &mut App, paths: &RepoPaths, key: KeyEvent) -> Result<b
         KeyCode::Up | KeyCode::Char('k') => app.move_up(),
         KeyCode::Down | KeyCode::Char('j') => app.move_down(),
         KeyCode::Tab => app.switch_pane(),
+        KeyCode::Left | KeyCode::Char('h') => app.move_dep_prev(),
+        KeyCode::Right | KeyCode::Char('l') => app.move_dep_next(),
 
         // actions
         KeyCode::Char('a') | KeyCode::Char('n') => app.start_add_issue(),
@@ -220,6 +222,7 @@ fn handle_key_event(app: &mut App, paths: &RepoPaths, key: KeyEvent) -> Result<b
                 app.message = Some(format!("error: {}", e));
             }
         }
+        KeyCode::Enter => app.open_selected_dependency(),
 
         // help
         KeyCode::Char('?') => app.toggle_help(),
@@ -232,8 +235,8 @@ fn handle_key_event(app: &mut App, paths: &RepoPaths, key: KeyEvent) -> Result<b
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::app::ActivePane;
+    use super::*;
     use crate::config::Config;
     use crate::issue::{Issue, Priority, Status};
     use crate::repo::RepoPaths;
@@ -258,9 +261,7 @@ mod tests {
 
             let config = Config::default();
             let config_path = worktree_root.join(".braid/config.toml");
-            config
-                .save(&config_path)
-                .expect("failed to write config");
+            config.save(&config_path).expect("failed to write config");
 
             Self {
                 _dir: dir,
@@ -275,6 +276,23 @@ mod tests {
 
         fn add_issue(&self, id: &str, title: &str, priority: Priority, status: Status) {
             let mut issue = Issue::new(id.to_string(), title.to_string(), priority, vec![]);
+            issue.frontmatter.status = status;
+            let issue_path = self
+                .paths
+                .issues_dir(&self.config)
+                .join(format!("{}.md", id));
+            issue.save(&issue_path).expect("failed to save issue");
+        }
+
+        fn add_issue_with_deps(
+            &self,
+            id: &str,
+            title: &str,
+            priority: Priority,
+            status: Status,
+            deps: Vec<String>,
+        ) {
+            let mut issue = Issue::new(id.to_string(), title.to_string(), priority, deps);
             issue.frontmatter.status = status;
             let issue_path = self
                 .paths
@@ -337,8 +355,7 @@ mod tests {
         assert!(matches!(app.input_mode, InputMode::Normal));
         assert_eq!(app.message.as_deref(), Some("note"));
 
-        handle_key_event(&mut app, &env.paths, key(KeyCode::Char('?')))
-            .expect("help close failed");
+        handle_key_event(&mut app, &env.paths, key(KeyCode::Char('?'))).expect("help close failed");
         assert!(!app.show_help);
     }
 
@@ -347,30 +364,25 @@ mod tests {
         let env = TestEnv::new();
         let mut app = env.app();
 
-        handle_key_event(&mut app, &env.paths, key(KeyCode::Char('a')))
-            .expect("start add failed");
+        handle_key_event(&mut app, &env.paths, key(KeyCode::Char('a'))).expect("start add failed");
         assert!(matches!(
             app.input_mode,
             InputMode::Title(ref title) if title.is_empty()
         ));
         assert!(app.message.is_none());
 
-        handle_key_event(&mut app, &env.paths, key(KeyCode::Enter))
-            .expect("empty title failed");
+        handle_key_event(&mut app, &env.paths, key(KeyCode::Enter)).expect("empty title failed");
         assert_eq!(app.message.as_deref(), Some("title cannot be empty"));
         assert!(matches!(app.input_mode, InputMode::Title(_)));
 
-        handle_key_event(&mut app, &env.paths, key(KeyCode::Char('t')))
-            .expect("title char failed");
-        handle_key_event(&mut app, &env.paths, key(KeyCode::Char('e')))
-            .expect("title char failed");
+        handle_key_event(&mut app, &env.paths, key(KeyCode::Char('t'))).expect("title char failed");
+        handle_key_event(&mut app, &env.paths, key(KeyCode::Char('e'))).expect("title char failed");
         assert!(matches!(
             app.input_mode,
             InputMode::Title(ref title) if title == "te"
         ));
 
-        handle_key_event(&mut app, &env.paths, key(KeyCode::Enter))
-            .expect("confirm title failed");
+        handle_key_event(&mut app, &env.paths, key(KeyCode::Enter)).expect("confirm title failed");
         assert!(
             matches!(app.input_mode, InputMode::Priority { ref title, selected } if title == "te" && selected == 2)
         );
@@ -378,30 +390,20 @@ mod tests {
         handle_key_event(&mut app, &env.paths, key(KeyCode::Up)).expect("priority up failed");
         handle_key_event(&mut app, &env.paths, key(KeyCode::Up)).expect("priority up failed");
         handle_key_event(&mut app, &env.paths, key(KeyCode::Up)).expect("priority up failed");
-        assert!(
-            matches!(app.input_mode, InputMode::Priority { selected, .. } if selected == 0)
-        );
+        assert!(matches!(app.input_mode, InputMode::Priority { selected, .. } if selected == 0));
 
-        handle_key_event(&mut app, &env.paths, key(KeyCode::Down))
-            .expect("priority down failed");
-        handle_key_event(&mut app, &env.paths, key(KeyCode::Down))
-            .expect("priority down failed");
-        handle_key_event(&mut app, &env.paths, key(KeyCode::Down))
-            .expect("priority down failed");
-        handle_key_event(&mut app, &env.paths, key(KeyCode::Down))
-            .expect("priority down failed");
-        assert!(
-            matches!(app.input_mode, InputMode::Priority { selected, .. } if selected == 3)
-        );
+        handle_key_event(&mut app, &env.paths, key(KeyCode::Down)).expect("priority down failed");
+        handle_key_event(&mut app, &env.paths, key(KeyCode::Down)).expect("priority down failed");
+        handle_key_event(&mut app, &env.paths, key(KeyCode::Down)).expect("priority down failed");
+        handle_key_event(&mut app, &env.paths, key(KeyCode::Down)).expect("priority down failed");
+        assert!(matches!(app.input_mode, InputMode::Priority { selected, .. } if selected == 3));
 
-        handle_key_event(&mut app, &env.paths, key(KeyCode::Enter))
-            .expect("create issue failed");
+        handle_key_event(&mut app, &env.paths, key(KeyCode::Enter)).expect("create issue failed");
         assert!(matches!(app.input_mode, InputMode::Normal));
         assert_eq!(app.message.as_deref(), Some("refreshed"));
         assert_eq!(app.all_issues.len(), 1);
 
-        handle_key_event(&mut app, &env.paths, key(KeyCode::Down))
-            .expect("move down failed");
+        handle_key_event(&mut app, &env.paths, key(KeyCode::Down)).expect("move down failed");
         assert!(app.message.is_none());
     }
 
@@ -411,22 +413,16 @@ mod tests {
         env.add_issue("brd-aaaa", "old", Priority::P2, Status::Todo);
         let mut app = env.app();
 
-        handle_key_event(&mut app, &env.paths, key(KeyCode::Char('e')))
-            .expect("start edit failed");
-        assert!(
-            matches!(app.input_mode, InputMode::EditSelect { selected, .. } if selected == 0)
-        );
+        handle_key_event(&mut app, &env.paths, key(KeyCode::Char('e'))).expect("start edit failed");
+        assert!(matches!(app.input_mode, InputMode::EditSelect { selected, .. } if selected == 0));
 
-        handle_key_event(&mut app, &env.paths, key(KeyCode::Enter))
-            .expect("confirm field failed");
+        handle_key_event(&mut app, &env.paths, key(KeyCode::Enter)).expect("confirm field failed");
         assert!(
             matches!(app.input_mode, InputMode::EditTitle { ref current, .. } if current == "old")
         );
 
-        handle_key_event(&mut app, &env.paths, key(KeyCode::Char('x')))
-            .expect("edit char failed");
-        handle_key_event(&mut app, &env.paths, key(KeyCode::Enter))
-            .expect("save edit failed");
+        handle_key_event(&mut app, &env.paths, key(KeyCode::Char('x'))).expect("edit char failed");
+        handle_key_event(&mut app, &env.paths, key(KeyCode::Enter)).expect("save edit failed");
         assert!(matches!(app.input_mode, InputMode::Normal));
         assert_eq!(app.message.as_deref(), Some("refreshed"));
         assert_eq!(app.issues.get("brd-aaaa").unwrap().title(), "oldx");
@@ -438,10 +434,8 @@ mod tests {
         env.add_issue("brd-aaaa", "issue", Priority::P2, Status::Todo);
         let mut app = env.app();
 
-        handle_key_event(&mut app, &env.paths, key(KeyCode::Char('e')))
-            .expect("start edit failed");
-        handle_key_event(&mut app, &env.paths, key(KeyCode::Down))
-            .expect("select priority failed");
+        handle_key_event(&mut app, &env.paths, key(KeyCode::Char('e'))).expect("start edit failed");
+        handle_key_event(&mut app, &env.paths, key(KeyCode::Down)).expect("select priority failed");
         handle_key_event(&mut app, &env.paths, key(KeyCode::Enter))
             .expect("confirm priority failed");
         assert!(
@@ -449,8 +443,7 @@ mod tests {
         );
 
         handle_key_event(&mut app, &env.paths, key(KeyCode::Up)).expect("priority up failed");
-        handle_key_event(&mut app, &env.paths, key(KeyCode::Enter))
-            .expect("save priority failed");
+        handle_key_event(&mut app, &env.paths, key(KeyCode::Enter)).expect("save priority failed");
         assert!(matches!(app.input_mode, InputMode::Normal));
         assert_eq!(app.issues.get("brd-aaaa").unwrap().priority(), Priority::P1);
     }
@@ -461,22 +454,15 @@ mod tests {
         env.add_issue("brd-aaaa", "issue", Priority::P2, Status::Todo);
         let mut app = env.app();
 
-        handle_key_event(&mut app, &env.paths, key(KeyCode::Char('e')))
-            .expect("start edit failed");
-        handle_key_event(&mut app, &env.paths, key(KeyCode::Down))
-            .expect("select status failed");
-        handle_key_event(&mut app, &env.paths, key(KeyCode::Down))
-            .expect("select status failed");
-        handle_key_event(&mut app, &env.paths, key(KeyCode::Enter))
-            .expect("confirm status failed");
-        assert!(
-            matches!(app.input_mode, InputMode::EditStatus { selected, .. } if selected == 0)
-        );
+        handle_key_event(&mut app, &env.paths, key(KeyCode::Char('e'))).expect("start edit failed");
+        handle_key_event(&mut app, &env.paths, key(KeyCode::Down)).expect("select status failed");
+        handle_key_event(&mut app, &env.paths, key(KeyCode::Down)).expect("select status failed");
+        handle_key_event(&mut app, &env.paths, key(KeyCode::Enter)).expect("confirm status failed");
+        assert!(matches!(app.input_mode, InputMode::EditStatus { selected, .. } if selected == 0));
 
         handle_key_event(&mut app, &env.paths, key(KeyCode::Down)).expect("status down failed");
         handle_key_event(&mut app, &env.paths, key(KeyCode::Down)).expect("status down failed");
-        handle_key_event(&mut app, &env.paths, key(KeyCode::Enter))
-            .expect("save status failed");
+        handle_key_event(&mut app, &env.paths, key(KeyCode::Enter)).expect("save status failed");
         assert!(matches!(app.input_mode, InputMode::Normal));
         assert_eq!(app.issues.get("brd-aaaa").unwrap().status(), Status::Done);
     }
@@ -486,8 +472,8 @@ mod tests {
         let env = TestEnv::new();
         let mut app = env.app();
 
-        let quit = handle_key_event(&mut app, &env.paths, key(KeyCode::Char('q')))
-            .expect("quit failed");
+        let quit =
+            handle_key_event(&mut app, &env.paths, key(KeyCode::Char('q'))).expect("quit failed");
         assert!(quit);
 
         let quit = handle_key_event(
@@ -497,5 +483,32 @@ mod tests {
         )
         .expect("ctrl-c failed");
         assert!(quit);
+    }
+
+    #[test]
+    fn test_dependency_navigation_and_open() {
+        let env = TestEnv::new();
+        env.add_issue("brd-dep1", "dep one", Priority::P2, Status::Todo);
+        env.add_issue("brd-dep2", "dep two", Priority::P3, Status::Todo);
+        env.add_issue_with_deps(
+            "brd-main",
+            "main issue",
+            Priority::P1,
+            Status::Todo,
+            vec!["brd-dep1".to_string(), "brd-dep2".to_string()],
+        );
+
+        let mut app = env.app();
+        handle_key_event(&mut app, &env.paths, key(KeyCode::Tab))
+            .expect("switch pane failed");
+        assert_eq!(app.selected_issue_id(), Some("brd-main"));
+        assert_eq!(app.detail_dep_selected, Some(0));
+
+        handle_key_event(&mut app, &env.paths, key(KeyCode::Right)).expect("move dep failed");
+        assert_eq!(app.detail_dep_selected, Some(1));
+
+        handle_key_event(&mut app, &env.paths, key(KeyCode::Enter)).expect("open dep failed");
+        assert_eq!(app.active_pane, ActivePane::All);
+        assert_eq!(app.selected_issue_id(), Some("brd-dep2"));
     }
 }

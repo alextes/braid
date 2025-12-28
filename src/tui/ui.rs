@@ -44,7 +44,7 @@ fn draw_header(f: &mut Frame, area: Rect, app: &App) {
 
 fn draw_footer(f: &mut Frame, area: Rect, app: &App) {
     let msg = app.message.as_deref().unwrap_or("");
-    let help = "[a]dd [e]dit [s]tart [d]one [r]efresh [↑↓/jk]nav [Tab]switch [?]help [q]uit";
+    let help = "[a]dd [e]dit [s]tart [d]one [r]efresh [↑↓/jk]nav [Tab]switch [h/l]dep [enter]open dep [?]help [q]uit";
     let text = if msg.is_empty() {
         help.to_string()
     } else {
@@ -242,12 +242,13 @@ fn draw_detail(f: &mut Frame, area: Rect, app: &App) {
 
     // deps
     if !issue.deps().is_empty() {
+        let selected_dep = app.detail_dep_selected;
         lines.push(Line::from(""));
         lines.push(Line::from(Span::styled(
             "Dependencies:",
             Style::default().fg(Color::DarkGray),
         )));
-        for dep in issue.deps() {
+        for (idx, dep) in issue.deps().iter().enumerate() {
             let is_resolved = app
                 .issues
                 .get(dep)
@@ -258,12 +259,52 @@ fn draw_detail(f: &mut Frame, area: Rect, app: &App) {
                     )
                 })
                 .unwrap_or(false);
-            let style = if is_resolved {
+            let mut style = if is_resolved {
                 Style::default().fg(Color::Green)
             } else {
                 Style::default().fg(Color::Red)
             };
-            lines.push(Line::from(Span::styled(format!("  - {}", dep), style)));
+            let prefix = if Some(idx) == selected_dep { ">" } else { "-" };
+            if Some(idx) == selected_dep {
+                style = style.add_modifier(Modifier::BOLD);
+            }
+            lines.push(Line::from(Span::styled(
+                format!("  {} {}", prefix, dep),
+                style,
+            )));
+        }
+
+        if let Some(dep_id) = selected_dep.and_then(|idx| issue.deps().get(idx)) {
+            lines.push(Line::from(""));
+            lines.push(Line::from(Span::styled(
+                "dependency preview:",
+                Style::default().fg(Color::DarkGray),
+            )));
+            if let Some(dep_issue) = app.issues.get(dep_id) {
+                let status_style = match dep_issue.status() {
+                    crate::issue::Status::Done => Style::default().fg(Color::Green),
+                    crate::issue::Status::Doing => Style::default().fg(Color::Yellow),
+                    crate::issue::Status::Todo => Style::default(),
+                    crate::issue::Status::Skip => Style::default().fg(Color::DarkGray),
+                };
+                lines.push(Line::from(vec![
+                    Span::styled("  id:       ", Style::default().fg(Color::DarkGray)),
+                    Span::raw(dep_issue.id()),
+                ]));
+                lines.push(Line::from(vec![
+                    Span::styled("  title:    ", Style::default().fg(Color::DarkGray)),
+                    Span::raw(dep_issue.title()),
+                ]));
+                lines.push(Line::from(vec![
+                    Span::styled("  status:   ", Style::default().fg(Color::DarkGray)),
+                    Span::styled(dep_issue.status().to_string(), status_style),
+                ]));
+            } else {
+                lines.push(Line::from(Span::styled(
+                    "  missing dependency issue",
+                    Style::default().fg(Color::Red),
+                )));
+            }
         }
     }
 
@@ -310,6 +351,8 @@ fn draw_help(f: &mut Frame, area: Rect) {
         )),
         Line::from("  ↑ / k      Move up"),
         Line::from("  ↓ / j      Move down"),
+        Line::from("  ← / h      select previous dependency"),
+        Line::from("  → / l      select next dependency"),
         Line::from("  Tab        Switch pane (Ready ↔ All)"),
         Line::from(""),
         Line::from(Span::styled(
@@ -320,6 +363,7 @@ fn draw_help(f: &mut Frame, area: Rect) {
         Line::from("  e          Edit selected issue"),
         Line::from("  s          Start selected issue"),
         Line::from("  d          Mark selected issue as done"),
+        Line::from("  enter      open selected dependency"),
         Line::from("  r          Refresh issues from disk"),
         Line::from(""),
         Line::from(Span::styled(
