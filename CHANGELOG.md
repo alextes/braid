@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2025-12-28
+
+### Added
+- `brd commit` command to stage and commit .braid changes with auto-generated message
+
+### Changed
+- **BREAKING**: removed control_root and dual-write pattern
+  - each agent worktree now has its own `.braid/` directory
+  - git is the only source of truth for issue state
+  - agents sync via git pull/push (optimistic locking)
+  - see updated docs/agent-workflow.md for new workflow
+
+### Removed
+- `brd next` command (use `brd start` without arguments instead)
+
 ## [0.3.0] - 2025-12-27
 
 ### Added
@@ -79,7 +94,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - TUI for browsing issues
 - JSON output support
 
-[Unreleased]: https://github.com/alextes/braid/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/alextes/braid/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/alextes/braid/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/alextes/braid/compare/v0.2.2...v0.3.0
 [0.2.2]: https://github.com/alextes/braid/compare/v0.2.0...v0.2.2
 [0.2.0]: https://github.com/alextes/braid/compare/v0.1.0...v0.2.0

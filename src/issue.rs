@@ -717,13 +717,25 @@ with multiple paragraphs.
         assert_eq!(issue.frontmatter.title, reparsed.frontmatter.title);
         assert_eq!(issue.frontmatter.priority, reparsed.frontmatter.priority);
         assert_eq!(issue.frontmatter.status, reparsed.frontmatter.status);
-        assert_eq!(issue.frontmatter.issue_type, reparsed.frontmatter.issue_type);
+        assert_eq!(
+            issue.frontmatter.issue_type,
+            reparsed.frontmatter.issue_type
+        );
         assert_eq!(issue.frontmatter.deps, reparsed.frontmatter.deps);
         assert_eq!(issue.frontmatter.tags, reparsed.frontmatter.tags);
         assert_eq!(issue.frontmatter.owner, reparsed.frontmatter.owner);
-        assert_eq!(issue.frontmatter.created_at, reparsed.frontmatter.created_at);
-        assert_eq!(issue.frontmatter.updated_at, reparsed.frontmatter.updated_at);
-        assert_eq!(issue.frontmatter.acceptance, reparsed.frontmatter.acceptance);
+        assert_eq!(
+            issue.frontmatter.created_at,
+            reparsed.frontmatter.created_at
+        );
+        assert_eq!(
+            issue.frontmatter.updated_at,
+            reparsed.frontmatter.updated_at
+        );
+        assert_eq!(
+            issue.frontmatter.acceptance,
+            reparsed.frontmatter.acceptance
+        );
         assert_eq!(issue.body, reparsed.body);
     }
 
