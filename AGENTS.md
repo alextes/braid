@@ -78,8 +78,9 @@ if you're in a worktree:
 **design issues** (`type: design`) require human collaboration:
 
 - don't close autonomously — discuss with human first
+- read `docs/design-issues.md` before closing any design issue
 - research options, write up trade-offs in the issue body
-- produce output before closing (implementation issues or a plan)
+- produce follow-up issues before closing (implementation or documentation)
 - only mark done after human approves
 
 **meta issues** (`type: meta`) are tracking issues:

@@ -1,6 +1,6 @@
 # design issue workflow
 
-design issues (`type: design`) are for planning and decision-making before implementation. they require human collaboration and should not be closed autonomously.
+design issues (`type: design`) are for planning and decision-making before implementation. they require human collaboration, should not be closed autonomously, and must spawn follow-up issues before closing.
 
 ## workflow
 
@@ -35,11 +35,11 @@ update the issue body with:
 
 ### 5. produce output
 
-once a design is approved, create concrete next steps:
+once a design is approved, create concrete next steps. follow-up issues are required:
 
-- **implementation issues** — break down into actionable tasks
-- **or update existing issues** — if the design affects them
-- **or document the decision** — if no code changes needed
+- **implementation issues** — create one or more new issues with actionable tasks (preferred)
+- **documentation issues** — create a new issue if the decision only needs docs/notes
+- if the design affects existing issues, update them after creating the follow-up issues
 
 example:
 ```bash
@@ -51,7 +51,7 @@ brd add "set up cargo-dist for releases" -p P2 --dep <design-issue-id>
 
 only after:
 - human has approved the design
-- output has been created (issues, plan, or documentation)
+- follow-up issues have been created
 
 ```bash
 brd done <design-issue-id>
