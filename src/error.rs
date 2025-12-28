@@ -82,3 +82,81 @@ impl BrdError {
 }
 
 pub type Result<T> = std::result::Result<T, BrdError>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_exit_code_values() {
+        assert_eq!(i32::from(ExitCode::Success), 0);
+        assert_eq!(i32::from(ExitCode::UsageError), 2);
+        assert_eq!(i32::from(ExitCode::NotGitRepo), 10);
+        assert_eq!(i32::from(ExitCode::ParseError), 16);
+    }
+
+    #[test]
+    fn test_brd_error_exit_code_mapping() {
+        assert_eq!(BrdError::NotGitRepo.exit_code(), ExitCode::NotGitRepo);
+        assert_eq!(
+            BrdError::ControlRootInvalid("bad".into()).exit_code(),
+            ExitCode::ControlRootInvalid
+        );
+        assert_eq!(
+            BrdError::IssueNotFound("brd-1234".into()).exit_code(),
+            ExitCode::IssueNotFound
+        );
+        assert_eq!(
+            BrdError::AmbiguousId("brd-".into(), vec!["brd-a".into()]).exit_code(),
+            ExitCode::AmbiguousId
+        );
+        assert_eq!(
+            BrdError::ClaimConflict("brd-a".into(), "agent".into()).exit_code(),
+            ExitCode::ClaimConflict
+        );
+        assert_eq!(BrdError::InvalidGraph.exit_code(), ExitCode::InvalidGraph);
+        assert_eq!(
+            BrdError::ParseError("issue".into(), "bad".into()).exit_code(),
+            ExitCode::ParseError
+        );
+        assert_eq!(
+            BrdError::Io(std::io::Error::new(std::io::ErrorKind::Other, "io")).exit_code(),
+            ExitCode::GenericFailure
+        );
+        assert_eq!(
+            BrdError::Other("oops".into()).exit_code(),
+            ExitCode::GenericFailure
+        );
+    }
+
+    #[test]
+    fn test_brd_error_code_str_mapping() {
+        assert_eq!(BrdError::NotGitRepo.code_str(), "not_git_repo");
+        assert_eq!(
+            BrdError::ControlRootInvalid("bad".into()).code_str(),
+            "control_root_invalid"
+        );
+        assert_eq!(
+            BrdError::IssueNotFound("brd-1234".into()).code_str(),
+            "issue_not_found"
+        );
+        assert_eq!(
+            BrdError::AmbiguousId("brd-".into(), vec!["brd-a".into()]).code_str(),
+            "ambiguous_id"
+        );
+        assert_eq!(
+            BrdError::ClaimConflict("brd-a".into(), "agent".into()).code_str(),
+            "claim_conflict"
+        );
+        assert_eq!(BrdError::InvalidGraph.code_str(), "invalid_graph");
+        assert_eq!(
+            BrdError::ParseError("issue".into(), "bad".into()).code_str(),
+            "parse_error"
+        );
+        assert_eq!(
+            BrdError::Io(std::io::Error::new(std::io::ErrorKind::Other, "io")).code_str(),
+            "io_error"
+        );
+        assert_eq!(BrdError::Other("oops".into()).code_str(), "error");
+    }
+}
