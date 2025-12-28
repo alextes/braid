@@ -117,7 +117,8 @@ mod tests {
 
         let exe = std::env::current_exe().unwrap();
         let mut child = Command::new(exe)
-            .arg("--ignored")
+            .arg("--exact")
+            .arg("lock::tests::lock_helper")
             .env(
                 "BRD_LOCK_HELPER_LOCK",
                 lock_path.to_string_lossy().to_string(),
@@ -130,6 +131,7 @@ mod tests {
                 "BRD_LOCK_HELPER_RELEASE",
                 release_path.to_string_lossy().to_string(),
             )
+            .env("BRD_LOCK_HELPER", "1")
             .spawn()
             .unwrap();
 
@@ -150,8 +152,11 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn lock_helper() {
+        if std::env::var("BRD_LOCK_HELPER").as_deref() != Ok("1") {
+            return;
+        }
+
         let lock_path = std::env::var("BRD_LOCK_HELPER_LOCK").expect("missing lock path");
         let ready_path =
             PathBuf::from(std::env::var("BRD_LOCK_HELPER_READY").expect("missing ready path"));
