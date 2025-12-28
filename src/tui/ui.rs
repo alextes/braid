@@ -240,7 +240,7 @@ fn draw_ready_list(f: &mut Frame, area: Rect, app: &mut App) {
                 issue.priority(),
                 truncate(issue.title(), title_width)
             );
-            let style = if is_active && i == app.ready_selected {
+            let mut style = if is_active && i == app.ready_selected {
                 Style::default()
                     .bg(Color::Yellow)
                     .fg(Color::Black)
@@ -248,6 +248,16 @@ fn draw_ready_list(f: &mut Frame, area: Rect, app: &mut App) {
             } else {
                 Style::default()
             };
+            // add type-based styling (italic for design, bold for meta)
+            match issue.issue_type() {
+                Some(crate::issue::IssueType::Design) => {
+                    style = style.add_modifier(Modifier::ITALIC);
+                }
+                Some(crate::issue::IssueType::Meta) => {
+                    style = style.add_modifier(Modifier::BOLD);
+                }
+                None => {}
+            }
             ListItem::new(text).style(style)
         })
         .collect();
@@ -310,7 +320,7 @@ fn draw_all_list(f: &mut Frame, area: Rect, app: &mut App) {
                 issue.priority(),
                 truncate(issue.title(), title_width)
             );
-            let style = if is_active && i == app.all_selected {
+            let mut style = if is_active && i == app.all_selected {
                 Style::default()
                     .bg(Color::Yellow)
                     .fg(Color::Black)
@@ -324,6 +334,16 @@ fn draw_all_list(f: &mut Frame, area: Rect, app: &mut App) {
                     crate::issue::Status::Todo => Style::default(),
                 }
             };
+            // add type-based styling (italic for design, bold for meta)
+            match issue.issue_type() {
+                Some(crate::issue::IssueType::Design) => {
+                    style = style.add_modifier(Modifier::ITALIC);
+                }
+                Some(crate::issue::IssueType::Meta) => {
+                    style = style.add_modifier(Modifier::BOLD);
+                }
+                None => {}
+            }
             ListItem::new(text).style(style)
         })
         .collect();
