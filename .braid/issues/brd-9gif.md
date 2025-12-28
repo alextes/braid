@@ -3,11 +3,11 @@ schema_version: 4
 id: brd-9gif
 title: warn when agent claims new issue while another is still doing
 priority: P1
-status: todo
+status: doing
 deps: []
-owner: null
+owner: agent-one
 created_at: 2025-12-28T23:15:19.305303Z
-updated_at: 2025-12-28T23:15:19.305303Z
+updated_at: 2025-12-28T23:20:53.959963Z
 ---
 
 when running `brd start`, warn if the current agent already has an issue claimed (status: doing) that hasn't been completed.
