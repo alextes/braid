@@ -122,10 +122,20 @@ pub fn cmd_ls(
             .collect();
         println!("{}", serde_json::to_string_pretty(&json).unwrap());
     } else {
-        let open_count = filtered
-            .iter()
-            .filter(|issue| !matches!(issue.status(), Status::Done | Status::Skip))
-            .count();
+        // count issues by status
+        let mut todo_count = 0;
+        let mut doing_count = 0;
+        let mut done_count = 0;
+        let mut skip_count = 0;
+        for issue in &filtered {
+            match issue.status() {
+                Status::Todo => todo_count += 1,
+                Status::Doing => doing_count += 1,
+                Status::Done => done_count += 1,
+                Status::Skip => skip_count += 1,
+            }
+        }
+        let open_count = todo_count + doing_count;
 
         if filtered.is_empty() {
             println!("No issues found.");
@@ -276,7 +286,22 @@ pub fn cmd_ls(
         }
 
         let elapsed_ms = start.elapsed().as_millis();
-        println!("open: {} | time: {}ms", open_count, elapsed_ms);
+
+        // build summary line with non-zero counts
+        let mut parts = Vec::new();
+        parts.push(format!("todo: {}", todo_count));
+        if doing_count > 0 {
+            parts.push(format!("doing: {}", doing_count));
+        }
+        if done_count > 0 {
+            parts.push(format!("done: {}", done_count));
+        }
+        if skip_count > 0 {
+            parts.push(format!("skip: {}", skip_count));
+        }
+        parts.push(format!("open: {}", open_count));
+
+        println!("{} | time: {}ms", parts.join(" | "), elapsed_ms);
     }
 
     Ok(())
