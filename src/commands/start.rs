@@ -326,6 +326,29 @@ pub fn cmd_start(
 
     let agent_id = repo::get_agent_id(&paths.worktree_root);
 
+    // Warn if agent already has uncompleted work
+    if !cli.json {
+        let active_issues: Vec<_> = issues
+            .values()
+            .filter(|i| {
+                i.status() == Status::Doing
+                    && i.frontmatter.owner.as_deref() == Some(&agent_id)
+                    && i.id() != full_id
+            })
+            .collect();
+
+        if !active_issues.is_empty() {
+            eprintln!(
+                "warning: you have {} issue(s) still in progress:",
+                active_issues.len()
+            );
+            for issue in &active_issues {
+                eprintln!("  - {}: {}", issue.id(), issue.title());
+            }
+            eprintln!();
+        }
+    }
+
     // Verify issue is still available and claim it
     {
         let issue = issues
