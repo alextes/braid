@@ -143,3 +143,52 @@ brd agent ship
 ```
 
 see [sync-branch.md](sync-branch.md) for full details.
+
+## PR-based workflow
+
+for teams that want CI gates and human review before merging, braid supports a PR-based workflow as an alternative to `brd agent ship`.
+
+### new commands
+
+```bash
+brd agent branch <issue-id>   # create feature branch <agent>/<issue-id> from main
+brd agent pr                  # create PR from current branch to main
+```
+
+### simple PR workflow (no sync branch)
+
+```bash
+brd agent branch brd-xyz   # create branch agent-one/brd-xyz from main
+brd start brd-xyz          # claim issue (committed in branch)
+# ... do work, commit as usual ...
+brd done brd-xyz           # mark done (committed in branch)
+brd agent pr               # create PR
+# human reviews and merges PR
+# issue state merges with code
+```
+
+### PR workflow with sync branch
+
+when using sync branch mode, issue claims are visible to all agents immediately:
+
+```bash
+brd agent branch brd-xyz   # create branch from main
+brd start brd-xyz          # claim pushed to sync branch (visible to all)
+# ... do work, commit as usual ...
+brd agent pr               # create PR for code only
+# human reviews and merges PR
+brd done brd-xyz           # mark done in sync branch
+brd sync                   # push done status to remote
+```
+
+### comparison
+
+| aspect | direct workflow (`ship`) | PR workflow |
+|--------|--------------------------|-------------|
+| speed | fast iteration | slower (review gate) |
+| audit | commit history only | PR history + reviews |
+| trust | requires trust in agents | human verification |
+| conflicts | resolved at ship time | resolved before merge |
+| CI | optional | gates merge |
+
+use `brd agent ship` for trusted agents working autonomously. use `brd agent pr` when you want human review or CI gates before code reaches main.
