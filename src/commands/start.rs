@@ -12,20 +12,48 @@ use crate::repo::{self, RepoPaths};
 
 use super::{issue_to_json, load_all_issues, resolve_issue_id};
 
+/// Claim an issue by setting status to Doing and owner.
+/// Returns the issue path where it was saved.
+pub fn claim_issue(
+    paths: &RepoPaths,
+    config: &Config,
+    issue: &mut Issue,
+    agent_id: &str,
+    force: bool,
+) -> Result<std::path::PathBuf> {
+    if issue.status() == Status::Doing && !force {
+        let owner = issue.frontmatter.owner.as_deref().unwrap_or("unknown");
+        return Err(BrdError::Other(format!(
+            "issue {} is already being worked on by '{}' (use --force to reassign)",
+            issue.id(),
+            owner
+        )));
+    }
+
+    issue.frontmatter.status = Status::Doing;
+    issue.frontmatter.owner = Some(agent_id.to_string());
+    issue.touch();
+
+    let issue_path = paths.issues_dir(config).join(format!("{}.md", issue.id()));
+    issue.save(&issue_path)?;
+
+    Ok(issue_path)
+}
+
 /// Run a git command and return success status.
-fn git(args: &[&str], cwd: &std::path::Path) -> std::io::Result<bool> {
+pub fn git(args: &[&str], cwd: &std::path::Path) -> std::io::Result<bool> {
     let output = Command::new("git").args(args).current_dir(cwd).output()?;
     Ok(output.status.success())
 }
 
 /// Run a git command and return stdout.
-fn git_output(args: &[&str], cwd: &std::path::Path) -> std::io::Result<String> {
+pub fn git_output(args: &[&str], cwd: &std::path::Path) -> std::io::Result<String> {
     let output = Command::new("git").args(args).current_dir(cwd).output()?;
     Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
 }
 
 /// Check if working tree is clean.
-fn is_clean(cwd: &std::path::Path) -> Result<bool> {
+pub fn is_clean(cwd: &std::path::Path) -> Result<bool> {
     let output = git_output(&["status", "--porcelain"], cwd)?;
     Ok(output.is_empty())
 }
@@ -77,17 +105,17 @@ fn check_unshipped_done_issues(
 }
 
 /// Check if origin remote exists.
-fn has_origin(cwd: &std::path::Path) -> bool {
+pub fn has_origin(cwd: &std::path::Path) -> bool {
     git(&["remote", "get-url", "origin"], cwd).unwrap_or(false)
 }
 
 /// Check if origin/main exists.
-fn has_origin_main(cwd: &std::path::Path) -> bool {
+pub fn has_origin_main(cwd: &std::path::Path) -> bool {
     git(&["rev-parse", "--verify", "origin/main"], cwd).unwrap_or(false)
 }
 
 /// Fetch and rebase onto origin/main.
-fn sync_with_main(paths: &RepoPaths, cli: &Cli) -> Result<()> {
+pub fn sync_with_main(paths: &RepoPaths, cli: &Cli) -> Result<()> {
     // Skip if no origin remote
     if !has_origin(&paths.worktree_root) {
         if !cli.json {
@@ -137,7 +165,7 @@ fn sync_with_main(paths: &RepoPaths, cli: &Cli) -> Result<()> {
 }
 
 /// Commit and push the claim to main with retry logic.
-fn commit_and_push_main(paths: &RepoPaths, issue_id: &str, cli: &Cli) -> Result<()> {
+pub fn commit_and_push_main(paths: &RepoPaths, issue_id: &str, cli: &Cli) -> Result<()> {
     // Commit
     if !git(&["add", ".braid"], &paths.worktree_root)? {
         return Err(BrdError::Other("failed to stage .braid".to_string()));
@@ -196,7 +224,7 @@ fn commit_and_push_main(paths: &RepoPaths, issue_id: &str, cli: &Cli) -> Result<
 }
 
 /// Commit and push to sync branch.
-fn commit_and_push_sync_branch(
+pub fn commit_and_push_sync_branch(
     paths: &RepoPaths,
     config: &Config,
     issue_id: &str,
@@ -304,20 +332,7 @@ pub fn cmd_start(
             .get_mut(&full_id)
             .ok_or_else(|| BrdError::IssueNotFound(full_id.clone()))?;
 
-        if issue.status() == Status::Doing && !force {
-            let owner = issue.frontmatter.owner.as_deref().unwrap_or("unknown");
-            return Err(BrdError::Other(format!(
-                "issue {} is already being worked on by '{}' (use --force to reassign)",
-                full_id, owner
-            )));
-        }
-
-        issue.frontmatter.status = Status::Doing;
-        issue.frontmatter.owner = Some(agent_id.clone());
-        issue.touch();
-
-        let issue_path = paths.issues_dir(&config).join(format!("{}.md", full_id));
-        issue.save(&issue_path)?;
+        claim_issue(paths, &config, issue, &agent_id, force)?;
     }
 
     // Step 4: Commit and push (unless --no-push)

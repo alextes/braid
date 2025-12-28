@@ -6,9 +6,13 @@ use std::process::Command;
 use crate::cli::Cli;
 use crate::config::Config;
 use crate::error::{BrdError, Result};
+use crate::lock::LockGuard;
 use crate::repo::{self, RepoPaths};
 
-use super::{load_all_issues, resolve_issue_id};
+use super::{
+    claim_issue, commit_and_push_main, commit_and_push_sync_branch, has_origin, has_origin_main,
+    is_clean, load_all_issues, resolve_issue_id,
+};
 
 pub fn cmd_agent_init(cli: &Cli, paths: &RepoPaths, name: &str, base: Option<&str>) -> Result<()> {
     // validate agent name (alphanumeric + hyphens)
@@ -138,20 +142,30 @@ fn git(args: &[&str], cwd: &std::path::Path) -> std::io::Result<bool> {
 }
 
 /// create a feature branch for PR workflow.
+/// this command:
+/// 1. syncs with main and claims the issue (pushing to main so other agents see it)
+/// 2. creates a feature branch for working on the issue
 pub fn cmd_agent_branch(cli: &Cli, paths: &RepoPaths, issue_id: &str) -> Result<()> {
     let config = Config::load(&paths.config_path())?;
-
-    // get agent name
+    let is_sync_mode = config.is_sync_branch_mode();
     let agent_id = repo::get_agent_id(&paths.worktree_root);
 
-    // load issues and resolve the ID
-    let issues = load_all_issues(paths, &config)?;
+    // Step 1: Check for clean working tree
+    if !is_clean(&paths.worktree_root)? {
+        return Err(BrdError::Other(
+            "working tree has uncommitted changes - commit or stash first".to_string(),
+        ));
+    }
+
+    // Load issues and resolve the ID
+    let _lock = LockGuard::acquire(&paths.lock_path())?;
+    let mut issues = load_all_issues(paths, &config)?;
     let full_id = resolve_issue_id(issue_id, &issues)?;
 
-    // create branch name: <agent>/<issue-id>
-    let branch_name = format!("{}/{}", agent_id, full_id);
+    // Create branch name: feature/<issue-id>
+    let branch_name = format!("feature/{}", full_id);
 
-    // check if branch already exists
+    // Check if branch already exists
     if git(
         &["rev-parse", "--verify", &branch_name],
         &paths.worktree_root,
@@ -164,54 +178,124 @@ pub fn cmd_agent_branch(cli: &Cli, paths: &RepoPaths, issue_id: &str) -> Result<
         )));
     }
 
-    // fetch latest main
-    if !cli.json {
-        eprintln!("fetching origin/main...");
-    }
-    let _ = git(&["fetch", "origin", "main"], &paths.worktree_root);
+    if is_sync_mode {
+        // Local-sync mode: claim in shared worktree, then create feature branch
+        if !cli.json {
+            eprintln!("claiming {} in sync branch...", full_id);
+        }
 
-    // create branch from origin/main (or main if no remote)
-    let base = if git(
-        &["rev-parse", "--verify", "origin/main"],
-        &paths.worktree_root,
-    )
-    .unwrap_or(false)
-    {
-        "origin/main"
+        // Claim the issue
+        let issue = issues
+            .get_mut(&full_id)
+            .ok_or_else(|| BrdError::IssueNotFound(full_id.clone()))?;
+        claim_issue(paths, &config, issue, &agent_id, false)?;
+
+        // Commit in sync branch worktree
+        commit_and_push_sync_branch(paths, &config, &full_id, cli)?;
+
+        // Create feature branch from current HEAD
+        if !cli.json {
+            eprintln!("creating branch {}...", branch_name);
+        }
+        let output = Command::new("git")
+            .args(["checkout", "-b", &branch_name])
+            .current_dir(&paths.worktree_root)
+            .output()?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(BrdError::Other(format!(
+                "failed to create branch: {}",
+                stderr.trim()
+            )));
+        }
     } else {
-        "main"
-    };
+        // Git-native mode: sync with main, claim, push to main, then create feature branch
 
-    if !cli.json {
-        eprintln!("creating branch {} from {}...", branch_name, base);
+        // Step 2: Fetch and get current branch
+        if !cli.json {
+            eprintln!("syncing with origin/main...");
+        }
+
+        if has_origin(&paths.worktree_root) {
+            let _ = git(&["fetch", "origin", "main"], &paths.worktree_root);
+        }
+
+        // Get current branch
+        let current_branch = get_current_branch(&paths.worktree_root)?;
+
+        // If not on main, checkout main
+        if current_branch != "main" {
+            if !cli.json {
+                eprintln!("switching to main...");
+            }
+            if !git(&["checkout", "main"], &paths.worktree_root)? {
+                return Err(BrdError::Other("failed to checkout main".to_string()));
+            }
+        }
+
+        // Rebase on origin/main if it exists
+        if has_origin_main(&paths.worktree_root)
+            && !git(&["rebase", "origin/main"], &paths.worktree_root)?
+        {
+            let _ = git(&["rebase", "--abort"], &paths.worktree_root);
+            return Err(BrdError::Other(
+                "rebase failed - resolve conflicts manually".to_string(),
+            ));
+        }
+
+        // Reload issues after sync (they may have changed)
+        let mut issues = load_all_issues(paths, &config)?;
+
+        // Step 3: Claim the issue
+        if !cli.json {
+            eprintln!("claiming {}...", full_id);
+        }
+
+        let issue = issues
+            .get_mut(&full_id)
+            .ok_or_else(|| BrdError::IssueNotFound(full_id.clone()))?;
+        claim_issue(paths, &config, issue, &agent_id, false)?;
+
+        // Step 4: Commit and push to main
+        commit_and_push_main(paths, &full_id, cli)?;
+
+        // Step 5: Create feature branch from main
+        if !cli.json {
+            eprintln!("creating branch {}...", branch_name);
+        }
+
+        let output = Command::new("git")
+            .args(["checkout", "-b", &branch_name])
+            .current_dir(&paths.worktree_root)
+            .output()?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(BrdError::Other(format!(
+                "failed to create branch: {}",
+                stderr.trim()
+            )));
+        }
     }
 
-    let output = Command::new("git")
-        .args(["checkout", "-b", &branch_name, base])
-        .current_dir(&paths.worktree_root)
-        .output()?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(BrdError::Other(format!(
-            "failed to create branch: {}",
-            stderr.trim()
-        )));
-    }
-
+    // Output success
     if cli.json {
         let json = serde_json::json!({
             "ok": true,
             "branch": branch_name,
             "issue_id": full_id,
-            "base": base,
+            "owner": agent_id,
+            "mode": if is_sync_mode { "local-sync" } else { "git-native" },
         });
         println!("{}", serde_json::to_string_pretty(&json).unwrap());
     } else {
-        println!("created branch: {}", branch_name);
+        println!("claimed: {} (owner: {})", full_id, agent_id);
+        println!("branch:  {}", branch_name);
+        println!();
+        println!("the claim has been pushed to main - other agents will see it.");
         println!();
         println!("next steps:");
-        println!("  brd start {}   # claim the issue", full_id);
         println!("  # do the work, commit as usual");
         println!("  brd done {}    # mark done", full_id);
         println!("  brd agent pr   # create PR");
