@@ -1,6 +1,6 @@
 //! brd ready command.
 
-use crossterm::style::{Attribute, SetAttribute};
+use crossterm::style::{Attribute, Color, SetAttribute, SetForegroundColor};
 
 use crate::cli::Cli;
 use crate::error::Result;
@@ -25,15 +25,18 @@ pub fn cmd_ready(cli: &Cli, paths: &RepoPaths) -> Result<()> {
     } else {
         for issue in ready {
             let is_doing = issue.status() == Status::Doing;
-            let is_high_priority =
-                issue.priority() == Priority::P0 || issue.priority() == Priority::P1;
             let use_color = !cli.no_color;
+            let priority_color = if use_color {
+                match issue.priority() {
+                    Priority::P0 => Some(Color::Red),
+                    Priority::P1 => Some(Color::Yellow),
+                    _ => None,
+                }
+            } else {
+                None
+            };
 
             if use_color {
-                // priority styling: P0/P1 get bold
-                if is_high_priority {
-                    print!("{}", SetAttribute(Attribute::Bold));
-                }
                 // status styling: doing gets underline
                 if is_doing {
                     print!("{}", SetAttribute(Attribute::Underlined));
@@ -54,14 +57,19 @@ pub fn cmd_ready(cli: &Cli, paths: &RepoPaths) -> Result<()> {
             };
 
             print!(
-                "{}  {}  {}{}",
-                issue.id(),
-                issue.priority(),
-                type_col,
-                issue.title()
+                "{}  ",
+                issue.id()
             );
+            if let Some(color) = priority_color {
+                print!("{}", SetForegroundColor(color));
+            }
+            print!("{}", issue.priority());
+            if priority_color.is_some() {
+                print!("{}", SetForegroundColor(Color::Reset));
+            }
+            print!("  {}{}", type_col, issue.title());
 
-            if use_color && (is_doing || is_high_priority || issue.issue_type().is_some()) {
+            if use_color && (is_doing || issue.issue_type().is_some()) {
                 print!("{}", SetAttribute(Attribute::Reset));
             }
             println!();
