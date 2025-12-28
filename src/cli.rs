@@ -210,6 +210,9 @@ pub enum AgentAction {
         id: String,
     },
 
+    /// create PR from current branch
+    Pr,
+
     /// push changes to main (rebase + fast-forward push)
     Ship,
 

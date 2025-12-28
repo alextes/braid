@@ -220,6 +220,118 @@ pub fn cmd_agent_branch(cli: &Cli, paths: &RepoPaths, issue_id: &str) -> Result<
     Ok(())
 }
 
+/// get the current branch name.
+fn get_current_branch(cwd: &std::path::Path) -> Result<String> {
+    let output = Command::new("git")
+        .args(["rev-parse", "--abbrev-ref", "HEAD"])
+        .current_dir(cwd)
+        .output()?;
+    if output.status.success() {
+        Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+    } else {
+        Err(BrdError::Other("failed to get current branch".to_string()))
+    }
+}
+
+/// extract issue ID from branch name (format: <agent>/<issue-id>).
+fn extract_issue_id_from_branch(branch: &str) -> Option<&str> {
+    branch.split('/').nth(1)
+}
+
+/// create a PR from the current branch using gh cli.
+pub fn cmd_agent_pr(cli: &Cli, paths: &RepoPaths) -> Result<()> {
+    let config = Config::load(&paths.config_path())?;
+
+    // get current branch
+    let branch = get_current_branch(&paths.worktree_root)?;
+
+    // extract issue ID from branch name
+    let issue_id = extract_issue_id_from_branch(&branch).ok_or_else(|| {
+        BrdError::Other(format!(
+            "branch '{}' doesn't match expected format '<agent>/<issue-id>'",
+            branch
+        ))
+    })?;
+
+    // load the issue
+    let issues = load_all_issues(paths, &config)?;
+    let full_id = resolve_issue_id(issue_id, &issues)?;
+    let issue = issues.get(&full_id).ok_or_else(|| {
+        BrdError::Other(format!("issue '{}' not found", full_id))
+    })?;
+
+    // generate PR title and body
+    let title = format!("feat: {} ({})", issue.title(), full_id);
+    let body = if issue.body.is_empty() {
+        format!("Closes: {}", full_id)
+    } else {
+        format!("{}\n\nCloses: {}", issue.body.trim(), full_id)
+    };
+
+    // push the branch first
+    if !cli.json {
+        eprintln!("pushing branch to origin...");
+    }
+    let push_output = Command::new("git")
+        .args(["push", "-u", "origin", &branch])
+        .current_dir(&paths.worktree_root)
+        .output()?;
+
+    if !push_output.status.success() {
+        let stderr = String::from_utf8_lossy(&push_output.stderr);
+        // ignore "already up to date" type messages
+        if !stderr.contains("Everything up-to-date") && !stderr.contains("set up to track") {
+            return Err(BrdError::Other(format!(
+                "failed to push branch: {}",
+                stderr.trim()
+            )));
+        }
+    }
+
+    // create PR using gh cli
+    if !cli.json {
+        eprintln!("creating PR...");
+    }
+    let pr_output = Command::new("gh")
+        .args([
+            "pr",
+            "create",
+            "--title",
+            &title,
+            "--body",
+            &body,
+            "--base",
+            "main",
+        ])
+        .current_dir(&paths.worktree_root)
+        .output()?;
+
+    if !pr_output.status.success() {
+        let stderr = String::from_utf8_lossy(&pr_output.stderr);
+        return Err(BrdError::Other(format!(
+            "failed to create PR: {}",
+            stderr.trim()
+        )));
+    }
+
+    let pr_url = String::from_utf8_lossy(&pr_output.stdout).trim().to_string();
+
+    if cli.json {
+        let json = serde_json::json!({
+            "ok": true,
+            "pr_url": pr_url,
+            "title": title,
+            "issue_id": full_id,
+            "branch": branch,
+        });
+        println!("{}", serde_json::to_string_pretty(&json).unwrap());
+    } else {
+        println!("created PR: {}", pr_url);
+    }
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
