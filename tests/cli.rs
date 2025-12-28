@@ -166,6 +166,24 @@ fn test_full_workflow_add_start_done() {
 }
 
 #[test]
+fn test_ls_shows_tags() {
+    let env = TestEnv::new();
+
+    let output = env.brd(&["add", "tagged issue", "--tag", "visual", "--tag", "urgent"]);
+    assert!(
+        output.status.success(),
+        "add failed: {}",
+        TestEnv::stderr(&output)
+    );
+
+    let output = env.brd(&["ls"]);
+    assert!(output.status.success());
+    let stdout = TestEnv::stdout(&output);
+    assert!(stdout.contains("#visual"));
+    assert!(stdout.contains("#urgent"));
+}
+
+#[test]
 fn test_start_picks_highest_priority() {
     let env = TestEnv::new();
 
