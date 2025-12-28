@@ -3,13 +3,13 @@ schema_version: 4
 id: brd-u9qm
 title: add unit tests for dep command
 priority: P2
-status: doing
+status: done
 deps: []
 tags:
 - testing
-owner: alextes
+owner: null
 created_at: 2025-12-28T08:49:05.883055Z
-updated_at: 2025-12-28T17:37:00.459592Z
+updated_at: 2025-12-28T17:39:25.464875Z
 ---
 
 dep add/rm commands have cycle prevention logic but only integration test coverage.
