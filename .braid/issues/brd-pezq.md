@@ -3,13 +3,13 @@ schema_version: 4
 id: brd-pezq
 title: add unit tests for agent init command
 priority: P2
-status: todo
+status: doing
 deps: []
-owner: null
-created_at: 2025-12-28T08:49:25.186681Z
 tags:
 - testing
-updated_at: 2025-12-28T08:49:25.186681Z
+owner: agent-three
+created_at: 2025-12-28T08:49:25.186681Z
+updated_at: 2025-12-28T20:13:11.067863Z
 ---
 
 agent init creates worktrees but has no unit tests.
