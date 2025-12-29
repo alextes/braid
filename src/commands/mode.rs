@@ -100,7 +100,7 @@ pub fn cmd_mode_show(cli: &Cli, paths: &RepoPaths) -> Result<()> {
 }
 
 /// Switch to local-sync mode.
-pub fn cmd_mode_sync_local(cli: &Cli, paths: &RepoPaths, branch: &str) -> Result<()> {
+pub fn cmd_mode_local_sync(cli: &Cli, paths: &RepoPaths, branch: &str) -> Result<()> {
     let mut config = Config::load(&paths.config_path())?;
 
     // check if already in sync mode

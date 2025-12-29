@@ -20,8 +20,8 @@ local-sync mode moves issue storage to a separate branch (e.g., `braid-issues`) 
 ### switching to local-sync mode
 
 ```bash
-brd mode sync-local              # uses default branch: braid-issues
-brd mode sync-local my-issues    # custom branch name
+brd mode local-sync              # uses default branch: braid-issues
+brd mode local-sync my-issues    # custom branch name
 ```
 
 this will:
@@ -134,11 +134,11 @@ brd mode
 
 **"already in sync mode" error:**
 
-switch to default first, then back to sync-local:
+switch to default first, then back to local-sync:
 
 ```bash
 brd mode default
-brd mode sync-local
+brd mode local-sync
 ```
 
 **issues worktree missing:**

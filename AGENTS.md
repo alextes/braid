@@ -101,5 +101,5 @@ brd agent ship  # or create a PR
 
 **switching modes:**
 - `brd mode` — show current mode
-- `brd mode sync-local` — switch to local-sync mode for multi-agent setups
+- `brd mode local-sync` — switch to local-sync mode for multi-agent setups
 <!-- braid:agents:end -->

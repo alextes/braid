@@ -186,7 +186,7 @@ pub enum Command {
 #[derive(Subcommand)]
 pub enum ModeAction {
     /// switch to local-sync mode (issues on a sync branch)
-    SyncLocal {
+    LocalSync {
         /// name of the sync branch (default: braid-issues)
         #[arg(default_value = "braid-issues")]
         branch: String,

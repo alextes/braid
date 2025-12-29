@@ -7,7 +7,7 @@ braid supports different workflow modes to match how you and your team work. run
 | mode | use case | setup | issue sync |
 |------|----------|-------|------------|
 | git-native | solo, small teams, remote agents | default | via git (push/pull main) |
-| local-sync | multiple local agents | `brd mode sync-local` | instant (shared worktree) |
+| local-sync | multiple local agents | `brd mode local-sync` | instant (shared worktree) |
 
 ## git-native mode (default)
 
@@ -92,8 +92,8 @@ brd sync
 switch from git-native to local-sync:
 
 ```bash
-brd mode sync-local              # uses default branch: braid-issues
-brd mode sync-local my-issues    # custom branch name
+brd mode local-sync              # uses default branch: braid-issues
+brd mode local-sync my-issues    # custom branch name
 ```
 
 or initialize a new repo directly in local-sync mode:

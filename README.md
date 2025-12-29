@@ -157,7 +157,7 @@ braid supports two workflow modes. check your current mode with `brd mode`.
 
 ```bash
 # switch to local-sync mode
-brd mode sync-local
+brd mode local-sync
 
 # switch back to git-native
 brd mode default
