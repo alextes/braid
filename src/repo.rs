@@ -178,11 +178,11 @@ pub fn discover(from: Option<&std::path::Path>) -> Result<RepoPaths> {
     })
 }
 
-/// run `git rev-parse <arg>` and return the result as a PathBuf.
-pub fn git_rev_parse(cwd: &std::path::Path, arg: &str) -> Result<PathBuf> {
+/// run `git rev-parse <args>` and return the result as a PathBuf.
+pub fn git_rev_parse(cwd: &std::path::Path, args: &str) -> Result<PathBuf> {
     let output = std::process::Command::new("git")
         .arg("rev-parse")
-        .arg(arg)
+        .args(args.split_whitespace())
         .current_dir(cwd)
         .output()?;
 
@@ -354,6 +354,15 @@ mod tests {
         let dir = tempdir().unwrap();
         let err = git_rev_parse(dir.path(), "--show-toplevel").unwrap_err();
         assert!(matches!(err, BrdError::NotGitRepo));
+    }
+
+    #[test]
+    fn test_git_rev_parse_multiple_args() {
+        // regression test: git_rev_parse must split args correctly
+        // "--abbrev-ref HEAD" should become two args, not one
+        let (_dir, paths, branch) = create_git_repo();
+        let result = git_rev_parse(&paths.worktree_root, "--abbrev-ref HEAD").unwrap();
+        assert_eq!(result.to_string_lossy(), branch);
     }
 
     #[test]
