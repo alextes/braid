@@ -25,7 +25,8 @@ deps:
 - brd-8h03
 - brd-d0fn
 - brd-xiq2
+- brd-ngpk
 owner: null
 created_at: 2025-12-27T08:10:46.108417Z
-updated_at: 2025-12-28T23:17:08.281225Z
+updated_at: 2025-12-28T23:59:59.97432Z
 ---
