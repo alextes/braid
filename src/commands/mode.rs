@@ -50,6 +50,92 @@ fn is_clean(cwd: &Path) -> Result<bool> {
     Ok(output.is_empty())
 }
 
+/// Agent worktree info for rebase warnings.
+struct AgentWorktree {
+    branch: String,
+    path: std::path::PathBuf,
+}
+
+/// Find agent worktrees that need to rebase on main.
+/// Returns worktrees that have .braid/agent.toml and are behind main.
+fn find_agent_worktrees_needing_rebase(cwd: &Path) -> Vec<AgentWorktree> {
+    let mut result = Vec::new();
+
+    // get worktree list in porcelain format
+    let output = std::process::Command::new("git")
+        .args(["worktree", "list", "--porcelain"])
+        .current_dir(cwd)
+        .output();
+
+    let output = match output {
+        Ok(o) if o.status.success() => String::from_utf8_lossy(&o.stdout).to_string(),
+        _ => return result,
+    };
+
+    // parse porcelain output: "worktree <path>\nHEAD <sha>\nbranch refs/heads/<name>\n\n"
+    let mut current_path: Option<std::path::PathBuf> = None;
+    let mut current_branch: Option<String> = None;
+
+    for line in output.lines() {
+        if let Some(path) = line.strip_prefix("worktree ") {
+            current_path = Some(std::path::PathBuf::from(path));
+            current_branch = None;
+        } else if let Some(branch_ref) = line.strip_prefix("branch ") {
+            // branch refs/heads/agent-one -> agent-one
+            current_branch = branch_ref.strip_prefix("refs/heads/").map(String::from);
+        } else if line.is_empty() {
+            // end of entry, check if it's an agent worktree
+            if let (Some(path), Some(branch)) = (current_path.take(), current_branch.take()) {
+                // check if this is an agent worktree (has .braid/agent.toml)
+                let agent_toml = path.join(".braid/agent.toml");
+                if agent_toml.exists() {
+                    // check if behind main
+                    if is_behind_main(&path) {
+                        result.push(AgentWorktree { branch, path });
+                    }
+                }
+            }
+        }
+    }
+
+    result
+}
+
+/// Check if a worktree is behind main (main has commits not in this branch).
+fn is_behind_main(worktree_path: &Path) -> bool {
+    // count commits in main that aren't in HEAD
+    let output = std::process::Command::new("git")
+        .args(["rev-list", "--count", "HEAD..main"])
+        .current_dir(worktree_path)
+        .output();
+
+    match output {
+        Ok(o) if o.status.success() => {
+            let count_str = String::from_utf8_lossy(&o.stdout);
+            count_str.trim().parse::<u32>().unwrap_or(0) > 0
+        }
+        _ => false,
+    }
+}
+
+/// Print warning about agent worktrees needing rebase.
+fn warn_agent_worktrees(worktrees: &[AgentWorktree]) {
+    if worktrees.is_empty() {
+        return;
+    }
+
+    println!();
+    println!(
+        "Warning: Found {} agent worktree(s) that need to rebase on main:",
+        worktrees.len()
+    );
+    for wt in worktrees {
+        println!("  - {} (at {})", wt.branch, wt.path.display());
+    }
+    println!();
+    println!("Run `git rebase main` in each worktree to pick up the new config.");
+}
+
 /// Show current workflow mode.
 pub fn cmd_mode_show(cli: &Cli, paths: &RepoPaths) -> Result<()> {
     let config = Config::load(&paths.config_path())?;
@@ -192,19 +278,35 @@ pub fn cmd_mode_local_sync(cli: &Cli, paths: &RepoPaths, branch: &str) -> Result
         &issues_wt,
     );
 
+    // check for agent worktrees needing rebase
+    let agent_worktrees = find_agent_worktrees_needing_rebase(&paths.worktree_root);
+
     if cli.json {
+        let worktrees_json: Vec<_> = agent_worktrees
+            .iter()
+            .map(|wt| {
+                serde_json::json!({
+                    "branch": wt.branch,
+                    "path": wt.path.to_string_lossy(),
+                })
+            })
+            .collect();
+
         let json = serde_json::json!({
             "ok": true,
             "mode": "local-sync",
             "branch": branch,
             "issues_worktree": issues_wt.to_string_lossy(),
             "moved_issues": moved_count,
+            "agent_worktrees_needing_rebase": worktrees_json,
         });
         println!("{}", serde_json::to_string_pretty(&json).unwrap());
     } else {
         println!();
         println!("Switched to local-sync mode.");
         println!("Issues now live on '{}' branch.", branch);
+
+        warn_agent_worktrees(&agent_worktrees);
     }
 
     Ok(())
@@ -282,7 +384,10 @@ pub fn cmd_mode_default(cli: &Cli, paths: &RepoPaths) -> Result<()> {
     let commit_msg = format!("chore(braid): switch to git-native mode (from {})", branch);
     let _ = git(&["commit", "-m", &commit_msg], &paths.worktree_root);
 
-    // 5. remove the issues worktree (optional - just warn for now)
+    // 5. check for agent worktrees needing rebase
+    let agent_worktrees = find_agent_worktrees_needing_rebase(&paths.worktree_root);
+
+    // 6. output results
     if !cli.json {
         println!();
         println!("Switched to git-native mode.");
@@ -298,14 +403,27 @@ pub fn cmd_mode_default(cli: &Cli, paths: &RepoPaths) -> Result<()> {
                 issues_wt.display()
             );
         }
+
+        warn_agent_worktrees(&agent_worktrees);
     }
 
     if cli.json {
+        let worktrees_json: Vec<_> = agent_worktrees
+            .iter()
+            .map(|wt| {
+                serde_json::json!({
+                    "branch": wt.branch,
+                    "path": wt.path.to_string_lossy(),
+                })
+            })
+            .collect();
+
         let json = serde_json::json!({
             "ok": true,
             "mode": "git-native",
             "from_branch": branch,
             "moved_issues": moved_count,
+            "agent_worktrees_needing_rebase": worktrees_json,
         });
         println!("{}", serde_json::to_string_pretty(&json).unwrap());
     }
