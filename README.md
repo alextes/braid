@@ -145,20 +145,26 @@ see [docs/agent-workflow.md](docs/agent-workflow.md) for the full guide.
 
 ## workflow modes
 
-braid supports two workflow modes. check your current mode with `brd mode`.
+braid supports three workflow modes. check your current mode with `brd mode`.
 
 | mode | use case | issue sync |
 |------|----------|------------|
 | **git-native** (default) | solo, small teams, remote agents | via git push/pull |
 | **local-sync** | multiple local agents | instant (shared worktree) |
+| **external-repo** | separation of concerns, privacy, multi-repo | via external repo |
 
 **git-native mode** is the default. issues sync through normal git operations — `brd start` auto-syncs with origin/main.
 
 **local-sync mode** is for multiple agents on the same machine. issues live on a sync branch in a shared worktree, visible instantly to all agents.
 
+**external-repo mode** stores issues in a separate repository. useful for keeping issue history separate from code, privacy (private issues, public code), or coordinating issues across multiple code repos.
+
 ```bash
 # switch to local-sync mode
 brd mode local-sync
+
+# switch to external-repo mode (external repo must exist and be initialized with brd init)
+brd mode external-repo ../my-issues-repo
 
 # switch back to git-native
 brd mode default

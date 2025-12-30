@@ -37,7 +37,7 @@ pub use done::cmd_done;
 pub use init::cmd_init;
 pub use ls::cmd_ls;
 pub use migrate::cmd_migrate;
-pub use mode::{cmd_mode_default, cmd_mode_local_sync, cmd_mode_show};
+pub use mode::{cmd_mode_default, cmd_mode_external_repo, cmd_mode_local_sync, cmd_mode_show};
 pub use ready::cmd_ready;
 pub use rm::cmd_rm;
 pub use search::cmd_search;
@@ -45,7 +45,7 @@ pub use ship::cmd_ship;
 pub use show::cmd_show;
 pub use skip::cmd_skip;
 pub use start::{
-    claim_issue, cmd_start, commit_and_push_main, commit_and_push_sync_branch, sync_with_main,
+    claim_issue, cmd_start, commit_and_push_main, commit_and_push_issues_branch, sync_with_main,
 };
 pub use status::cmd_status;
 pub use sync::cmd_sync;

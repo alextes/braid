@@ -195,16 +195,16 @@ pub fn commit_and_push_main(paths: &RepoPaths, issue_id: &str, cli: &Cli) -> Res
 }
 
 /// Commit and push to sync branch.
-pub fn commit_and_push_sync_branch(
+pub fn commit_and_push_issues_branch(
     paths: &RepoPaths,
     config: &Config,
     issue_id: &str,
     cli: &Cli,
 ) -> Result<()> {
     let branch = config
-        .sync_branch
+        .issues_branch
         .as_ref()
-        .ok_or_else(|| BrdError::Other("sync_branch not configured".to_string()))?;
+        .ok_or_else(|| BrdError::Other("issues_branch not configured".to_string()))?;
 
     let issues_wt = paths.ensure_issues_worktree(branch)?;
 
@@ -265,7 +265,7 @@ pub fn cmd_start(
     no_push: bool,
 ) -> Result<()> {
     let config = Config::load(&paths.config_path())?;
-    let is_sync_mode = config.is_sync_branch_mode();
+    let is_sync_mode = config.is_issues_branch_mode();
 
     // Step 1: Pre-flight check for unshipped done issues (git-native mode only)
     if !no_sync && !is_sync_mode {
@@ -332,7 +332,7 @@ pub fn cmd_start(
     // Step 4: Commit and push (unless --no-push)
     if !no_push {
         if is_sync_mode {
-            commit_and_push_sync_branch(paths, &config, &full_id, cli)?;
+            commit_and_push_issues_branch(paths, &config, &full_id, cli)?;
         } else {
             commit_and_push_main(paths, &full_id, cli)?;
         }

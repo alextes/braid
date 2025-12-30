@@ -189,7 +189,7 @@ pub fn cmd_doctor(cli: &Cli, paths: &RepoPaths) -> Result<()> {
     if agents_path.exists() {
         if let Ok(content) = std::fs::read_to_string(&agents_path) {
             let block_mode = extract_mode(&content);
-            let config_mode = if config.is_sync_branch_mode() {
+            let config_mode = if config.is_issues_branch_mode() {
                 AgentsBlockMode::LocalSync
             } else {
                 AgentsBlockMode::GitNative
@@ -605,7 +605,7 @@ Old content
 
         // Create config with local-sync mode
         let mut config = crate::config::Config::default();
-        config.sync_branch = Some("braid-issues".to_string());
+        config.issues_branch = Some("braid-issues".to_string());
         config.save(&paths.config_path()).unwrap();
 
         // Create AGENTS.md with git-native mode (mismatches config)

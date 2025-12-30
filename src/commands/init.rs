@@ -38,12 +38,12 @@ pub fn cmd_init(cli: &Cli, args: &InitArgs) -> Result<()> {
 
     if !config_path.exists() {
         let mut config = Config::with_derived_prefix(repo_name);
-        config.sync_branch = args.sync_branch.clone();
+        config.issues_branch = args.issues_branch.clone();
         config.save(&config_path)?;
-    } else if args.sync_branch.is_some() {
-        // update existing config with sync_branch
+    } else if args.issues_branch.is_some() {
+        // update existing config with issues_branch
         let mut config = Config::load(&config_path)?;
-        config.sync_branch = args.sync_branch.clone();
+        config.issues_branch = args.issues_branch.clone();
         config.save(&config_path)?;
     }
 
@@ -65,9 +65,9 @@ pub fn cmd_init(cli: &Cli, args: &InitArgs) -> Result<()> {
         std::fs::write(&agent_toml_path, agent_toml_content)?;
     }
 
-    // if sync_branch is set, create the branch and worktree
-    if let Some(branch_name) = &args.sync_branch {
-        setup_sync_branch(
+    // if issues_branch is set, create the branch and worktree
+    if let Some(branch_name) = &args.issues_branch {
+        setup_issues_branch(
             &worktree_root,
             &brd_common_dir,
             branch_name,
@@ -81,19 +81,19 @@ pub fn cmd_init(cli: &Cli, args: &InitArgs) -> Result<()> {
             "ok": true,
             "braid_dir": braid_dir.to_string_lossy(),
             "worktree": worktree_root.to_string_lossy(),
-            "sync_branch": args.sync_branch,
+            "issues_branch": args.issues_branch,
         });
         println!("{}", serde_json::to_string_pretty(&json).unwrap());
     } else {
         println!("Initialized braid in {}", braid_dir.display());
-        if let Some(branch) = &args.sync_branch {
+        if let Some(branch) = &args.issues_branch {
             println!("Sync branch mode enabled: issues will live on '{}'", branch);
         }
         println!();
         println!("next steps:");
         println!("  brd add \"my first task\"     # create an issue");
         println!("  brd agent inject            # add agent instructions to AGENTS.md");
-        if args.sync_branch.is_some() {
+        if args.issues_branch.is_some() {
             println!("  brd sync                    # sync issues to remote");
         }
     }
@@ -102,7 +102,7 @@ pub fn cmd_init(cli: &Cli, args: &InitArgs) -> Result<()> {
 }
 
 /// Set up sync branch mode by creating the branch and issues worktree.
-fn setup_sync_branch(
+fn setup_issues_branch(
     worktree_root: &std::path::Path,
     brd_common_dir: &std::path::Path,
     branch_name: &str,
@@ -269,7 +269,7 @@ mod tests {
         with_repo("my-repo", |repo_path| {
             let _env = EnvGuard::set("USER", Some("tester"));
             let cli = make_cli(false);
-            let args = InitArgs { sync_branch: None };
+            let args = InitArgs { issues_branch: None };
 
             cmd_init(&cli, &args).unwrap();
 
@@ -297,7 +297,7 @@ mod tests {
         with_repo("no-user", |repo_path| {
             let _env = EnvGuard::set("USER", None);
             let cli = make_cli(false);
-            let args = InitArgs { sync_branch: None };
+            let args = InitArgs { issues_branch: None };
 
             cmd_init(&cli, &args).unwrap();
 
@@ -311,7 +311,7 @@ mod tests {
         with_repo("keep-config", |repo_path| {
             let _env = EnvGuard::set("USER", Some("first"));
             let cli = make_cli(false);
-            let args = InitArgs { sync_branch: None };
+            let args = InitArgs { issues_branch: None };
 
             cmd_init(&cli, &args).unwrap();
 

@@ -12,7 +12,7 @@ use crate::lock::LockGuard;
 use crate::repo::{self, RepoPaths};
 
 use super::{
-    claim_issue, commit_and_push_main, commit_and_push_sync_branch, load_all_issues,
+    claim_issue, commit_and_push_main, commit_and_push_issues_branch, load_all_issues,
     resolve_issue_id,
 };
 
@@ -98,9 +98,9 @@ pub fn cmd_agent_init(cli: &Cli, paths: &RepoPaths, name: &str, base: Option<&st
 
     // check for sync branch mode and ensure issues worktree exists
     let config = Config::load(&paths.config_path()).ok();
-    let sync_branch = config.as_ref().and_then(|c| c.sync_branch.clone());
+    let issues_branch = config.as_ref().and_then(|c| c.issues_branch.clone());
 
-    if let Some(ref branch) = sync_branch {
+    if let Some(ref branch) = issues_branch {
         // ensure the shared issues worktree exists
         if let Err(e) = paths.ensure_issues_worktree(branch) {
             eprintln!("warning: failed to ensure issues worktree: {}", e);
@@ -114,14 +114,14 @@ pub fn cmd_agent_init(cli: &Cli, paths: &RepoPaths, name: &str, base: Option<&st
             "worktree": worktree_path.to_string_lossy(),
             "branch": name,
             "base": base_branch,
-            "sync_branch": sync_branch,
+            "issues_branch": issues_branch,
         });
         println!("{}", serde_json::to_string_pretty(&json).unwrap());
     } else {
         println!("Created agent worktree: {}", name);
         println!("  path:   {}", worktree_path.display());
         println!("  branch: {} (from {})", name, base_branch);
-        if let Some(sb) = &sync_branch {
+        if let Some(sb) = &issues_branch {
             println!("  sync:   issues on '{}' branch", sb);
         }
         println!();
@@ -129,7 +129,7 @@ pub fn cmd_agent_init(cli: &Cli, paths: &RepoPaths, name: &str, base: Option<&st
         println!("  cd {}", worktree_path.display());
         println!("  # start your agent (claude, codex, gemini, etc.)");
         println!("  brd next  # get next issue to work on");
-        if sync_branch.is_some() {
+        if issues_branch.is_some() {
             println!("  brd sync  # sync issues with remote");
         }
     }
@@ -143,7 +143,7 @@ pub fn cmd_agent_init(cli: &Cli, paths: &RepoPaths, name: &str, base: Option<&st
 /// 2. creates a feature branch for working on the issue
 pub fn cmd_agent_branch(cli: &Cli, paths: &RepoPaths, issue_id: &str) -> Result<()> {
     let config = Config::load(&paths.config_path())?;
-    let is_sync_mode = config.is_sync_branch_mode();
+    let is_sync_mode = config.is_issues_branch_mode();
     let agent_id = repo::get_agent_id(&paths.worktree_root);
 
     // Step 1: Check for clean working tree
@@ -182,7 +182,7 @@ pub fn cmd_agent_branch(cli: &Cli, paths: &RepoPaths, issue_id: &str) -> Result<
         claim_issue(paths, &config, issue, &agent_id, false)?;
 
         // Commit in sync branch worktree
-        commit_and_push_sync_branch(paths, &config, &full_id, cli)?;
+        commit_and_push_issues_branch(paths, &config, &full_id, cli)?;
 
         // Create feature branch from current HEAD
         if !cli.json {
@@ -454,7 +454,7 @@ if you're in a worktree:
 
 /// generate the dynamic sync section based on mode
 fn generate_sync_section(config: &Config) -> String {
-    if let Some(ref branch) = config.sync_branch {
+    if let Some(ref branch) = config.issues_branch {
         format!(
             r#"## syncing issues (local-sync mode)
 
@@ -563,7 +563,7 @@ pub fn cmd_agents_show() -> Result<()> {
     // Show both modes for reference
     let git_native = Config::default();
     let local_sync = Config {
-        sync_branch: Some("braid-issues".to_string()),
+        issues_branch: Some("braid-issues".to_string()),
         ..Default::default()
     };
 
@@ -580,7 +580,7 @@ pub fn cmd_agents_inject(paths: &RepoPaths) -> Result<()> {
     let agents_path = paths.worktree_root.join("AGENTS.md");
     let block = generate_block(&config);
 
-    let mode_name = if config.sync_branch.is_some() {
+    let mode_name = if config.issues_branch.is_some() {
         "local-sync"
     } else {
         "git-native"
@@ -799,7 +799,7 @@ mod tests {
     #[test]
     fn test_generate_block_local_sync() {
         let config = Config {
-            sync_branch: Some("braid-issues".to_string()),
+            issues_branch: Some("braid-issues".to_string()),
             ..Default::default()
         };
         let block = generate_block(&config);
@@ -833,7 +833,7 @@ mod tests {
     #[test]
     fn test_extract_mode_local_sync() {
         let config = Config {
-            sync_branch: Some("braid-issues".to_string()),
+            issues_branch: Some("braid-issues".to_string()),
             ..Default::default()
         };
         let block = generate_block(&config);

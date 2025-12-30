@@ -195,6 +195,12 @@ pub enum ModeAction {
         branch: String,
     },
 
+    /// switch to external-repo mode (issues in a separate repository)
+    ExternalRepo {
+        /// path to the external issues repository
+        path: String,
+    },
+
     /// switch back to git-native mode (issues on main)
     Default,
 }
@@ -253,7 +259,7 @@ pub enum DepAction {
 pub struct InitArgs {
     /// create a sync branch for issue tracking (issues live on this branch, not main)
     #[arg(long)]
-    pub sync_branch: Option<String>,
+    pub issues_branch: Option<String>,
 }
 
 /// arguments for the add command.

@@ -5,7 +5,7 @@ braid stores its configuration in `.braid/config.toml`. this file is created by 
 ## example
 
 ```toml
-schema_version = 4
+schema_version = 5
 id_prefix = "brd"
 id_len = 4
 ```
@@ -42,6 +42,33 @@ with `id_len = 4`, you get IDs like `brd-a1b2`. increase this if you have many i
 
 ```toml
 id_len = 6    # brd-a1b2c3
+```
+
+### issues_branch
+
+enables local-sync mode. when set, issues live on this branch in a shared worktree.
+
+- **type:** string (optional)
+- **default:** not set (git-native mode)
+
+set via `brd mode local-sync [branch]`. see [workflow-modes.md](workflow-modes.md) for details.
+
+```toml
+issues_branch = "braid-issues"
+```
+
+### issues_repo
+
+enables external-repo mode. when set, issues are read from and written to this external repository.
+
+- **type:** string (optional)
+- **default:** not set
+- **value:** path to external repo (relative or absolute)
+
+set via `brd mode external-repo <path>`. see [workflow-modes.md](workflow-modes.md) for details.
+
+```toml
+issues_repo = "../my-issues-repo"
 ```
 
 ### schema_version

@@ -15,9 +15,12 @@ pub struct Config {
     pub id_prefix: String,
     /// length of the random suffix (default 4, range 4-10)
     pub id_len: u32,
-    /// optional sync branch for issue tracking (if set, issues live on this branch)
+    /// optional branch for issue tracking (if set, issues live on this branch via shared worktree)
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub sync_branch: Option<String>,
+    pub issues_branch: Option<String>,
+    /// optional external repo for issue tracking (path to another braid repo)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub issues_repo: Option<String>,
 }
 
 impl Default for Config {
@@ -26,7 +29,8 @@ impl Default for Config {
             schema_version: CURRENT_SCHEMA,
             id_prefix: "brd".to_string(),
             id_len: 4,
-            sync_branch: None,
+            issues_branch: None,
+            issues_repo: None,
         }
     }
 }
@@ -41,16 +45,36 @@ impl Config {
         }
     }
 
-    /// returns true if sync branch mode is enabled.
-    pub fn is_sync_branch_mode(&self) -> bool {
-        self.sync_branch.is_some()
+    /// returns true if issues branch mode is enabled (local-sync).
+    pub fn is_issues_branch_mode(&self) -> bool {
+        self.issues_branch.is_some()
     }
 
-    /// load config from a file path.
+    /// returns true if external repo mode is enabled.
+    pub fn is_external_repo_mode(&self) -> bool {
+        self.issues_repo.is_some()
+    }
+
+    /// load config from a file path, applying migrations if needed.
     pub fn load(path: &Path) -> Result<Self> {
         let content = std::fs::read_to_string(path)?;
-        let config: Config = toml::from_str(&content)
+
+        // parse as generic TOML value to check for migrations
+        let mut value: toml::Value = toml::from_str(&content)
             .map_err(|e| BrdError::ParseError(path.display().to_string(), e.to_string()))?;
+
+        // apply config migrations if needed
+        let migrated = migrate_config(&mut value);
+
+        // deserialize into Config
+        let config: Config = value.try_into()
+            .map_err(|e: toml::de::Error| BrdError::ParseError(path.display().to_string(), e.to_string()))?;
+
+        // save if migrations were applied
+        if migrated {
+            config.save(path)?;
+        }
+
         Ok(config)
     }
 
@@ -88,6 +112,33 @@ impl Config {
         }
         Ok(())
     }
+}
+
+/// apply config file migrations. returns true if any migrations were applied.
+fn migrate_config(value: &mut toml::Value) -> bool {
+    let mut migrated = false;
+
+    if let toml::Value::Table(table) = value {
+        // get current schema version
+        let schema_version = table
+            .get("schema_version")
+            .and_then(|v| v.as_integer())
+            .unwrap_or(0) as u32;
+
+        // v4 -> v5: rename sync_branch to issues_branch
+        if schema_version < 5 {
+            if let Some(sync_branch) = table.remove("sync_branch") {
+                table.insert("issues_branch".to_string(), sync_branch);
+            }
+            table.insert(
+                "schema_version".to_string(),
+                toml::Value::Integer(CURRENT_SCHEMA as i64),
+            );
+            migrated = true;
+        }
+    }
+
+    migrated
 }
 
 /// derive the id_prefix from the repo directory name per spec section 6.1.

@@ -33,27 +33,86 @@ impl RepoPaths {
     }
 
     /// get the issues directory based on config mode.
-    /// - default mode: `.braid/issues/` in current worktree
+    /// - external-repo mode: issues from external repo (follows its config)
     /// - sync branch mode: `<git-common-dir>/brd/issues/.braid/issues/`
+    /// - default mode: `.braid/issues/` in current worktree
     pub fn issues_dir(&self, config: &Config) -> PathBuf {
-        if config.is_sync_branch_mode() {
+        // external-repo mode: resolve external repo and use its issues_dir
+        if let Some(ref external_path) = config.issues_repo {
+            if let Some(path) = self.resolve_external_issues_dir(external_path) {
+                return path;
+            }
+            // if resolution fails, fall through to local (will likely error later)
+        }
+
+        if config.is_issues_branch_mode() {
             self.issues_worktree_dir().join(".braid").join("issues")
         } else {
             self.local_issues_dir()
         }
     }
 
+    /// resolve the issues directory from an external repo path.
+    /// returns None if the external repo can't be resolved.
+    fn resolve_external_issues_dir(&self, external_path: &str) -> Option<PathBuf> {
+        // resolve path (relative to worktree_root or absolute)
+        let resolved = if Path::new(external_path).is_absolute() {
+            PathBuf::from(external_path)
+        } else {
+            self.worktree_root.join(external_path)
+        };
+
+        // canonicalize to handle .. and symlinks
+        let resolved = resolved.canonicalize().ok()?;
+
+        // discover that repo's paths
+        let external_paths = discover(Some(&resolved)).ok()?;
+
+        // load that repo's config
+        let external_config = Config::load(&external_paths.config_path()).ok()?;
+
+        // use that repo's issues_dir (but don't allow chaining)
+        // external repo should use local or sync-branch mode, not external-repo
+        if external_config.is_external_repo_mode() {
+            // don't allow chaining to prevent infinite recursion
+            return None;
+        }
+
+        Some(external_paths.issues_dir(&external_config))
+    }
+
     /// get the config path based on mode.
-    /// - default mode: `.braid/config.toml` in current worktree
+    /// - external-repo mode: config from external repo
     /// - sync branch mode: config from issues worktree
+    /// - default mode: `.braid/config.toml` in current worktree
     pub fn resolved_config_path(&self, local_config: &Config) -> PathBuf {
-        if local_config.is_sync_branch_mode() {
+        // external-repo mode: use external repo's config
+        if let Some(ref external_path) = local_config.issues_repo {
+            if let Some(path) = self.resolve_external_config_path(external_path) {
+                return path;
+            }
+        }
+
+        if local_config.is_issues_branch_mode() {
             self.issues_worktree_dir()
                 .join(".braid")
                 .join("config.toml")
         } else {
             self.config_path()
         }
+    }
+
+    /// resolve the config path from an external repo.
+    fn resolve_external_config_path(&self, external_path: &str) -> Option<PathBuf> {
+        let resolved = if Path::new(external_path).is_absolute() {
+            PathBuf::from(external_path)
+        } else {
+            self.worktree_root.join(external_path)
+        };
+
+        let resolved = resolved.canonicalize().ok()?;
+        let external_paths = discover(Some(&resolved)).ok()?;
+        Some(external_paths.config_path())
     }
 
     /// ensure the issues worktree exists for sync branch mode.
@@ -259,14 +318,14 @@ mod tests {
     }
 
     #[test]
-    fn test_issues_dir_sync_branch_mode() {
+    fn test_issues_dir_issues_branch_mode() {
         let paths = RepoPaths {
             worktree_root: PathBuf::from("/repo"),
             git_common_dir: PathBuf::from("/repo/.git"),
             brd_common_dir: PathBuf::from("/repo/.git/brd"),
         };
         let config = Config {
-            sync_branch: Some("braid-issues".to_string()),
+            issues_branch: Some("braid-issues".to_string()),
             ..Default::default()
         };
 
@@ -310,7 +369,7 @@ mod tests {
             brd_common_dir: PathBuf::from("/repo/.git/brd"),
         };
         let config = Config {
-            sync_branch: Some("braid-issues".to_string()),
+            issues_branch: Some("braid-issues".to_string()),
             ..Default::default()
         };
 

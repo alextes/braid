@@ -301,7 +301,7 @@ pub fn cmd_status(cli: &Cli, paths: &RepoPaths) -> Result<()> {
     let counts = count_issues(&issues);
     let agent_id = repo::get_agent_id(&paths.worktree_root);
 
-    let (mode, branch, sync) = match config.sync_branch.as_deref() {
+    let (mode, branch, sync) = match config.issues_branch.as_deref() {
         Some(branch) => (
             "local-sync",
             Some(branch),

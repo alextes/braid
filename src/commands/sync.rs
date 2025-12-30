@@ -25,7 +25,7 @@ fn has_upstream(branch: &str, cwd: &std::path::Path) -> Result<bool> {
 pub fn cmd_sync(cli: &Cli, paths: &RepoPaths, push: bool) -> Result<()> {
     let config = Config::load(&paths.config_path())?;
 
-    let branch = config.sync_branch.as_ref().ok_or_else(|| {
+    let branch = config.issues_branch.as_ref().ok_or_else(|| {
         BrdError::Other(
             "not in sync branch mode. use `brd init --sync-branch <name>` to enable".to_string(),
         )
