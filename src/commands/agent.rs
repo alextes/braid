@@ -7,12 +7,13 @@ use std::process::Command;
 use crate::cli::Cli;
 use crate::config::Config;
 use crate::error::{BrdError, Result};
+use crate::git;
 use crate::lock::LockGuard;
 use crate::repo::{self, RepoPaths};
 
 use super::{
-    claim_issue, commit_and_push_main, commit_and_push_sync_branch, has_origin, has_origin_main,
-    is_clean, load_all_issues, resolve_issue_id,
+    claim_issue, commit_and_push_main, commit_and_push_sync_branch, load_all_issues,
+    resolve_issue_id,
 };
 
 pub fn cmd_agent_init(cli: &Cli, paths: &RepoPaths, name: &str, base: Option<&str>) -> Result<()> {
@@ -136,12 +137,6 @@ pub fn cmd_agent_init(cli: &Cli, paths: &RepoPaths, name: &str, base: Option<&st
     Ok(())
 }
 
-/// run a git command and return success status.
-fn git(args: &[&str], cwd: &std::path::Path) -> std::io::Result<bool> {
-    let output = Command::new("git").args(args).current_dir(cwd).output()?;
-    Ok(output.status.success())
-}
-
 /// create a feature branch for PR workflow.
 /// this command:
 /// 1. syncs with main and claims the issue (pushing to main so other agents see it)
@@ -152,7 +147,7 @@ pub fn cmd_agent_branch(cli: &Cli, paths: &RepoPaths, issue_id: &str) -> Result<
     let agent_id = repo::get_agent_id(&paths.worktree_root);
 
     // Step 1: Check for clean working tree
-    if !is_clean(&paths.worktree_root)? {
+    if !git::is_clean(&paths.worktree_root)? {
         return Err(BrdError::Other(
             "working tree has uncommitted changes - commit or stash first".to_string(),
         ));
@@ -167,12 +162,7 @@ pub fn cmd_agent_branch(cli: &Cli, paths: &RepoPaths, issue_id: &str) -> Result<
     let branch_name = format!("pr/{}/{}", agent_id, full_id);
 
     // Check if branch already exists
-    if git(
-        &["rev-parse", "--verify", &branch_name],
-        &paths.worktree_root,
-    )
-    .unwrap_or(false)
-    {
+    if git::branch_exists(&paths.worktree_root, &branch_name) {
         return Err(BrdError::Other(format!(
             "branch '{}' already exists",
             branch_name
@@ -218,28 +208,28 @@ pub fn cmd_agent_branch(cli: &Cli, paths: &RepoPaths, issue_id: &str) -> Result<
             eprintln!("syncing with origin/main...");
         }
 
-        if has_origin(&paths.worktree_root) {
-            let _ = git(&["fetch", "origin", "main"], &paths.worktree_root);
+        if git::has_remote(&paths.worktree_root, "origin") {
+            let _ = git::run(&["fetch", "origin", "main"], &paths.worktree_root);
         }
 
         // Get current branch
-        let current_branch = get_current_branch(&paths.worktree_root)?;
+        let current_branch = git::current_branch(&paths.worktree_root)?;
 
         // If not on main, checkout main
         if current_branch != "main" {
             if !cli.json {
                 eprintln!("switching to main...");
             }
-            if !git(&["checkout", "main"], &paths.worktree_root)? {
+            if !git::run(&["checkout", "main"], &paths.worktree_root)? {
                 return Err(BrdError::Other("failed to checkout main".to_string()));
             }
         }
 
         // Rebase on origin/main if it exists
-        if has_origin_main(&paths.worktree_root)
-            && !git(&["rebase", "origin/main"], &paths.worktree_root)?
+        if git::has_remote_branch(&paths.worktree_root, "origin", "main")
+            && !git::run(&["rebase", "origin/main"], &paths.worktree_root)?
         {
-            let _ = git(&["rebase", "--abort"], &paths.worktree_root);
+            let _ = git::run(&["rebase", "--abort"], &paths.worktree_root);
             return Err(BrdError::Other(
                 "rebase failed - resolve conflicts manually".to_string(),
             ));
@@ -305,19 +295,6 @@ pub fn cmd_agent_branch(cli: &Cli, paths: &RepoPaths, issue_id: &str) -> Result<
     Ok(())
 }
 
-/// get the current branch name.
-fn get_current_branch(cwd: &std::path::Path) -> Result<String> {
-    let output = Command::new("git")
-        .args(["rev-parse", "--abbrev-ref", "HEAD"])
-        .current_dir(cwd)
-        .output()?;
-    if output.status.success() {
-        Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
-    } else {
-        Err(BrdError::Other("failed to get current branch".to_string()))
-    }
-}
-
 /// extract issue ID from branch name.
 /// supports both formats:
 /// - "pr/<agent>/<issue-id>" (new format)
@@ -335,7 +312,7 @@ pub fn cmd_agent_pr(cli: &Cli, paths: &RepoPaths) -> Result<()> {
     let config = Config::load(&paths.config_path())?;
 
     // get current branch
-    let branch = get_current_branch(&paths.worktree_root)?;
+    let branch = git::current_branch(&paths.worktree_root)?;
 
     // extract issue ID from branch name
     let issue_id = extract_issue_id_from_branch(&branch).ok_or_else(|| {
@@ -662,34 +639,7 @@ mod tests {
         }
     }
 
-    fn git_ok(repo: &Path, args: &[&str]) {
-        let output = std::process::Command::new("git")
-            .args(args)
-            .current_dir(repo)
-            .output()
-            .unwrap();
-        assert!(
-            output.status.success(),
-            "git {:?} failed: {}",
-            args,
-            String::from_utf8_lossy(&output.stderr)
-        );
-    }
-
-    fn git_output(repo: &Path, args: &[&str]) -> String {
-        let output = std::process::Command::new("git")
-            .args(args)
-            .current_dir(repo)
-            .output()
-            .unwrap();
-        assert!(
-            output.status.success(),
-            "git {:?} failed: {}",
-            args,
-            String::from_utf8_lossy(&output.stderr)
-        );
-        String::from_utf8_lossy(&output.stdout).trim().to_string()
-    }
+    use crate::git::test::{output as git_output, run_ok as git_ok};
 
     fn create_repo() -> (tempfile::TempDir, PathBuf, RepoPaths, String) {
         let dir = tempdir().unwrap();

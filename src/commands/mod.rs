@@ -44,8 +44,7 @@ pub use ship::cmd_ship;
 pub use show::cmd_show;
 pub use skip::cmd_skip;
 pub use start::{
-    claim_issue, cmd_start, commit_and_push_main, commit_and_push_sync_branch, git, git_output,
-    has_origin, has_origin_main, is_clean, sync_with_main,
+    claim_issue, cmd_start, commit_and_push_main, commit_and_push_sync_branch, sync_with_main,
 };
 pub use status::cmd_status;
 pub use sync::cmd_sync;

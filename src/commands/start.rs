@@ -1,10 +1,9 @@
 //! brd start command with auto-sync.
 
-use std::process::Command;
-
 use crate::cli::Cli;
 use crate::config::Config;
 use crate::error::{BrdError, Result};
+use crate::git;
 use crate::graph::get_ready_issues;
 use crate::issue::{Issue, IssueType, Status};
 use crate::lock::LockGuard;
@@ -40,24 +39,6 @@ pub fn claim_issue(
     Ok(issue_path)
 }
 
-/// Run a git command and return success status.
-pub fn git(args: &[&str], cwd: &std::path::Path) -> std::io::Result<bool> {
-    let output = Command::new("git").args(args).current_dir(cwd).output()?;
-    Ok(output.status.success())
-}
-
-/// Run a git command and return stdout.
-pub fn git_output(args: &[&str], cwd: &std::path::Path) -> std::io::Result<String> {
-    let output = Command::new("git").args(args).current_dir(cwd).output()?;
-    Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
-}
-
-/// Check if working tree is clean.
-pub fn is_clean(cwd: &std::path::Path) -> Result<bool> {
-    let output = git_output(&["status", "--porcelain"], cwd)?;
-    Ok(output.is_empty())
-}
-
 /// Check for done issues that haven't been pushed to main yet.
 fn check_unshipped_done_issues(
     paths: &RepoPaths,
@@ -80,7 +61,7 @@ fn check_unshipped_done_issues(
     for issue in local_done {
         let issue_file = format!(".braid/issues/{}.md", issue.id());
         // Check if file differs from origin/main
-        let diff_output = git_output(
+        let diff_output = git::output(
             &["diff", "origin/main", "--", &issue_file],
             &paths.worktree_root,
         )?;
@@ -104,20 +85,10 @@ fn check_unshipped_done_issues(
     }
 }
 
-/// Check if origin remote exists.
-pub fn has_origin(cwd: &std::path::Path) -> bool {
-    git(&["remote", "get-url", "origin"], cwd).unwrap_or(false)
-}
-
-/// Check if origin/main exists.
-pub fn has_origin_main(cwd: &std::path::Path) -> bool {
-    git(&["rev-parse", "--verify", "origin/main"], cwd).unwrap_or(false)
-}
-
 /// Fetch and rebase onto origin/main.
 pub fn sync_with_main(paths: &RepoPaths, cli: &Cli) -> Result<()> {
     // Skip if no origin remote
-    if !has_origin(&paths.worktree_root) {
+    if !git::has_remote(&paths.worktree_root, "origin") {
         if !cli.json {
             eprintln!("(no origin remote, skipping sync)");
         }
@@ -129,9 +100,9 @@ pub fn sync_with_main(paths: &RepoPaths, cli: &Cli) -> Result<()> {
     }
 
     // Check for clean working tree (outside .braid)
-    if !is_clean(&paths.worktree_root)? {
+    if !git::is_clean(&paths.worktree_root)? {
         // Check if only .braid changes
-        let status = git_output(&["status", "--porcelain"], &paths.worktree_root)?;
+        let status = git::output(&["status", "--porcelain"], &paths.worktree_root)?;
         let non_braid_changes = status.lines().any(|line| !line.contains(".braid/"));
         if non_braid_changes {
             return Err(BrdError::Other(
@@ -142,7 +113,7 @@ pub fn sync_with_main(paths: &RepoPaths, cli: &Cli) -> Result<()> {
     }
 
     // Fetch
-    if !git(&["fetch", "origin", "main"], &paths.worktree_root)? {
+    if !git::run(&["fetch", "origin", "main"], &paths.worktree_root)? {
         // origin exists but main branch doesn't - skip sync
         if !cli.json {
             eprintln!("  (origin/main not found, skipping rebase)");
@@ -151,11 +122,11 @@ pub fn sync_with_main(paths: &RepoPaths, cli: &Cli) -> Result<()> {
     }
 
     // Only rebase if origin/main exists
-    if has_origin_main(&paths.worktree_root)
-        && !git(&["rebase", "origin/main"], &paths.worktree_root)?
+    if git::has_remote_branch(&paths.worktree_root, "origin", "main")
+        && !git::run(&["rebase", "origin/main"], &paths.worktree_root)?
     {
         // Abort rebase on failure
-        let _ = git(&["rebase", "--abort"], &paths.worktree_root);
+        let _ = git::run(&["rebase", "--abort"], &paths.worktree_root);
         return Err(BrdError::Other(
             "rebase failed - resolve conflicts manually or use --no-sync".to_string(),
         ));
@@ -167,12 +138,12 @@ pub fn sync_with_main(paths: &RepoPaths, cli: &Cli) -> Result<()> {
 /// Commit and push the claim to main with retry logic.
 pub fn commit_and_push_main(paths: &RepoPaths, issue_id: &str, cli: &Cli) -> Result<()> {
     // Commit
-    if !git(&["add", ".braid"], &paths.worktree_root)? {
+    if !git::run(&["add", ".braid"], &paths.worktree_root)? {
         return Err(BrdError::Other("failed to stage .braid".to_string()));
     }
 
     let commit_msg = format!("start: {}", issue_id);
-    if !git(&["commit", "-m", &commit_msg], &paths.worktree_root)? {
+    if !git::run(&["commit", "-m", &commit_msg], &paths.worktree_root)? {
         // Nothing to commit is ok
         if !cli.json {
             eprintln!("  (no changes to commit)");
@@ -180,7 +151,7 @@ pub fn commit_and_push_main(paths: &RepoPaths, issue_id: &str, cli: &Cli) -> Res
     }
 
     // Skip push if no origin remote
-    if !has_origin(&paths.worktree_root) {
+    if !git::has_remote(&paths.worktree_root, "origin") {
         if !cli.json {
             eprintln!("  (no origin remote, skipping push)");
         }
@@ -190,7 +161,7 @@ pub fn commit_and_push_main(paths: &RepoPaths, issue_id: &str, cli: &Cli) -> Res
     // Push with retry
     const MAX_RETRIES: u32 = 2;
     for attempt in 0..=MAX_RETRIES {
-        if git(&["push", "origin", "HEAD:main"], &paths.worktree_root)? {
+        if git::run(&["push", "origin", "HEAD:main"], &paths.worktree_root)? {
             return Ok(());
         }
 
@@ -204,11 +175,11 @@ pub fn commit_and_push_main(paths: &RepoPaths, issue_id: &str, cli: &Cli) -> Res
             }
 
             // Pull and rebase
-            if !git(&["fetch", "origin", "main"], &paths.worktree_root)? {
+            if !git::run(&["fetch", "origin", "main"], &paths.worktree_root)? {
                 return Err(BrdError::Other("failed to fetch during retry".to_string()));
             }
-            if !git(&["rebase", "origin/main"], &paths.worktree_root)? {
-                let _ = git(&["rebase", "--abort"], &paths.worktree_root);
+            if !git::run(&["rebase", "origin/main"], &paths.worktree_root)? {
+                let _ = git::run(&["rebase", "--abort"], &paths.worktree_root);
                 return Err(BrdError::Other(
                     "rebase failed during push retry - resolve manually".to_string(),
                 ));
@@ -238,21 +209,21 @@ pub fn commit_and_push_sync_branch(
     let issues_wt = paths.ensure_issues_worktree(branch)?;
 
     // Commit
-    if !git(&["add", ".braid"], &issues_wt)? {
+    if !git::run(&["add", ".braid"], &issues_wt)? {
         return Err(BrdError::Other(
             "failed to stage .braid in sync worktree".to_string(),
         ));
     }
 
     let commit_msg = format!("start: {}", issue_id);
-    if !git(&["commit", "-m", &commit_msg], &issues_wt)? && !cli.json {
+    if !git::run(&["commit", "-m", &commit_msg], &issues_wt)? && !cli.json {
         eprintln!("  (no changes to commit in sync branch)");
     }
 
     // Push with retry
     const MAX_RETRIES: u32 = 2;
     for attempt in 0..=MAX_RETRIES {
-        if git(&["push", "origin", branch], &issues_wt)? {
+        if git::run(&["push", "origin", branch], &issues_wt)? {
             return Ok(());
         }
 
@@ -265,13 +236,13 @@ pub fn commit_and_push_sync_branch(
                 );
             }
 
-            if !git(&["fetch", "origin", branch], &issues_wt)? {
+            if !git::run(&["fetch", "origin", branch], &issues_wt)? {
                 return Err(BrdError::Other(
                     "failed to fetch sync branch during retry".to_string(),
                 ));
             }
-            if !git(&["rebase", &format!("origin/{}", branch)], &issues_wt)? {
-                let _ = git(&["rebase", "--abort"], &issues_wt);
+            if !git::run(&["rebase", &format!("origin/{}", branch)], &issues_wt)? {
+                let _ = git::run(&["rebase", "--abort"], &issues_wt);
                 return Err(BrdError::Other(
                     "rebase failed on sync branch - resolve manually".to_string(),
                 ));

@@ -242,19 +242,7 @@ mod tests {
         }
     }
 
-    fn git_ok(repo: &Path, args: &[&str]) {
-        let output = std::process::Command::new("git")
-            .args(args)
-            .current_dir(repo)
-            .output()
-            .unwrap();
-        assert!(
-            output.status.success(),
-            "git {:?} failed: {}",
-            args,
-            String::from_utf8_lossy(&output.stderr)
-        );
-    }
+    use crate::git::test::run_ok as git_ok;
 
     fn with_repo<F: FnOnce(&Path)>(name: &str, f: F) {
         let _lock = INIT_TEST_LOCK.lock().unwrap();

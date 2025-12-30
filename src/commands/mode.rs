@@ -5,29 +5,12 @@ use std::path::Path;
 use crate::cli::Cli;
 use crate::config::Config;
 use crate::error::{BrdError, Result};
+use crate::git;
 use crate::repo::RepoPaths;
-
-/// Run a git command and return success status.
-fn git(args: &[&str], cwd: &Path) -> std::io::Result<bool> {
-    let output = std::process::Command::new("git")
-        .args(args)
-        .current_dir(cwd)
-        .output()?;
-    Ok(output.status.success())
-}
-
-/// Run a git command and return stdout.
-fn git_output(args: &[&str], cwd: &Path) -> std::io::Result<String> {
-    let output = std::process::Command::new("git")
-        .args(args)
-        .current_dir(cwd)
-        .output()?;
-    Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
-}
 
 /// Check if a branch has an upstream tracking branch.
 fn has_upstream(branch: &str, cwd: &Path) -> bool {
-    git(
+    git::run(
         &["rev-parse", "--abbrev-ref", &format!("{}@{{u}}", branch)],
         cwd,
     )
@@ -36,18 +19,12 @@ fn has_upstream(branch: &str, cwd: &Path) -> bool {
 
 /// Get the upstream tracking branch name.
 fn get_upstream(branch: &str, cwd: &Path) -> Option<String> {
-    git_output(
+    git::output(
         &["rev-parse", "--abbrev-ref", &format!("{}@{{u}}", branch)],
         cwd,
     )
     .ok()
     .filter(|s| !s.is_empty())
-}
-
-/// Check if working tree is clean.
-fn is_clean(cwd: &Path) -> Result<bool> {
-    let output = git_output(&["status", "--porcelain"], cwd)?;
-    Ok(output.is_empty())
 }
 
 /// Agent worktree info for rebase warnings.
@@ -198,7 +175,7 @@ pub fn cmd_mode_local_sync(cli: &Cli, paths: &RepoPaths, branch: &str) -> Result
     }
 
     // check for uncommitted changes
-    if !is_clean(&paths.worktree_root)? {
+    if !git::is_clean(&paths.worktree_root)? {
         return Err(BrdError::Other(
             "working tree has uncommitted changes - commit or stash first".to_string(),
         ));
@@ -209,10 +186,10 @@ pub fn cmd_mode_local_sync(cli: &Cli, paths: &RepoPaths, branch: &str) -> Result
     }
 
     // 1. create sync branch if it doesn't exist
-    let branch_exists = git(&["rev-parse", "--verify", branch], &paths.worktree_root)?;
+    let branch_exists = git::run(&["rev-parse", "--verify", branch], &paths.worktree_root)?;
 
     if !branch_exists {
-        if !git(&["branch", branch], &paths.worktree_root)? {
+        if !git::run(&["branch", branch], &paths.worktree_root)? {
             return Err(BrdError::Other(format!(
                 "failed to create sync branch '{}'",
                 branch
@@ -257,7 +234,7 @@ pub fn cmd_mode_local_sync(cli: &Cli, paths: &RepoPaths, branch: &str) -> Result
     config.save(&paths.config_path())?;
 
     // 5. commit the changes
-    if !git(&["add", ".braid"], &paths.worktree_root)? {
+    if !git::run(&["add", ".braid"], &paths.worktree_root)? {
         return Err(BrdError::Other(
             "failed to stage .braid changes".to_string(),
         ));
@@ -265,15 +242,15 @@ pub fn cmd_mode_local_sync(cli: &Cli, paths: &RepoPaths, branch: &str) -> Result
 
     let commit_msg = format!("chore(braid): switch to local-sync mode ({})", branch);
     // commit might fail if nothing changed, that's ok
-    let _ = git(&["commit", "-m", &commit_msg], &paths.worktree_root);
+    let _ = git::run(&["commit", "-m", &commit_msg], &paths.worktree_root);
 
     // also commit in the issues worktree
-    if !git(&["add", ".braid"], &issues_wt)? {
+    if !git::run(&["add", ".braid"], &issues_wt)? {
         return Err(BrdError::Other(
             "failed to stage .braid in issues worktree".to_string(),
         ));
     }
-    let _ = git(
+    let _ = git::run(
         &["commit", "-m", "chore(braid): initial issues"],
         &issues_wt,
     );
@@ -327,7 +304,7 @@ pub fn cmd_mode_default(cli: &Cli, paths: &RepoPaths) -> Result<()> {
     };
 
     // check for uncommitted changes
-    if !is_clean(&paths.worktree_root)? {
+    if !git::is_clean(&paths.worktree_root)? {
         return Err(BrdError::Other(
             "working tree has uncommitted changes - commit or stash first".to_string(),
         ));
@@ -343,7 +320,7 @@ pub fn cmd_mode_default(cli: &Cli, paths: &RepoPaths) -> Result<()> {
     let local_issues = paths.worktree_root.join(".braid/issues");
 
     // check for uncommitted changes in issues worktree
-    if issues_wt.exists() && !is_clean(&issues_wt)? {
+    if issues_wt.exists() && !git::is_clean(&issues_wt)? {
         return Err(BrdError::Other(
             "issues worktree has uncommitted changes - commit them first with `brd sync`"
                 .to_string(),
@@ -375,14 +352,14 @@ pub fn cmd_mode_default(cli: &Cli, paths: &RepoPaths) -> Result<()> {
     config.save(&paths.config_path())?;
 
     // 4. commit the changes
-    if !git(&["add", ".braid"], &paths.worktree_root)? {
+    if !git::run(&["add", ".braid"], &paths.worktree_root)? {
         return Err(BrdError::Other(
             "failed to stage .braid changes".to_string(),
         ));
     }
 
     let commit_msg = format!("chore(braid): switch to git-native mode (from {})", branch);
-    let _ = git(&["commit", "-m", &commit_msg], &paths.worktree_root);
+    let _ = git::run(&["commit", "-m", &commit_msg], &paths.worktree_root);
 
     // 5. check for agent worktrees needing rebase
     let agent_worktrees = find_agent_worktrees_needing_rebase(&paths.worktree_root);

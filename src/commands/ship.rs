@@ -1,41 +1,10 @@
 //! brd ship command - push changes to main via rebase + fast-forward.
 
-use std::process::Command;
-
 use crate::cli::Cli;
 use crate::config::Config;
 use crate::error::{BrdError, Result};
+use crate::git;
 use crate::repo::RepoPaths;
-
-/// run a git command and return its output.
-fn git(paths: &RepoPaths, args: &[&str]) -> std::io::Result<std::process::Output> {
-    Command::new("git")
-        .args(args)
-        .current_dir(&paths.worktree_root)
-        .output()
-}
-
-/// run a git command, returning Ok if successful or Err with stderr on failure.
-fn git_check(paths: &RepoPaths, args: &[&str]) -> Result<String> {
-    let output = git(paths, args)?;
-    if output.status.success() {
-        Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
-    } else {
-        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
-        Err(BrdError::Other(stderr))
-    }
-}
-
-/// get the current branch name.
-fn get_current_branch(paths: &RepoPaths) -> Result<String> {
-    git_check(paths, &["rev-parse", "--abbrev-ref", "HEAD"])
-}
-
-/// check if working tree is clean.
-fn is_working_tree_clean(paths: &RepoPaths) -> Result<bool> {
-    let output = git_check(paths, &["status", "--porcelain"])?;
-    Ok(output.is_empty())
-}
 
 /// check if we're in an agent worktree (has .braid/agent.toml).
 fn is_agent_worktree(paths: &RepoPaths) -> bool {
@@ -51,13 +20,13 @@ pub fn cmd_ship(cli: &Cli, paths: &RepoPaths) -> Result<()> {
     }
 
     // step 1: check for clean working tree
-    if !is_working_tree_clean(paths)? {
+    if !git::is_clean(&paths.worktree_root)? {
         return Err(BrdError::Other(
             "working tree is dirty - commit or stash changes first".to_string(),
         ));
     }
 
-    let branch = get_current_branch(paths)?;
+    let branch = git::current_branch(&paths.worktree_root)?;
 
     if !cli.json {
         println!("shipping {} to main...", branch);
@@ -67,21 +36,18 @@ pub fn cmd_ship(cli: &Cli, paths: &RepoPaths) -> Result<()> {
     if !cli.json {
         println!("  fetching origin main...");
     }
-    if let Err(e) = git_check(paths, &["fetch", "origin", "main"]) {
-        return Err(BrdError::Other(format!(
-            "failed to fetch origin main: {}",
-            e
-        )));
+    if !git::run(&["fetch", "origin", "main"], &paths.worktree_root)? {
+        return Err(BrdError::Other("failed to fetch origin main".to_string()));
     }
 
     // step 3: rebase onto origin/main
     if !cli.json {
         println!("  rebasing onto origin/main...");
     }
-    let rebase_output = git(paths, &["rebase", "origin/main"])?;
+    let rebase_output = git::run_full(&["rebase", "origin/main"], &paths.worktree_root)?;
     if !rebase_output.status.success() {
         // rebase failed - abort and tell user
-        let _ = git(paths, &["rebase", "--abort"]);
+        let _ = git::run(&["rebase", "--abort"], &paths.worktree_root);
         let stderr = String::from_utf8_lossy(&rebase_output.stderr);
         return Err(BrdError::Other(format!(
             "rebase failed - resolve conflicts manually:\n{}",
@@ -94,7 +60,7 @@ pub fn cmd_ship(cli: &Cli, paths: &RepoPaths) -> Result<()> {
         println!("  pushing to main...");
     }
     let push_ref = format!("{}:main", branch);
-    let push_output = git(paths, &["push", "origin", &push_ref])?;
+    let push_output = git::run_full(&["push", "origin", &push_ref], &paths.worktree_root)?;
     if !push_output.status.success() {
         let stderr = String::from_utf8_lossy(&push_output.stderr);
         if stderr.contains("non-fast-forward")
@@ -113,8 +79,8 @@ pub fn cmd_ship(cli: &Cli, paths: &RepoPaths) -> Result<()> {
     if !cli.json {
         println!("  resetting to origin/main...");
     }
-    git_check(paths, &["fetch", "origin", "main"])?;
-    git_check(paths, &["reset", "--hard", "origin/main"])?;
+    git::run(&["fetch", "origin", "main"], &paths.worktree_root)?;
+    git::run(&["reset", "--hard", "origin/main"], &paths.worktree_root)?;
 
     // check if sync branch mode is active
     let config = Config::load(&paths.config_path()).ok();

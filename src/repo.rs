@@ -197,37 +197,8 @@ pub fn git_rev_parse(cwd: &std::path::Path, args: &str) -> Result<PathBuf> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::path::Path;
+    use crate::git::test::{output as git_output, run_ok as git_ok};
     use tempfile::tempdir;
-
-    fn git_ok(repo: &Path, args: &[&str]) {
-        let output = std::process::Command::new("git")
-            .args(args)
-            .current_dir(repo)
-            .output()
-            .unwrap();
-        assert!(
-            output.status.success(),
-            "git {:?} failed: {}",
-            args,
-            String::from_utf8_lossy(&output.stderr)
-        );
-    }
-
-    fn git_output(repo: &Path, args: &[&str]) -> String {
-        let output = std::process::Command::new("git")
-            .args(args)
-            .current_dir(repo)
-            .output()
-            .unwrap();
-        assert!(
-            output.status.success(),
-            "git {:?} failed: {}",
-            args,
-            String::from_utf8_lossy(&output.stderr)
-        );
-        String::from_utf8_lossy(&output.stdout).trim().to_string()
-    }
 
     fn create_git_repo() -> (tempfile::TempDir, RepoPaths, String) {
         let dir = tempdir().unwrap();
