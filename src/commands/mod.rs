@@ -18,6 +18,7 @@ mod ship;
 mod show;
 mod skip;
 mod start;
+mod status;
 mod sync;
 mod tui;
 
@@ -46,6 +47,7 @@ pub use start::{
     claim_issue, cmd_start, commit_and_push_main, commit_and_push_sync_branch, git, git_output,
     has_origin, has_origin_main, is_clean, sync_with_main,
 };
+pub use status::cmd_status;
 pub use sync::cmd_sync;
 pub use tui::cmd_tui;
 

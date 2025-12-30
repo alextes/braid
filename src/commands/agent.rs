@@ -699,6 +699,7 @@ mod tests {
         git_ok(&repo_path, &["init"]);
         git_ok(&repo_path, &["config", "user.email", "test@test.com"]);
         git_ok(&repo_path, &["config", "user.name", "test user"]);
+        git_ok(&repo_path, &["config", "commit.gpgsign", "false"]);
         std::fs::write(repo_path.join("README.md"), "test\n").unwrap();
         git_ok(&repo_path, &["add", "."]);
         git_ok(&repo_path, &["commit", "-m", "init"]);
