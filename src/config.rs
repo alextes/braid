@@ -6,6 +6,11 @@ use std::path::Path;
 use crate::error::{BrdError, Result};
 use crate::migrate::CURRENT_SCHEMA;
 
+/// Default value for auto_pull and auto_push (true for safety).
+fn default_true() -> bool {
+    true
+}
+
 /// the braid configuration stored in `.braid/config.toml`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
@@ -21,6 +26,12 @@ pub struct Config {
     /// optional external repo for issue tracking (path to another braid repo)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub issues_repo: Option<String>,
+    /// whether to fetch+rebase before brd start
+    #[serde(default = "default_true")]
+    pub auto_pull: bool,
+    /// whether to commit+push after brd done
+    #[serde(default = "default_true")]
+    pub auto_push: bool,
 }
 
 impl Default for Config {
@@ -31,6 +42,8 @@ impl Default for Config {
             id_len: 4,
             issues_branch: None,
             issues_repo: None,
+            auto_pull: true,
+            auto_push: true,
         }
     }
 }
@@ -131,11 +144,28 @@ fn migrate_config(value: &mut toml::Value) -> bool {
             if let Some(sync_branch) = table.remove("sync_branch") {
                 table.insert("issues_branch".to_string(), sync_branch);
             }
+            migrated = true;
+        }
+
+        // v5 -> v6: add auto_pull and auto_push fields
+        if schema_version < 6 {
+            // Add auto_pull = true if not present
+            if !table.contains_key("auto_pull") {
+                table.insert("auto_pull".to_string(), toml::Value::Boolean(true));
+            }
+            // Add auto_push = true if not present
+            if !table.contains_key("auto_push") {
+                table.insert("auto_push".to_string(), toml::Value::Boolean(true));
+            }
+            migrated = true;
+        }
+
+        // Update schema version if any migrations were applied
+        if migrated {
             table.insert(
                 "schema_version".to_string(),
                 toml::Value::Integer(CURRENT_SCHEMA as i64),
             );
-            migrated = true;
         }
     }
 

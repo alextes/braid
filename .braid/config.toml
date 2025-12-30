@@ -1,4 +1,6 @@
-schema_version = 5
+schema_version = 6
 id_prefix = "brd"
 id_len = 4
 issues_branch = "braid-issues"
+auto_pull = true
+auto_push = true

@@ -95,7 +95,12 @@ fn run(cli: &Cli) -> Result<()> {
             no_sync,
             no_push,
         } => cmd_start(cli, &paths, id.as_deref(), *force, *no_sync, *no_push),
-        Command::Done { id, force, result } => cmd_done(cli, &paths, id, *force, result),
+        Command::Done {
+            id,
+            force,
+            result,
+            no_push,
+        } => cmd_done(cli, &paths, id, *force, result, *no_push),
         Command::Skip { id } => cmd_skip(cli, &paths, id),
         Command::Rm { id, force } => cmd_rm(cli, &paths, id, *force),
         Command::Agent { action } => match action {

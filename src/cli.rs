@@ -119,6 +119,10 @@ pub enum Command {
         /// issue IDs created as a result of this design issue (required for design issues)
         #[arg(long, short)]
         result: Vec<String>,
+
+        /// skip commit/push even when auto_push is enabled
+        #[arg(long)]
+        no_push: bool,
     },
 
     /// mark an issue as skipped (won't do)

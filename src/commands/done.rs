@@ -8,6 +8,7 @@ use crate::issue::{Issue, IssueType, Status};
 use crate::lock::LockGuard;
 use crate::repo::RepoPaths;
 
+use super::start::{commit_and_push_issues_branch_with_action, commit_and_push_main_with_action};
 use super::{issue_to_json, load_all_issues, resolve_issue_id};
 use std::collections::{HashMap, HashSet};
 
@@ -17,6 +18,7 @@ pub fn cmd_done(
     id: &str,
     force: bool,
     result_ids: &[String],
+    no_push: bool,
 ) -> Result<()> {
     let config = Config::load(&paths.config_path())?;
     let _lock = LockGuard::acquire(&paths.lock_path())?;
@@ -131,6 +133,15 @@ pub fn cmd_done(
             .ok_or_else(|| BrdError::IssueNotFound(issue_id.clone()))?;
         let issue_path = paths.issues_dir(&config).join(format!("{}.md", issue_id));
         issue.save(&issue_path)?;
+    }
+
+    // Commit and push if auto_push is enabled (unless --no-push)
+    if !no_push && config.auto_push {
+        if config.is_issues_branch_mode() {
+            commit_and_push_issues_branch_with_action(paths, &config, &full_id, "done", cli)?;
+        } else {
+            commit_and_push_main_with_action(paths, &full_id, "done", cli)?;
+        }
     }
 
     if cli.json {
@@ -274,7 +285,7 @@ mod tests {
         write_issue(&paths, &config, "brd-aaaa", Status::Doing, Some("tester"));
 
         let cli = make_cli();
-        cmd_done(&cli, &paths, "brd-aaaa", false, &[]).unwrap();
+        cmd_done(&cli, &paths, "brd-aaaa", false, &[], true).unwrap();
 
         let issues = load_all_issues(&paths, &config).unwrap();
         let issue = issues.get("brd-aaaa").unwrap();
@@ -286,7 +297,7 @@ mod tests {
     fn test_done_issue_not_found() {
         let (_dir, paths, _config) = create_test_repo();
         let cli = make_cli();
-        let err = cmd_done(&cli, &paths, "brd-missing", false, &[]).unwrap_err();
+        let err = cmd_done(&cli, &paths, "brd-missing", false, &[], true).unwrap_err();
         assert!(matches!(err, BrdError::IssueNotFound(_)));
     }
 
@@ -297,7 +308,7 @@ mod tests {
         write_issue(&paths, &config, "brd-aaab", Status::Todo, None);
 
         let cli = make_cli();
-        let err = cmd_done(&cli, &paths, "aaa", false, &[]).unwrap_err();
+        let err = cmd_done(&cli, &paths, "aaa", false, &[], true).unwrap_err();
         assert!(matches!(err, BrdError::AmbiguousId(_, _)));
     }
 
@@ -307,7 +318,7 @@ mod tests {
         write_design_issue(&paths, &config, "brd-design");
 
         let cli = make_cli();
-        let err = cmd_done(&cli, &paths, "brd-design", false, &[]).unwrap_err();
+        let err = cmd_done(&cli, &paths, "brd-design", false, &[], true).unwrap_err();
         assert!(err.to_string().contains("design issues require --result"));
     }
 
@@ -317,7 +328,7 @@ mod tests {
         write_design_issue(&paths, &config, "brd-design");
 
         let cli = make_cli();
-        cmd_done(&cli, &paths, "brd-design", true, &[]).unwrap();
+        cmd_done(&cli, &paths, "brd-design", true, &[], true).unwrap();
 
         let issues = load_all_issues(&paths, &config).unwrap();
         let issue = issues.get("brd-design").unwrap();
@@ -331,7 +342,15 @@ mod tests {
         write_issue(&paths, &config, "brd-impl", Status::Todo, None);
 
         let cli = make_cli();
-        cmd_done(&cli, &paths, "brd-design", false, &["brd-impl".to_string()]).unwrap();
+        cmd_done(
+            &cli,
+            &paths,
+            "brd-design",
+            false,
+            &["brd-impl".to_string()],
+            true,
+        )
+        .unwrap();
 
         let issues = load_all_issues(&paths, &config).unwrap();
         let issue = issues.get("brd-design").unwrap();
@@ -350,6 +369,7 @@ mod tests {
             "brd-design",
             false,
             &["brd-missing".to_string()],
+            true,
         )
         .unwrap_err();
         assert!(matches!(err, BrdError::IssueNotFound(_)));
@@ -368,7 +388,15 @@ mod tests {
         );
 
         let cli = make_cli();
-        cmd_done(&cli, &paths, "brd-design", false, &["brd-impl".to_string()]).unwrap();
+        cmd_done(
+            &cli,
+            &paths,
+            "brd-design",
+            false,
+            &["brd-impl".to_string()],
+            true,
+        )
+        .unwrap();
 
         let issues = load_all_issues(&paths, &config).unwrap();
         let dependent = issues.get("brd-dependent").unwrap();
@@ -395,7 +423,15 @@ mod tests {
         );
 
         let cli = make_cli();
-        cmd_done(&cli, &paths, "brd-design", false, &["brd-impl".to_string()]).unwrap();
+        cmd_done(
+            &cli,
+            &paths,
+            "brd-design",
+            false,
+            &["brd-impl".to_string()],
+            true,
+        )
+        .unwrap();
 
         let issues = load_all_issues(&paths, &config).unwrap();
         let impl_issue = issues.get("brd-impl").unwrap();
@@ -421,8 +457,15 @@ mod tests {
         );
 
         let cli = make_cli();
-        let err =
-            cmd_done(&cli, &paths, "brd-design", false, &["brd-impl".to_string()]).unwrap_err();
+        let err = cmd_done(
+            &cli,
+            &paths,
+            "brd-design",
+            false,
+            &["brd-impl".to_string()],
+            true,
+        )
+        .unwrap_err();
         assert!(err.to_string().contains("cycle"));
 
         let issues = load_all_issues(&paths, &config).unwrap();

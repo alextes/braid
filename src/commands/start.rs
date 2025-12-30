@@ -85,6 +85,49 @@ fn check_unshipped_done_issues(
     }
 }
 
+/// Fetch and rebase the issues branch in issues_branch mode.
+pub fn sync_issues_branch(paths: &RepoPaths, config: &Config, cli: &Cli) -> Result<()> {
+    let branch = config
+        .issues_branch
+        .as_ref()
+        .ok_or_else(|| BrdError::Other("issues_branch not configured".to_string()))?;
+
+    let issues_wt = paths.ensure_issues_worktree(branch)?;
+
+    if !git::has_remote(&issues_wt, "origin") {
+        if !cli.json {
+            eprintln!("(no origin remote, skipping sync)");
+        }
+        return Ok(());
+    }
+
+    if !cli.json {
+        eprintln!("syncing with origin/{}...", branch);
+    }
+
+    // Fetch
+    if !git::run(&["fetch", "origin", branch], &issues_wt)? {
+        if !cli.json {
+            eprintln!("  (origin/{} not found, skipping rebase)", branch);
+        }
+        return Ok(());
+    }
+
+    // Rebase
+    let remote_branch = format!("origin/{}", branch);
+    if git::has_remote_branch(&issues_wt, "origin", branch)
+        && !git::run(&["rebase", &remote_branch], &issues_wt)?
+    {
+        let _ = git::run(&["rebase", "--abort"], &issues_wt);
+        return Err(BrdError::Other(
+            "rebase failed on issues branch - resolve conflicts manually or use --no-sync"
+                .to_string(),
+        ));
+    }
+
+    Ok(())
+}
+
 /// Fetch and rebase onto origin/main.
 pub fn sync_with_main(paths: &RepoPaths, cli: &Cli) -> Result<()> {
     // Skip if no origin remote
@@ -137,12 +180,22 @@ pub fn sync_with_main(paths: &RepoPaths, cli: &Cli) -> Result<()> {
 
 /// Commit and push the claim to main with retry logic.
 pub fn commit_and_push_main(paths: &RepoPaths, issue_id: &str, cli: &Cli) -> Result<()> {
+    commit_and_push_main_with_action(paths, issue_id, "start", cli)
+}
+
+/// Commit and push to main with a custom action prefix for the commit message.
+pub fn commit_and_push_main_with_action(
+    paths: &RepoPaths,
+    issue_id: &str,
+    action: &str,
+    cli: &Cli,
+) -> Result<()> {
     // Commit
     if !git::run(&["add", ".braid"], &paths.worktree_root)? {
         return Err(BrdError::Other("failed to stage .braid".to_string()));
     }
 
-    let commit_msg = format!("start: {}", issue_id);
+    let commit_msg = format!("{}: {}", action, issue_id);
     if !git::run(&["commit", "-m", &commit_msg], &paths.worktree_root)? {
         // Nothing to commit is ok
         if !cli.json {
@@ -201,6 +254,17 @@ pub fn commit_and_push_issues_branch(
     issue_id: &str,
     cli: &Cli,
 ) -> Result<()> {
+    commit_and_push_issues_branch_with_action(paths, config, issue_id, "start", cli)
+}
+
+/// Commit and push to sync branch with a custom action prefix for the commit message.
+pub fn commit_and_push_issues_branch_with_action(
+    paths: &RepoPaths,
+    config: &Config,
+    issue_id: &str,
+    action: &str,
+    cli: &Cli,
+) -> Result<()> {
     let branch = config
         .issues_branch
         .as_ref()
@@ -215,7 +279,7 @@ pub fn commit_and_push_issues_branch(
         ));
     }
 
-    let commit_msg = format!("start: {}", issue_id);
+    let commit_msg = format!("{}: {}", action, issue_id);
     if !git::run(&["commit", "-m", &commit_msg], &issues_wt)? && !cli.json {
         eprintln!("  (no changes to commit in sync branch)");
     }
@@ -265,17 +329,20 @@ pub fn cmd_start(
     no_push: bool,
 ) -> Result<()> {
     let config = Config::load(&paths.config_path())?;
-    let is_sync_mode = config.is_issues_branch_mode();
 
     // Step 1: Pre-flight check for unshipped done issues (git-native mode only)
-    if !no_sync && !is_sync_mode {
+    if !no_sync && config.auto_pull && !config.is_issues_branch_mode() {
         // Try to check, but don't fail if origin/main doesn't exist
         let _ = check_unshipped_done_issues(paths, &config, cli);
     }
 
-    // Step 2: Sync with main (git-native mode only)
-    if !no_sync && !is_sync_mode {
-        sync_with_main(paths, cli)?;
+    // Step 2: Sync with remote if auto_pull is enabled
+    if !no_sync && config.auto_pull {
+        if config.is_issues_branch_mode() {
+            sync_issues_branch(paths, &config, cli)?;
+        } else {
+            sync_with_main(paths, cli)?;
+        }
     }
 
     // Step 3: Reload issues and claim
@@ -329,11 +396,15 @@ pub fn cmd_start(
         claim_issue(paths, &config, issue, &agent_id, force)?;
     }
 
-    // Step 4: Commit and push (git-native mode only, unless --no-push)
-    // In local-sync mode, the file is already saved to the shared worktree
-    // and visible to all local agents. Use `brd sync` to batch-commit when ready.
-    if !no_push && !is_sync_mode {
-        commit_and_push_main(paths, &full_id, cli)?;
+    // Step 4: Commit and push if auto_push is enabled (unless --no-push)
+    // If auto_push is false, the file is saved locally and visible to local agents.
+    // Use `brd sync` to batch-commit when ready.
+    if !no_push && config.auto_push {
+        if config.is_issues_branch_mode() {
+            commit_and_push_issues_branch(paths, &config, &full_id, cli)?;
+        } else {
+            commit_and_push_main(paths, &full_id, cli)?;
+        }
     }
 
     // Output
