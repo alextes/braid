@@ -41,6 +41,9 @@ fn format_age(created_at: OffsetDateTime) -> String {
 /// Maximum number of done issues to show by default
 const DEFAULT_DONE_LIMIT: usize = 10;
 
+/// Maximum number of todo issues to show by default
+const DEFAULT_TODO_LIMIT: usize = 15;
+
 #[allow(clippy::too_many_arguments)]
 pub fn cmd_ls(
     cli: &Cli,
@@ -91,13 +94,22 @@ pub fn cmd_ls(
         })
         .collect();
 
-    // partition into active (todo/doing) and resolved (done/skip) issues
-    let (mut active, mut resolved): (Vec<&Issue>, Vec<&Issue>) = filtered
-        .into_iter()
-        .partition(|issue| !matches!(issue.status(), Status::Done | Status::Skip));
+    // partition into doing, todo, and resolved (done/skip) issues
+    let mut doing: Vec<&Issue> = Vec::new();
+    let mut todo: Vec<&Issue> = Vec::new();
+    let mut resolved: Vec<&Issue> = Vec::new();
 
-    // sort active issues by priority, created_at, id
-    active.sort_by(|a, b| a.cmp_by_priority(b));
+    for issue in filtered {
+        match issue.status() {
+            Status::Doing => doing.push(issue),
+            Status::Todo => todo.push(issue),
+            Status::Done | Status::Skip => resolved.push(issue),
+        }
+    }
+
+    // sort doing and todo by priority, created_at, id
+    doing.sort_by(|a, b| a.cmp_by_priority(b));
+    todo.sort_by(|a, b| a.cmp_by_priority(b));
 
     // sort resolved issues by updated_at (most recent first), then by id for stability
     resolved.sort_by(|a, b| {
@@ -107,13 +119,33 @@ pub fn cmd_ls(
             .then_with(|| a.id().cmp(b.id()))
     });
 
-    // limit resolved issues unless --all is specified
-    if !show_all && resolved.len() > DEFAULT_DONE_LIMIT {
-        resolved.truncate(DEFAULT_DONE_LIMIT);
+    // compute total counts BEFORE truncation
+    let total_doing = doing.len();
+    let total_todo = todo.len();
+    let total_done = resolved.iter().filter(|i| i.status() == Status::Done).count();
+    let total_skip = resolved.iter().filter(|i| i.status() == Status::Skip).count();
+
+    // track how many are hidden
+    let hidden_todo;
+    let _hidden_resolved;
+
+    // limit todo and resolved issues unless --all is specified
+    if !show_all && todo.len() > DEFAULT_TODO_LIMIT {
+        hidden_todo = todo.len() - DEFAULT_TODO_LIMIT;
+        todo.truncate(DEFAULT_TODO_LIMIT);
+    } else {
+        hidden_todo = 0;
     }
 
-    // combine: active first, then resolved
-    let filtered: Vec<&Issue> = active.into_iter().chain(resolved).collect();
+    if !show_all && resolved.len() > DEFAULT_DONE_LIMIT {
+        _hidden_resolved = resolved.len() - DEFAULT_DONE_LIMIT;
+        resolved.truncate(DEFAULT_DONE_LIMIT);
+    } else {
+        _hidden_resolved = 0;
+    }
+
+    // combine: doing first, then todo, then resolved
+    let filtered: Vec<&Issue> = doing.into_iter().chain(todo).chain(resolved).collect();
 
     if cli.json {
         let json: Vec<_> = filtered
@@ -122,24 +154,16 @@ pub fn cmd_ls(
             .collect();
         println!("{}", serde_json::to_string_pretty(&json).unwrap());
     } else {
-        // count issues by status
-        let mut todo_count = 0;
-        let mut doing_count = 0;
-        let mut done_count = 0;
-        let mut skip_count = 0;
-        for issue in &filtered {
-            match issue.status() {
-                Status::Todo => todo_count += 1,
-                Status::Doing => doing_count += 1,
-                Status::Done => done_count += 1,
-                Status::Skip => skip_count += 1,
-            }
-        }
-        let open_count = todo_count + doing_count;
+        // use pre-computed totals
+        let open_count = total_todo + total_doing;
 
         if filtered.is_empty() {
             println!("No issues found.");
         }
+
+        // track position to insert indicator
+        let mut printed_count = 0;
+        let indicator_after = total_doing + total_todo.min(DEFAULT_TODO_LIMIT);
 
         for issue in &filtered {
             let derived = compute_derived(issue, &issues);
@@ -283,6 +307,22 @@ pub fn cmd_ls(
                 }
             }
             println!();
+
+            printed_count += 1;
+
+            // print indicator after last todo issue (before resolved)
+            if printed_count == indicator_after && hidden_todo > 0 {
+                if use_color {
+                    println!(
+                        "{}... +{} more todo{}",
+                        SetAttribute(Attribute::Dim),
+                        hidden_todo,
+                        SetAttribute(Attribute::Reset)
+                    );
+                } else {
+                    println!("... +{} more todo", hidden_todo);
+                }
+            }
         }
 
         let elapsed_ms = start.elapsed().as_millis();
@@ -290,14 +330,14 @@ pub fn cmd_ls(
         // build summary line: open (todo+doing), plus non-zero resolved counts
         let mut parts = Vec::new();
         parts.push(format!("open: {}", open_count));
-        if doing_count > 0 {
-            parts.push(format!("doing: {}", doing_count));
+        if total_doing > 0 {
+            parts.push(format!("doing: {}", total_doing));
         }
-        if done_count > 0 {
-            parts.push(format!("done: {}", done_count));
+        if total_done > 0 {
+            parts.push(format!("done: {}", total_done));
         }
-        if skip_count > 0 {
-            parts.push(format!("skip: {}", skip_count));
+        if total_skip > 0 {
+            parts.push(format!("skip: {}", total_skip));
         }
 
         println!("{} | time: {}ms", parts.join(" | "), elapsed_ms);
