@@ -8,7 +8,7 @@ use serde_yaml::Value;
 use crate::error::{BrdError, Result};
 
 /// The current schema version. All new issues are created with this version.
-pub const CURRENT_SCHEMA: u32 = 5;
+pub const CURRENT_SCHEMA: u32 = 4;
 
 /// Check if a schema version needs migration.
 pub fn needs_migration(schema_version: u32) -> bool {
@@ -59,7 +59,6 @@ fn apply_migration(frontmatter: Value, from_version: u32) -> Result<Value> {
         1 => migrate_v1_to_v2(frontmatter),
         2 => migrate_v2_to_v3(frontmatter),
         3 => migrate_v3_to_v4(frontmatter),
-        4 => migrate_v4_to_v5(frontmatter),
         _ => {
             // No migration needed for this version
             Ok(frontmatter)
@@ -131,18 +130,6 @@ fn migrate_v3_to_v4(mut frontmatter: Value) -> Result<Value> {
     Ok(frontmatter)
 }
 
-/// Migration from v4 to v5.
-/// - Version bump only (adds issues_branch config field support)
-fn migrate_v4_to_v5(mut frontmatter: Value) -> Result<Value> {
-    if let Value::Mapping(ref mut map) = frontmatter {
-        let schema_key = Value::String("schema_version".to_string());
-
-        // Update schema version
-        map.insert(schema_key, Value::Number(5.into()));
-    }
-    Ok(frontmatter)
-}
-
 /// Summary of what migrations would be applied to get from one version to another.
 pub fn migration_summary(from_version: u32, to_version: u32) -> Vec<String> {
     let mut summaries = Vec::new();
@@ -153,7 +140,6 @@ pub fn migration_summary(from_version: u32, to_version: u32) -> Vec<String> {
             1 => summaries.push("v1→v2: rename 'brd' to 'schema_version'".to_string()),
             2 => summaries.push("v2→v3: add required 'owner' field".to_string()),
             3 => summaries.push("v3→v4: rename 'labels' to 'tags'".to_string()),
-            4 => summaries.push("v4→v5: version bump (issues_branch config support)".to_string()),
             _ => {}
         }
     }
@@ -217,13 +203,5 @@ mod tests {
         let yaml: Value = serde_yaml::from_str("schema_version: 2\nid: test").unwrap();
         let (_migrated, changed) = migrate_frontmatter(yaml, 2).unwrap();
         assert!(!changed);
-    }
-
-    #[test]
-    fn test_migrate_v4_to_v5() {
-        let yaml: Value = serde_yaml::from_str("schema_version: 4\nid: test").unwrap();
-        let (migrated, changed) = migrate_frontmatter(yaml, 5).unwrap();
-        assert!(changed);
-        assert_eq!(get_schema_version(&migrated).unwrap(), 5);
     }
 }
