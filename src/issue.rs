@@ -768,6 +768,7 @@ with multiple paragraphs.
             id_prefix: "test".to_string(),
             id_len: 4,
             sync_branch: None,
+            issues_branch: None,
         };
         let temp_dir = tempfile::tempdir().unwrap();
 
@@ -787,6 +788,7 @@ with multiple paragraphs.
             id_prefix: "brd".to_string(),
             id_len: 6,
             sync_branch: None,
+            issues_branch: None,
         };
         let temp_dir = tempfile::tempdir().unwrap();
 
@@ -803,6 +805,7 @@ with multiple paragraphs.
             id_prefix: "x".to_string(),
             id_len: 10,
             sync_branch: None,
+            issues_branch: None,
         };
         let temp_dir = tempfile::tempdir().unwrap();
 
@@ -829,6 +832,7 @@ with multiple paragraphs.
             id_prefix: "col".to_string(),
             id_len: 4,
             sync_branch: None,
+            issues_branch: None,
         };
         let temp_dir = tempfile::tempdir().unwrap();
 

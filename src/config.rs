@@ -18,6 +18,9 @@ pub struct Config {
     /// optional sync branch for issue tracking (if set, issues live on this branch)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sync_branch: Option<String>,
+    /// optional issues branch (for issues-branch mode, issues are read from this branch)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub issues_branch: Option<String>,
 }
 
 impl Default for Config {
@@ -27,6 +30,7 @@ impl Default for Config {
             id_prefix: "brd".to_string(),
             id_len: 4,
             sync_branch: None,
+            issues_branch: None,
         }
     }
 }
