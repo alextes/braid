@@ -5,7 +5,7 @@ use crate::error::{BrdError, Result};
 use crate::migrate::{self, CURRENT_SCHEMA};
 use crate::repo::RepoPaths;
 
-use super::{AGENTS_BLOCK_VERSION, check_agents_block, load_all_issues};
+use super::{AGENTS_BLOCK_VERSION, AgentsBlockMode, check_agents_block, extract_mode, load_all_issues};
 
 /// Parse frontmatter from markdown content.
 fn parse_frontmatter(content: &str) -> Result<(String, String)> {
@@ -180,6 +180,47 @@ pub fn cmd_doctor(cli: &Cli, paths: &RepoPaths) -> Result<()> {
             record_check("agents_block", "AGENTS.md braid block not found", false);
             if !cli.json {
                 eprintln!("  hint: run `brd agent inject` to add");
+            }
+        }
+    }
+
+    // check 8: AGENTS.md block mode matches config mode (informational)
+    let agents_path = paths.worktree_root.join("AGENTS.md");
+    if agents_path.exists() {
+        if let Ok(content) = std::fs::read_to_string(&agents_path) {
+            let block_mode = extract_mode(&content);
+            let config_mode = if config.is_sync_branch_mode() {
+                AgentsBlockMode::LocalSync
+            } else {
+                AgentsBlockMode::GitNative
+            };
+
+            match block_mode {
+                Some(mode) if mode == config_mode => {
+                    record_check(
+                        "agents_block_mode",
+                        &format!("AGENTS.md block mode matches config ({})", config_mode),
+                        true,
+                    );
+                }
+                Some(mode) => {
+                    record_check(
+                        "agents_block_mode",
+                        &format!(
+                            "AGENTS.md block mode mismatch ({} != {})",
+                            mode, config_mode
+                        ),
+                        false,
+                    );
+                    if !cli.json {
+                        eprintln!("  current mode: {}", config_mode);
+                        eprintln!("  AGENTS.md block: {}", mode);
+                        eprintln!("  run `brd agent inject` to update");
+                    }
+                }
+                None => {
+                    // block exists but no mode detected - already handled by version check
+                }
             }
         }
     }
@@ -531,6 +572,54 @@ Old content
         let cli = make_cli();
 
         // Outdated agents block is not an error
+        let result = cmd_doctor(&cli, &paths);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_doctor_agents_block_mode_match() {
+        let (_dir, paths) = create_test_repo();
+        create_braid_dir(&paths);
+        create_valid_config(&paths);
+
+        // Create AGENTS.md with git-native mode (matches default config)
+        let config = crate::config::Config::default();
+        let block = crate::commands::agent::generate_block(&config);
+        fs::write(
+            paths.worktree_root.join("AGENTS.md"),
+            format!("# Agents\n\n{}", block),
+        )
+        .unwrap();
+
+        let cli = make_cli();
+
+        // Mode matches, should pass
+        let result = cmd_doctor(&cli, &paths);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_doctor_agents_block_mode_mismatch() {
+        let (_dir, paths) = create_test_repo();
+        create_braid_dir(&paths);
+
+        // Create config with local-sync mode
+        let mut config = crate::config::Config::default();
+        config.sync_branch = Some("braid-issues".to_string());
+        config.save(&paths.config_path()).unwrap();
+
+        // Create AGENTS.md with git-native mode (mismatches config)
+        let git_native_config = crate::config::Config::default();
+        let block = crate::commands::agent::generate_block(&git_native_config);
+        fs::write(
+            paths.worktree_root.join("AGENTS.md"),
+            format!("# Agents\n\n{}", block),
+        )
+        .unwrap();
+
+        let cli = make_cli();
+
+        // Mode mismatch is informational, not an error
         let result = cmd_doctor(&cli, &paths);
         assert!(result.is_ok());
     }

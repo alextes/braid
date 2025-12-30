@@ -520,6 +520,34 @@ pub fn extract_version(content: &str) -> Option<u32> {
         .and_then(|s| s.trim_end_matches("-->").trim().parse().ok())
 }
 
+/// Mode indicator for AGENTS.md block
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AgentsBlockMode {
+    GitNative,
+    LocalSync,
+}
+
+impl std::fmt::Display for AgentsBlockMode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            AgentsBlockMode::GitNative => write!(f, "git-native"),
+            AgentsBlockMode::LocalSync => write!(f, "local-sync"),
+        }
+    }
+}
+
+/// extract mode from an existing agents block by checking for mode-specific headers
+pub fn extract_mode(content: &str) -> Option<AgentsBlockMode> {
+    // check for mode-specific section headers within the block
+    if content.contains("## syncing issues (local-sync mode)") {
+        Some(AgentsBlockMode::LocalSync)
+    } else if content.contains("## syncing issues (git-native mode)") {
+        Some(AgentsBlockMode::GitNative)
+    } else {
+        None
+    }
+}
+
 /// check if AGENTS.md contains a braid block and return its version
 pub fn check_agents_block(paths: &RepoPaths) -> Option<u32> {
     let agents_path = paths.worktree_root.join("AGENTS.md");
@@ -610,7 +638,7 @@ pub fn cmd_agents_inject(paths: &RepoPaths) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::path::{Path, PathBuf};
+    use std::path::PathBuf;
     use std::sync::Mutex;
 
     use tempfile::tempdir;
@@ -793,6 +821,35 @@ mod tests {
     fn test_extract_version_missing_block() {
         let content = "no agents block here";
         assert_eq!(extract_version(content), None);
+    }
+
+    #[test]
+    fn test_extract_mode_git_native() {
+        let config = Config::default();
+        let block = generate_block(&config);
+        assert_eq!(extract_mode(&block), Some(AgentsBlockMode::GitNative));
+    }
+
+    #[test]
+    fn test_extract_mode_local_sync() {
+        let config = Config {
+            sync_branch: Some("braid-issues".to_string()),
+            ..Default::default()
+        };
+        let block = generate_block(&config);
+        assert_eq!(extract_mode(&block), Some(AgentsBlockMode::LocalSync));
+    }
+
+    #[test]
+    fn test_extract_mode_missing_block() {
+        let content = "no agents block here";
+        assert_eq!(extract_mode(content), None);
+    }
+
+    #[test]
+    fn test_agents_block_mode_display() {
+        assert_eq!(format!("{}", AgentsBlockMode::GitNative), "git-native");
+        assert_eq!(format!("{}", AgentsBlockMode::LocalSync), "local-sync");
     }
 
     #[test]

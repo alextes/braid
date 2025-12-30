@@ -26,7 +26,8 @@ pub use add::cmd_add;
 pub use agent::{
     cmd_agent_branch, cmd_agent_init, cmd_agent_pr,
     // AGENTS.md instructions
-    AGENTS_BLOCK_VERSION, check_agents_block, cmd_agents_inject, cmd_agents_show, generate_block,
+    AGENTS_BLOCK_VERSION, AgentsBlockMode, check_agents_block, cmd_agents_inject, cmd_agents_show,
+    extract_mode, generate_block,
 };
 pub use commit::cmd_commit;
 pub use completions::cmd_completions;
