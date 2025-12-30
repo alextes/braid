@@ -2,7 +2,6 @@
 
 mod add;
 mod agent;
-mod agents;
 mod commit;
 mod completions;
 mod dep;
@@ -23,8 +22,11 @@ mod sync;
 mod tui;
 
 pub use add::cmd_add;
-pub use agent::{cmd_agent_branch, cmd_agent_init, cmd_agent_pr};
-pub use agents::{AGENTS_BLOCK_VERSION, check_agents_block, cmd_agents_inject, cmd_agents_show};
+pub use agent::{
+    cmd_agent_branch, cmd_agent_init, cmd_agent_pr,
+    // AGENTS.md instructions
+    AGENTS_BLOCK_VERSION, check_agents_block, cmd_agents_inject, cmd_agents_show, generate_block,
+};
 pub use commit::cmd_commit;
 pub use completions::cmd_completions;
 pub use dep::{cmd_dep_add, cmd_dep_rm};
