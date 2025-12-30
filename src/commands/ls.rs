@@ -122,8 +122,14 @@ pub fn cmd_ls(
     // compute total counts BEFORE truncation
     let total_doing = doing.len();
     let total_todo = todo.len();
-    let total_done = resolved.iter().filter(|i| i.status() == Status::Done).count();
-    let total_skip = resolved.iter().filter(|i| i.status() == Status::Skip).count();
+    let total_done = resolved
+        .iter()
+        .filter(|i| i.status() == Status::Done)
+        .count();
+    let total_skip = resolved
+        .iter()
+        .filter(|i| i.status() == Status::Skip)
+        .count();
 
     // track how many are hidden
     let hidden_todo;

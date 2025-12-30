@@ -5,7 +5,9 @@ use crate::error::{BrdError, Result};
 use crate::migrate::{self, CURRENT_SCHEMA};
 use crate::repo::RepoPaths;
 
-use super::{AGENTS_BLOCK_VERSION, AgentsBlockMode, check_agents_block, extract_mode, load_all_issues};
+use super::{
+    AGENTS_BLOCK_VERSION, AgentsBlockMode, check_agents_block, extract_mode, load_all_issues,
+};
 
 /// Parse frontmatter from markdown content.
 fn parse_frontmatter(content: &str) -> Result<(String, String)> {

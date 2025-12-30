@@ -269,7 +269,9 @@ mod tests {
         with_repo("my-repo", |repo_path| {
             let _env = EnvGuard::set("USER", Some("tester"));
             let cli = make_cli(false);
-            let args = InitArgs { issues_branch: None };
+            let args = InitArgs {
+                issues_branch: None,
+            };
 
             cmd_init(&cli, &args).unwrap();
 
@@ -297,7 +299,9 @@ mod tests {
         with_repo("no-user", |repo_path| {
             let _env = EnvGuard::set("USER", None);
             let cli = make_cli(false);
-            let args = InitArgs { issues_branch: None };
+            let args = InitArgs {
+                issues_branch: None,
+            };
 
             cmd_init(&cli, &args).unwrap();
 
@@ -311,7 +315,9 @@ mod tests {
         with_repo("keep-config", |repo_path| {
             let _env = EnvGuard::set("USER", Some("first"));
             let cli = make_cli(false);
-            let args = InitArgs { issues_branch: None };
+            let args = InitArgs {
+                issues_branch: None,
+            };
 
             cmd_init(&cli, &args).unwrap();
 

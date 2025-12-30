@@ -26,11 +26,11 @@ pub use add::cmd_add;
 pub use agent::{
     // AGENTS.md instructions
     AGENTS_BLOCK_VERSION,
+    AgentsBlockMode,
     check_agents_block,
     cmd_agent_branch,
     cmd_agent_init,
     cmd_agent_pr,
-    AgentsBlockMode,
     cmd_agents_inject,
     cmd_agents_show,
     extract_mode,
@@ -52,7 +52,7 @@ pub use ship::cmd_ship;
 pub use show::cmd_show;
 pub use skip::cmd_skip;
 pub use start::{
-    claim_issue, cmd_start, commit_and_push_main, commit_and_push_issues_branch, sync_with_main,
+    claim_issue, cmd_start, commit_and_push_issues_branch, commit_and_push_main, sync_with_main,
 };
 pub use status::cmd_status;
 pub use sync::cmd_sync;

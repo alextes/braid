@@ -329,7 +329,10 @@ pub fn cmd_mode_default(cli: &Cli, paths: &RepoPaths) -> Result<()> {
 
         // commit the config change
         if git::run(&["add", ".braid/config.toml"], &paths.worktree_root)? {
-            let commit_msg = format!("chore(braid): switch to git-native mode (from external {})", path);
+            let commit_msg = format!(
+                "chore(braid): switch to git-native mode (from external {})",
+                path
+            );
             let _ = git::run(&["commit", "-m", &commit_msg], &paths.worktree_root);
         }
 
@@ -362,9 +365,7 @@ pub fn cmd_mode_default(cli: &Cli, paths: &RepoPaths) -> Result<()> {
     let branch = match &config.issues_branch {
         Some(b) => b.clone(),
         None => {
-            return Err(BrdError::Other(
-                "already in git-native mode".to_string(),
-            ));
+            return Err(BrdError::Other("already in git-native mode".to_string()));
         }
     };
 
@@ -524,12 +525,8 @@ pub fn cmd_mode_external_repo(cli: &Cli, paths: &RepoPaths, external_path: &str)
     }
 
     // load external config to verify it's valid
-    Config::load(&external_config_path).map_err(|e| {
-        BrdError::Other(format!(
-            "failed to load external repo config: {}",
-            e
-        ))
-    })?;
+    Config::load(&external_config_path)
+        .map_err(|e| BrdError::Other(format!("failed to load external repo config: {}", e)))?;
 
     if !cli.json {
         println!("Switching to external-repo mode...");
@@ -541,12 +538,13 @@ pub fn cmd_mode_external_repo(cli: &Cli, paths: &RepoPaths, external_path: &str)
 
     // commit the config change
     if !git::run(&["add", ".braid/config.toml"], &paths.worktree_root)? {
-        return Err(BrdError::Other(
-            "failed to stage config change".to_string(),
-        ));
+        return Err(BrdError::Other("failed to stage config change".to_string()));
     }
 
-    let commit_msg = format!("chore(braid): switch to external-repo mode ({})", external_path);
+    let commit_msg = format!(
+        "chore(braid): switch to external-repo mode ({})",
+        external_path
+    );
     let _ = git::run(&["commit", "-m", &commit_msg], &paths.worktree_root);
 
     // check for agent worktrees needing rebase

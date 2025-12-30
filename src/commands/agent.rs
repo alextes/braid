@@ -12,7 +12,7 @@ use crate::lock::LockGuard;
 use crate::repo::{self, RepoPaths};
 
 use super::{
-    claim_issue, commit_and_push_main, commit_and_push_issues_branch, load_all_issues,
+    claim_issue, commit_and_push_issues_branch, commit_and_push_main, load_all_issues,
     resolve_issue_id,
 };
 

@@ -67,8 +67,9 @@ impl Config {
         let migrated = migrate_config(&mut value);
 
         // deserialize into Config
-        let config: Config = value.try_into()
-            .map_err(|e: toml::de::Error| BrdError::ParseError(path.display().to_string(), e.to_string()))?;
+        let config: Config = value.try_into().map_err(|e: toml::de::Error| {
+            BrdError::ParseError(path.display().to_string(), e.to_string())
+        })?;
 
         // save if migrations were applied
         if migrated {

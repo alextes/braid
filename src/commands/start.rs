@@ -329,13 +329,11 @@ pub fn cmd_start(
         claim_issue(paths, &config, issue, &agent_id, force)?;
     }
 
-    // Step 4: Commit and push (unless --no-push)
-    if !no_push {
-        if is_sync_mode {
-            commit_and_push_issues_branch(paths, &config, &full_id, cli)?;
-        } else {
-            commit_and_push_main(paths, &full_id, cli)?;
-        }
+    // Step 4: Commit and push (git-native mode only, unless --no-push)
+    // In local-sync mode, the file is already saved to the shared worktree
+    // and visible to all local agents. Use `brd sync` to batch-commit when ready.
+    if !no_push && !is_sync_mode {
+        commit_and_push_main(paths, &full_id, cli)?;
     }
 
     // Output
