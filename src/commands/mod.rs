@@ -44,7 +44,7 @@ pub use done::cmd_done;
 pub use init::cmd_init;
 pub use ls::cmd_ls;
 pub use migrate::cmd_migrate;
-pub use mode::{cmd_mode_default, cmd_mode_external_repo, cmd_mode_local_sync, cmd_mode_show};
+pub use mode::{cmd_mode_external_repo, cmd_mode_git_native, cmd_mode_local_sync, cmd_mode_show};
 pub use ready::cmd_ready;
 pub use rm::cmd_rm;
 pub use search::cmd_search;

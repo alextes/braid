@@ -209,8 +209,8 @@ pub enum ModeAction {
         yes: bool,
     },
 
-    /// switch back to git-native mode (issues on main)
-    Default {
+    /// switch to git-native mode (issues on main branch)
+    GitNative {
         /// skip confirmation prompt
         #[arg(short = 'y', long)]
         yes: bool,

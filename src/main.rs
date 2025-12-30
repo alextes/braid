@@ -2,7 +2,7 @@ use braid::cli::{AgentAction, Cli, Command, DepAction, ModeAction};
 use braid::commands::{
     cmd_add, cmd_agent_branch, cmd_agent_init, cmd_agent_pr, cmd_agents_inject, cmd_agents_show,
     cmd_commit, cmd_completions, cmd_dep_add, cmd_dep_rm, cmd_doctor, cmd_done, cmd_init, cmd_ls,
-    cmd_migrate, cmd_mode_default, cmd_mode_external_repo, cmd_mode_local_sync, cmd_mode_show,
+    cmd_migrate, cmd_mode_external_repo, cmd_mode_git_native, cmd_mode_local_sync, cmd_mode_show,
     cmd_ready, cmd_rm, cmd_search, cmd_ship, cmd_show, cmd_skip, cmd_start, cmd_status, cmd_sync,
     cmd_tui,
 };
@@ -121,7 +121,7 @@ fn run(cli: &Cli) -> Result<()> {
             Some(ModeAction::ExternalRepo { path, yes }) => {
                 cmd_mode_external_repo(cli, &paths, path, *yes)
             }
-            Some(ModeAction::Default { yes }) => cmd_mode_default(cli, &paths, *yes),
+            Some(ModeAction::GitNative { yes }) => cmd_mode_git_native(cli, &paths, *yes),
         },
     }
 }

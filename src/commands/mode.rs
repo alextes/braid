@@ -370,8 +370,8 @@ pub fn cmd_mode_local_sync(cli: &Cli, paths: &RepoPaths, branch: &str, yes: bool
     Ok(())
 }
 
-/// Switch back to git-native mode.
-pub fn cmd_mode_default(cli: &Cli, paths: &RepoPaths, yes: bool) -> Result<()> {
+/// Switch to git-native mode.
+pub fn cmd_mode_git_native(cli: &Cli, paths: &RepoPaths, yes: bool) -> Result<()> {
     let mut config = Config::load(&paths.config_path())?;
 
     // handle external-repo mode first (simpler - just clear the config)
