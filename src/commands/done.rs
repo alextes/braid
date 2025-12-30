@@ -421,8 +421,8 @@ mod tests {
         );
 
         let cli = make_cli();
-        let err = cmd_done(&cli, &paths, "brd-design", false, &["brd-impl".to_string()])
-            .unwrap_err();
+        let err =
+            cmd_done(&cli, &paths, "brd-design", false, &["brd-impl".to_string()]).unwrap_err();
         assert!(err.to_string().contains("cycle"));
 
         let issues = load_all_issues(&paths, &config).unwrap();
