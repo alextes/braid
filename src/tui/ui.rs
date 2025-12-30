@@ -32,7 +32,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
     draw_footer(f, chunks[2], app);
 
     // draw input dialog on top if active
-    if !matches!(app.input_mode, InputMode::Normal) {
+    if !matches!(app.input_mode, InputMode::Normal | InputMode::Filter(_)) {
         draw_input_dialog(f, app);
     }
 }
@@ -49,7 +49,7 @@ fn draw_header(f: &mut Frame, area: Rect, app: &App) {
 
 fn draw_footer(f: &mut Frame, area: Rect, app: &App) {
     let msg = app.message.as_deref().unwrap_or("");
-    let help = "[a]dd [e]dit [s]tart [d]one [r]efresh [/]filter [v]live [↑↓/jk]nav [Tab]switch [?]help [q]uit";
+    let help = "[a]dd [e]dit [s]tart [d]one [r]efresh [/]filter [1-4]status [v]live [↑↓/jk]nav [tab]switch [?]help [q]uit";
     let text = if msg.is_empty() {
         help.to_string()
     } else {
@@ -293,9 +293,16 @@ fn draw_all_list(f: &mut Frame, area: Rect, app: &mut App) {
 
     // build title with filter info
     let visible = app.visible_all_issues();
-    let title = if app.has_filter() {
+    let filter_input = match &app.input_mode {
+        InputMode::Filter(query) => Some(query.clone()),
+        _ => None,
+    };
+    let show_filter = app.has_filter() || filter_input.is_some();
+    let title = if show_filter {
         let mut filter_parts = Vec::new();
-        if !app.all_filter_query.is_empty() {
+        if let Some(query) = &filter_input {
+            filter_parts.push(format!("/{query}_"));
+        } else if !app.all_filter_query.is_empty() {
             filter_parts.push(format!("\"{}\"", app.all_filter_query));
         }
         if !app.all_status_filter.is_empty() {
@@ -554,48 +561,49 @@ fn draw_detail(f: &mut Frame, area: Rect, app: &App) {
 
 fn draw_help(f: &mut Frame, area: Rect) {
     let block = Block::default()
-        .title(" Help (press ? to close) ")
+        .title(" help (press ? to close) ")
         .borders(Borders::ALL)
         .border_style(Style::default().fg(Color::Yellow));
 
     let help_text = vec![
         Line::from(""),
         Line::from(Span::styled(
-            "Navigation",
+            "navigation",
             Style::default().add_modifier(Modifier::BOLD),
         )),
-        Line::from("  ↑ / k      Move up"),
-        Line::from("  ↓ / j      Move down"),
+        Line::from("  ↑ / k      move up"),
+        Line::from("  ↓ / j      move down"),
         Line::from("  ← / h      select previous dependency"),
         Line::from("  → / l      select next dependency"),
-        Line::from("  Tab        Switch pane (Ready ↔ All)"),
+        Line::from("  tab        switch pane (ready ↔ all)"),
         Line::from(""),
         Line::from(Span::styled(
-            "Actions",
+            "actions",
             Style::default().add_modifier(Modifier::BOLD),
         )),
-        Line::from("  a / n      Add new issue"),
-        Line::from("  e          Edit selected issue"),
-        Line::from("  s          Start selected issue"),
-        Line::from("  d          Mark selected issue as done"),
+        Line::from("  a / n      add new issue"),
+        Line::from("  e          edit selected issue"),
+        Line::from("  s          start selected issue"),
+        Line::from("  d          mark selected issue as done"),
         Line::from("  enter      open selected dependency"),
-        Line::from("  r          Refresh issues from disk"),
-        Line::from("  v          Toggle live view"),
+        Line::from("  r          refresh issues from disk"),
+        Line::from("  v          toggle live view"),
         Line::from(""),
         Line::from(Span::styled(
-            "Filter (All pane)",
+            "filter (all pane)",
             Style::default().add_modifier(Modifier::BOLD),
         )),
-        Line::from("  /          Open filter dialog"),
-        Line::from("  1-4        Toggle status (1=todo 2=doing 3=done 4=skip)"),
-        Line::from("  Esc        Clear filter"),
+        Line::from("  /          enter filter mode"),
+        Line::from("  enter      confirm filter"),
+        Line::from("  esc        clear filter and exit filter mode"),
+        Line::from("  1-4        toggle status (1=todo 2=doing 3=done 4=skip)"),
         Line::from(""),
         Line::from(Span::styled(
-            "Other",
+            "other",
             Style::default().add_modifier(Modifier::BOLD),
         )),
-        Line::from("  ?          Toggle this help"),
-        Line::from("  q          Quit"),
+        Line::from("  ?          toggle this help"),
+        Line::from("  q          quit"),
     ];
 
     let paragraph = Paragraph::new(help_text).block(block);
@@ -842,52 +850,7 @@ fn draw_input_dialog(f: &mut Frame, app: &App) {
             let list = List::new(items);
             f.render_widget(list, chunks[1]);
         }
-        InputMode::Filter(query) => {
-            let block = Block::default()
-                .title(" Filter (Enter to apply, Esc to cancel) ")
-                .borders(Borders::ALL)
-                .border_style(Style::default().fg(Color::Yellow));
-
-            let inner = block.inner(area);
-            f.render_widget(block, area);
-
-            let chunks = Layout::default()
-                .direction(Direction::Vertical)
-                .constraints([
-                    Constraint::Length(1),
-                    Constraint::Length(1),
-                    Constraint::Min(0),
-                ])
-                .split(inner);
-
-            let hint = Paragraph::new("Type to filter by title. Use 1-4 to toggle status filters.")
-                .style(Style::default().fg(Color::DarkGray));
-            f.render_widget(hint, chunks[0]);
-
-            let input =
-                Paragraph::new(format!("/{}_", query)).style(Style::default().fg(Color::White));
-            f.render_widget(input, chunks[1]);
-
-            // show current status filter
-            let status_line = if app.all_status_filter.is_empty() {
-                "Status: all".to_string()
-            } else {
-                let statuses: Vec<&str> = [
-                    (crate::issue::Status::Todo, "todo"),
-                    (crate::issue::Status::Doing, "doing"),
-                    (crate::issue::Status::Done, "done"),
-                    (crate::issue::Status::Skip, "skip"),
-                ]
-                .iter()
-                .filter(|(s, _)| app.all_status_filter.contains(s))
-                .map(|(_, name)| *name)
-                .collect();
-                format!("Status: {}", statuses.join(", "))
-            };
-            let status = Paragraph::new(status_line).style(Style::default().fg(Color::Cyan));
-            f.render_widget(status, chunks[2]);
-        }
-        InputMode::Normal => {}
+        InputMode::Filter(_) | InputMode::Normal => {}
     }
 }
 

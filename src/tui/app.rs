@@ -281,13 +281,13 @@ impl App {
         self.message = None;
     }
 
-    /// cancel filter input.
+    /// clear filter input and return to normal mode.
     pub fn cancel_filter(&mut self) {
+        self.clear_filter();
         self.input_mode = InputMode::Normal;
-        self.message = None;
     }
 
-    /// confirm filter input.
+    /// confirm filter input and return to normal mode.
     pub fn confirm_filter(&mut self) {
         if let InputMode::Filter(query) = &self.input_mode {
             self.all_filter_query = query.clone();

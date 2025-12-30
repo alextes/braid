@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyModifiers};
 
-use super::app::{App, InputMode};
+use super::app::{ActivePane, App, InputMode, ViewMode};
 use crate::error::Result;
 use crate::repo::RepoPaths;
 
@@ -196,7 +196,10 @@ fn handle_key_event(app: &mut App, paths: &RepoPaths, key: KeyEvent) -> Result<b
                 KeyCode::Backspace => {
                     let mut s = current.clone();
                     s.pop();
+                    app.all_filter_query = s.clone();
+                    app.apply_filter();
                     app.input_mode = InputMode::Filter(s);
+                    app.message = None;
                 }
                 // toggle status filters with 1-4
                 KeyCode::Char('1') => {
@@ -214,7 +217,10 @@ fn handle_key_event(app: &mut App, paths: &RepoPaths, key: KeyEvent) -> Result<b
                 KeyCode::Char(c) => {
                     let mut s = current.clone();
                     s.push(c);
+                    app.all_filter_query = s.clone();
+                    app.apply_filter();
                     app.input_mode = InputMode::Filter(s);
+                    app.message = None;
                 }
                 _ => {}
             }
@@ -257,7 +263,31 @@ fn handle_key_event(app: &mut App, paths: &RepoPaths, key: KeyEvent) -> Result<b
         KeyCode::Enter => app.open_selected_dependency(),
 
         // filter
-        KeyCode::Char('/') => app.start_filter(),
+        KeyCode::Char('1')
+            if app.view_mode == ViewMode::Normal && app.active_pane == ActivePane::All =>
+        {
+            app.toggle_status_filter(crate::issue::Status::Todo);
+        }
+        KeyCode::Char('2')
+            if app.view_mode == ViewMode::Normal && app.active_pane == ActivePane::All =>
+        {
+            app.toggle_status_filter(crate::issue::Status::Doing);
+        }
+        KeyCode::Char('3')
+            if app.view_mode == ViewMode::Normal && app.active_pane == ActivePane::All =>
+        {
+            app.toggle_status_filter(crate::issue::Status::Done);
+        }
+        KeyCode::Char('4')
+            if app.view_mode == ViewMode::Normal && app.active_pane == ActivePane::All =>
+        {
+            app.toggle_status_filter(crate::issue::Status::Skip);
+        }
+        KeyCode::Char('/') => {
+            if app.view_mode == ViewMode::Normal && app.active_pane == ActivePane::All {
+                app.start_filter();
+            }
+        }
         KeyCode::Esc => {
             if app.has_filter() {
                 app.clear_filter();
@@ -445,6 +475,75 @@ mod tests {
 
         handle_key_event(&mut app, &env.paths, key(KeyCode::Down)).expect("move down failed");
         assert!(app.message.is_none());
+    }
+
+    #[test]
+    fn test_filter_inline_updates_query() {
+        let env = TestEnv::new();
+        env.add_issue("brd-aaaa", "alpha", Priority::P1, Status::Todo);
+        env.add_issue("brd-bbbb", "bravo", Priority::P2, Status::Todo);
+
+        let mut app = env.app();
+        handle_key_event(&mut app, &env.paths, key(KeyCode::Tab)).expect("switch pane failed");
+        handle_key_event(&mut app, &env.paths, key(KeyCode::Char('/')))
+            .expect("start filter failed");
+        assert!(matches!(
+            app.input_mode,
+            InputMode::Filter(ref query) if query.is_empty()
+        ));
+
+        handle_key_event(&mut app, &env.paths, key(KeyCode::Char('a')))
+            .expect("filter char failed");
+        handle_key_event(&mut app, &env.paths, key(KeyCode::Char('l')))
+            .expect("filter char failed");
+
+        assert_eq!(app.all_filter_query, "al");
+        assert_eq!(app.visible_all_issues().len(), 1);
+        assert_eq!(
+            app.visible_all_issues().get(0).map(String::as_str),
+            Some("brd-aaaa")
+        );
+
+        handle_key_event(&mut app, &env.paths, key(KeyCode::Enter)).expect("confirm filter failed");
+        assert!(matches!(app.input_mode, InputMode::Normal));
+        assert!(app.has_filter());
+    }
+
+    #[test]
+    fn test_filter_escape_clears() {
+        let env = TestEnv::new();
+        env.add_issue("brd-aaaa", "alpha", Priority::P1, Status::Todo);
+
+        let mut app = env.app();
+        handle_key_event(&mut app, &env.paths, key(KeyCode::Tab)).expect("switch pane failed");
+        handle_key_event(&mut app, &env.paths, key(KeyCode::Char('/')))
+            .expect("start filter failed");
+        handle_key_event(&mut app, &env.paths, key(KeyCode::Char('a')))
+            .expect("filter char failed");
+        handle_key_event(&mut app, &env.paths, key(KeyCode::Esc)).expect("clear filter failed");
+
+        assert!(matches!(app.input_mode, InputMode::Normal));
+        assert!(app.all_filter_query.is_empty());
+        assert!(app.all_status_filter.is_empty());
+    }
+
+    #[test]
+    fn test_status_filter_toggle_in_normal_mode() {
+        let env = TestEnv::new();
+        env.add_issue("brd-aaaa", "todo item", Priority::P1, Status::Todo);
+        env.add_issue("brd-bbbb", "done item", Priority::P2, Status::Done);
+
+        let mut app = env.app();
+        handle_key_event(&mut app, &env.paths, key(KeyCode::Tab)).expect("switch pane failed");
+        handle_key_event(&mut app, &env.paths, key(KeyCode::Char('3')))
+            .expect("toggle status filter failed");
+
+        assert!(app.all_status_filter.contains(&Status::Done));
+        assert_eq!(app.visible_all_issues().len(), 1);
+        assert_eq!(
+            app.visible_all_issues().get(0).map(String::as_str),
+            Some("brd-bbbb")
+        );
     }
 
     #[test]
