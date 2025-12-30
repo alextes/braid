@@ -7,6 +7,13 @@ use crate::config::Config;
 use crate::error::{BrdError, Result};
 use crate::repo::git_rev_parse;
 
+/// Workflow configuration determined from init prompts.
+struct WorkflowConfig {
+    issues_branch: Option<String>,
+    auto_pull: bool,
+    auto_push: bool,
+}
+
 pub fn cmd_init(cli: &Cli, args: &InitArgs) -> Result<()> {
     let cwd = std::env::current_dir()?;
 
@@ -28,8 +35,8 @@ pub fn cmd_init(cli: &Cli, args: &InitArgs) -> Result<()> {
 
     let brd_common_dir = git_common_dir.join("brd");
 
-    // determine issues_branch: from args, interactive prompt, or None (git-native)
-    let issues_branch = determine_issues_branch(cli, args, &worktree_root)?;
+    // determine workflow config: from args, interactive prompt, or defaults
+    let workflow = determine_workflow_config(cli, args, &worktree_root)?;
 
     // create directories
     std::fs::create_dir_all(&issues_dir)?;
@@ -43,12 +50,16 @@ pub fn cmd_init(cli: &Cli, args: &InitArgs) -> Result<()> {
 
     if !config_path.exists() {
         let mut config = Config::with_derived_prefix(repo_name);
-        config.issues_branch = issues_branch.clone();
+        config.issues_branch = workflow.issues_branch.clone();
+        config.auto_pull = workflow.auto_pull;
+        config.auto_push = workflow.auto_push;
         config.save(&config_path)?;
-    } else if issues_branch.is_some() {
-        // update existing config with issues_branch
+    } else {
+        // update existing config with workflow settings
         let mut config = Config::load(&config_path)?;
-        config.issues_branch = issues_branch.clone();
+        config.issues_branch = workflow.issues_branch.clone();
+        config.auto_pull = workflow.auto_pull;
+        config.auto_push = workflow.auto_push;
         config.save(&config_path)?;
     }
 
@@ -71,7 +82,7 @@ pub fn cmd_init(cli: &Cli, args: &InitArgs) -> Result<()> {
     }
 
     // if issues_branch is set, create the branch and worktree
-    if let Some(branch_name) = &issues_branch {
+    if let Some(branch_name) = &workflow.issues_branch {
         setup_issues_branch(
             &worktree_root,
             &brd_common_dir,
@@ -86,87 +97,163 @@ pub fn cmd_init(cli: &Cli, args: &InitArgs) -> Result<()> {
             "ok": true,
             "braid_dir": braid_dir.to_string_lossy(),
             "worktree": worktree_root.to_string_lossy(),
-            "issues_branch": issues_branch,
+            "issues_branch": workflow.issues_branch,
+            "auto_pull": workflow.auto_pull,
+            "auto_push": workflow.auto_push,
         });
         println!("{}", serde_json::to_string_pretty(&json).unwrap());
     } else {
         println!("Initialized braid in {}", braid_dir.display());
-        if let Some(branch) = &issues_branch {
-            println!("Local-sync mode enabled: issues will live on '{}'", branch);
-        }
         println!();
-        println!("next steps:");
+        println!("Configuration:");
+        if let Some(branch) = &workflow.issues_branch {
+            println!("  issues_branch = \"{}\"", branch);
+        }
+        println!("  auto_pull = {}", workflow.auto_pull);
+        println!("  auto_push = {}", workflow.auto_push);
+        println!();
+        println!("Next steps:");
         println!("  brd add \"my first task\"     # create an issue");
         println!("  brd agent inject            # add agent instructions to AGENTS.md");
-        if issues_branch.is_some() {
-            println!("  brd sync                    # sync issues to remote");
-        }
     }
 
     Ok(())
 }
 
-/// Determine the issues_branch value based on args and interactive prompts.
-fn determine_issues_branch(
+/// Determine workflow configuration based on args and interactive prompts.
+///
+/// Uses a 3-question flow:
+/// Q1: Multiple local workers? -> sets issues_branch (required for instant local sync)
+/// Q2: (if Q1=No) Cleaner history? -> sets issues_branch (optional, for tidy history)
+/// Q3: Remote collaboration? -> sets auto_pull and auto_push
+fn determine_workflow_config(
     cli: &Cli,
     args: &InitArgs,
     worktree_root: &std::path::Path,
-) -> Result<Option<String>> {
-    // if explicitly set via --issues-branch, use it
-    if args.issues_branch.is_some() {
-        return Ok(args.issues_branch.clone());
+) -> Result<WorkflowConfig> {
+    // if explicitly set via --issues-branch, use it with default auto_sync
+    if let Some(branch) = args.issues_branch.clone() {
+        return Ok(WorkflowConfig {
+            issues_branch: Some(branch),
+            auto_pull: true,
+            auto_push: true,
+        });
     }
 
-    // if non-interactive or json mode, use git-native (no issues_branch)
+    // if non-interactive or json mode, use defaults (git-native, auto-sync on)
     if args.non_interactive || cli.json {
-        return Ok(None);
+        return Ok(WorkflowConfig {
+            issues_branch: None,
+            auto_pull: true,
+            auto_push: true,
+        });
     }
 
-    // interactive prompt
+    // interactive prompts
     println!("Initializing braid in {}...", worktree_root.display());
     println!();
-    println!("How will you use braid?");
+
+    let stdin = io::stdin();
+    let mut issues_branch: Option<String> = None;
+
+    // Q1: Multiple local workers?
+    println!("Will multiple local processes work on issues at the same time?");
+    println!("(e.g., multiple AI agents, parallel terminal sessions)");
     println!();
-    println!("  1. Solo or remote team (git-native) [recommended]");
-    println!("     Issues sync via normal git push/pull. Simple and familiar.");
-    println!();
-    println!("  2. Multiple local agents (local-sync)");
-    println!("     Issues sync instantly via shared worktree. Best for 2+ agents");
-    println!("     on the same machine.");
+    println!("  1. No - just me or one process at a time");
+    println!("  2. Yes - multiple concurrent workers");
     println!();
     print!("Choice [1]: ");
     io::stdout().flush()?;
 
-    let stdin = io::stdin();
     let mut line = String::new();
     stdin.lock().read_line(&mut line)?;
-    let choice = line.trim();
+    let q1_choice = line.trim();
 
-    match choice {
-        "" | "1" => Ok(None), // git-native
+    match q1_choice {
         "2" => {
-            // prompt for branch name
-            print!("Branch name [braid-issues]: ");
+            // Multiple local workers -> need issues_branch for instant sync
+            issues_branch = Some("braid-issues".to_string());
+            println!();
+            println!("→ Using separate branch for instant visibility between local workers.");
+        }
+        "" | "1" => {
+            // Single worker -> ask Q2 about cleaner history
+            println!();
+
+            // Q2: Cleaner history?
+            println!("Keep issue commits separate from your code commits?");
+            println!();
+            println!("  1. No - issues commit alongside code (simpler)");
+            println!("  2. Yes - issues on separate branch (cleaner git history)");
+            println!();
+            print!("Choice [1]: ");
             io::stdout().flush()?;
 
-            let mut branch_line = String::new();
-            stdin.lock().read_line(&mut branch_line)?;
-            let branch = branch_line.trim();
+            let mut q2_line = String::new();
+            stdin.lock().read_line(&mut q2_line)?;
+            let q2_choice = q2_line.trim();
 
-            let branch_name = if branch.is_empty() {
-                "braid-issues".to_string()
-            } else {
-                branch.to_string()
-            };
-
-            println!();
-            Ok(Some(branch_name))
+            match q2_choice {
+                "2" => {
+                    issues_branch = Some("braid-issues".to_string());
+                    println!();
+                    println!("→ Using separate branch to keep main history clean.");
+                    println!("  Trade-off: Requires `brd sync` to persist changes to git.");
+                }
+                "" | "1" => {
+                    // Issues on main, no issues_branch needed
+                }
+                _ => {
+                    eprintln!("Invalid choice '{}', using issues on main", q2_choice);
+                }
+            }
         }
         _ => {
-            eprintln!("Invalid choice '{}', using git-native mode", choice);
-            Ok(None)
+            eprintln!("Invalid choice '{}', assuming single worker", q1_choice);
         }
     }
+
+    println!();
+
+    // Q3: Remote collaboration?
+    println!("Do you collaborate with remote humans or AI agents?");
+    println!();
+    println!("  1. No - working solo or local-only");
+    println!("  2. Yes - syncing with teammates or remote agents");
+    println!();
+    print!("Choice [1]: ");
+    io::stdout().flush()?;
+
+    let mut q3_line = String::new();
+    stdin.lock().read_line(&mut q3_line)?;
+    let q3_choice = q3_line.trim();
+
+    let (auto_pull, auto_push) = match q3_choice {
+        "2" => {
+            println!();
+            println!("→ Auto-sync enabled (pull on start, push on done).");
+            println!("  Trade-off: More git commits, but prevents claim conflicts.");
+            (true, true)
+        }
+        "" | "1" => {
+            println!();
+            println!("→ Manual sync mode. Use `brd sync` when ready to share changes.");
+            (false, false)
+        }
+        _ => {
+            eprintln!("Invalid choice '{}', using manual sync", q3_choice);
+            (false, false)
+        }
+    };
+
+    println!();
+
+    Ok(WorkflowConfig {
+        issues_branch,
+        auto_pull,
+        auto_push,
+    })
 }
 
 /// Set up sync branch mode by creating the branch and issues worktree.
