@@ -23,6 +23,15 @@ fn git_output(args: &[&str], cwd: &std::path::Path) -> Result<String> {
     Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
 }
 
+fn stash_count(cwd: &std::path::Path) -> Result<usize> {
+    let output = git_output(&["stash", "list"], cwd)?;
+    if output.is_empty() {
+        Ok(0)
+    } else {
+        Ok(output.lines().count())
+    }
+}
+
 /// Check if working tree is clean.
 fn is_clean(cwd: &std::path::Path) -> Result<bool> {
     let output = git_output(&["status", "--porcelain"], cwd)?;
@@ -61,18 +70,28 @@ pub fn cmd_sync(cli: &Cli, paths: &RepoPaths, push: bool) -> Result<()> {
 
     // 1. check for local changes in issues worktree
     let has_local_changes = !is_clean(&issues_wt)?;
+    let mut stashed = false;
 
     // 2. stash local changes if any
     if has_local_changes {
         if !cli.json {
             println!("  stashing local changes...");
         }
+        let stash_before = stash_count(&issues_wt)?;
         if !git(
-            &["stash", "push", "-m", "brd sync: stashing local changes"],
+            &[
+                "stash",
+                "push",
+                "--include-untracked",
+                "-m",
+                "brd sync: stashing local changes",
+            ],
             &issues_wt,
         )? {
             return Err(BrdError::Other("failed to stash changes".to_string()));
         }
+        let stash_after = stash_count(&issues_wt)?;
+        stashed = stash_after > stash_before;
     }
 
     // 3. fetch and rebase
@@ -104,7 +123,7 @@ pub fn cmd_sync(cli: &Cli, paths: &RepoPaths, push: bool) -> Result<()> {
     }
 
     // 4. restore local changes
-    if has_local_changes {
+    if stashed {
         if !cli.json {
             println!("  restoring local changes...");
         }
