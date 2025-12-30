@@ -1,5 +1,7 @@
 //! brd init command.
 
+use std::io::{self, BufRead, Write};
+
 use crate::cli::{Cli, InitArgs};
 use crate::config::Config;
 use crate::error::{BrdError, Result};
@@ -26,6 +28,9 @@ pub fn cmd_init(cli: &Cli, args: &InitArgs) -> Result<()> {
 
     let brd_common_dir = git_common_dir.join("brd");
 
+    // determine issues_branch: from args, interactive prompt, or None (git-native)
+    let issues_branch = determine_issues_branch(cli, args, &worktree_root)?;
+
     // create directories
     std::fs::create_dir_all(&issues_dir)?;
     std::fs::create_dir_all(&brd_common_dir)?;
@@ -38,12 +43,12 @@ pub fn cmd_init(cli: &Cli, args: &InitArgs) -> Result<()> {
 
     if !config_path.exists() {
         let mut config = Config::with_derived_prefix(repo_name);
-        config.issues_branch = args.issues_branch.clone();
+        config.issues_branch = issues_branch.clone();
         config.save(&config_path)?;
-    } else if args.issues_branch.is_some() {
+    } else if issues_branch.is_some() {
         // update existing config with issues_branch
         let mut config = Config::load(&config_path)?;
-        config.issues_branch = args.issues_branch.clone();
+        config.issues_branch = issues_branch.clone();
         config.save(&config_path)?;
     }
 
@@ -66,7 +71,7 @@ pub fn cmd_init(cli: &Cli, args: &InitArgs) -> Result<()> {
     }
 
     // if issues_branch is set, create the branch and worktree
-    if let Some(branch_name) = &args.issues_branch {
+    if let Some(branch_name) = &issues_branch {
         setup_issues_branch(
             &worktree_root,
             &brd_common_dir,
@@ -81,24 +86,87 @@ pub fn cmd_init(cli: &Cli, args: &InitArgs) -> Result<()> {
             "ok": true,
             "braid_dir": braid_dir.to_string_lossy(),
             "worktree": worktree_root.to_string_lossy(),
-            "issues_branch": args.issues_branch,
+            "issues_branch": issues_branch,
         });
         println!("{}", serde_json::to_string_pretty(&json).unwrap());
     } else {
         println!("Initialized braid in {}", braid_dir.display());
-        if let Some(branch) = &args.issues_branch {
-            println!("Sync branch mode enabled: issues will live on '{}'", branch);
+        if let Some(branch) = &issues_branch {
+            println!("Local-sync mode enabled: issues will live on '{}'", branch);
         }
         println!();
         println!("next steps:");
         println!("  brd add \"my first task\"     # create an issue");
         println!("  brd agent inject            # add agent instructions to AGENTS.md");
-        if args.issues_branch.is_some() {
+        if issues_branch.is_some() {
             println!("  brd sync                    # sync issues to remote");
         }
     }
 
     Ok(())
+}
+
+/// Determine the issues_branch value based on args and interactive prompts.
+fn determine_issues_branch(
+    cli: &Cli,
+    args: &InitArgs,
+    worktree_root: &std::path::Path,
+) -> Result<Option<String>> {
+    // if explicitly set via --issues-branch, use it
+    if args.issues_branch.is_some() {
+        return Ok(args.issues_branch.clone());
+    }
+
+    // if non-interactive or json mode, use git-native (no issues_branch)
+    if args.non_interactive || cli.json {
+        return Ok(None);
+    }
+
+    // interactive prompt
+    println!("Initializing braid in {}...", worktree_root.display());
+    println!();
+    println!("How will you use braid?");
+    println!();
+    println!("  1. Solo or remote team (git-native) [recommended]");
+    println!("     Issues sync via normal git push/pull. Simple and familiar.");
+    println!();
+    println!("  2. Multiple local agents (local-sync)");
+    println!("     Issues sync instantly via shared worktree. Best for 2+ agents");
+    println!("     on the same machine.");
+    println!();
+    print!("Choice [1]: ");
+    io::stdout().flush()?;
+
+    let stdin = io::stdin();
+    let mut line = String::new();
+    stdin.lock().read_line(&mut line)?;
+    let choice = line.trim();
+
+    match choice {
+        "" | "1" => Ok(None), // git-native
+        "2" => {
+            // prompt for branch name
+            print!("Branch name [braid-issues]: ");
+            io::stdout().flush()?;
+
+            let mut branch_line = String::new();
+            stdin.lock().read_line(&mut branch_line)?;
+            let branch = branch_line.trim();
+
+            let branch_name = if branch.is_empty() {
+                "braid-issues".to_string()
+            } else {
+                branch.to_string()
+            };
+
+            println!();
+            Ok(Some(branch_name))
+        }
+        _ => {
+            eprintln!("Invalid choice '{}', using git-native mode", choice);
+            Ok(None)
+        }
+    }
 }
 
 /// Set up sync branch mode by creating the branch and issues worktree.
@@ -271,6 +339,7 @@ mod tests {
             let cli = make_cli(false);
             let args = InitArgs {
                 issues_branch: None,
+                non_interactive: true,
             };
 
             cmd_init(&cli, &args).unwrap();
@@ -301,6 +370,7 @@ mod tests {
             let cli = make_cli(false);
             let args = InitArgs {
                 issues_branch: None,
+                non_interactive: true,
             };
 
             cmd_init(&cli, &args).unwrap();
@@ -317,6 +387,7 @@ mod tests {
             let cli = make_cli(false);
             let args = InitArgs {
                 issues_branch: None,
+                non_interactive: true,
             };
 
             cmd_init(&cli, &args).unwrap();

@@ -260,6 +260,10 @@ pub struct InitArgs {
     /// create a sync branch for issue tracking (issues live on this branch, not main)
     #[arg(long)]
     pub issues_branch: Option<String>,
+
+    /// skip interactive prompts (use git-native mode by default)
+    #[arg(short = 'y', long)]
+    pub non_interactive: bool,
 }
 
 /// arguments for the add command.
