@@ -287,9 +287,9 @@ pub fn cmd_ls(
 
         let elapsed_ms = start.elapsed().as_millis();
 
-        // build summary line with non-zero counts
+        // build summary line: open (todo+doing), plus non-zero resolved counts
         let mut parts = Vec::new();
-        parts.push(format!("todo: {}", todo_count));
+        parts.push(format!("open: {}", open_count));
         if doing_count > 0 {
             parts.push(format!("doing: {}", doing_count));
         }
@@ -299,7 +299,6 @@ pub fn cmd_ls(
         if skip_count > 0 {
             parts.push(format!("skip: {}", skip_count));
         }
-        parts.push(format!("open: {}", open_count));
 
         println!("{} | time: {}ms", parts.join(" | "), elapsed_ms);
     }
