@@ -74,7 +74,97 @@ pub fn cmd_doctor(cli: &Cli, paths: &RepoPaths) -> Result<()> {
     // load config for issue operations
     let config = crate::config::Config::load(&paths.config_path()).unwrap_or_default();
 
-    // check 3: all issue files parse correctly
+    // check 3: external repo config version (if in external-repo mode)
+    if let Some(ref external_path) = config.issues_repo {
+        match check_external_config(paths, external_path) {
+            Ok((ext_version, supported)) => {
+                if supported {
+                    record_check(
+                        "external_config_version",
+                        &format!(
+                            "external repo config at schema v{} (supported)",
+                            ext_version
+                        ),
+                        true,
+                    );
+                } else {
+                    record_check(
+                        "external_config_version",
+                        &format!(
+                            "external repo uses schema v{}, this brd supports up to v{}",
+                            ext_version, CURRENT_SCHEMA
+                        ),
+                        false,
+                    );
+                    errors.push(serde_json::json!({
+                        "code": "external_schema_unsupported",
+                        "message": format!(
+                            "external repo uses schema v{}, please upgrade brd",
+                            ext_version
+                        )
+                    }));
+                }
+            }
+            Err(msg) => {
+                record_check("external_config_version", &msg, false);
+                errors.push(serde_json::json!({
+                    "code": "external_config_error",
+                    "message": msg
+                }));
+            }
+        }
+    }
+
+    // check 4: issues worktree config version (if in local-sync mode)
+    if config.is_issues_branch_mode() {
+        match check_worktree_config(paths) {
+            Ok(Some((wt_version, supported))) => {
+                if supported {
+                    record_check(
+                        "worktree_config_version",
+                        &format!(
+                            "issues worktree config at schema v{} (supported)",
+                            wt_version
+                        ),
+                        true,
+                    );
+                } else {
+                    record_check(
+                        "worktree_config_version",
+                        &format!(
+                            "issues worktree uses schema v{}, this brd supports up to v{}",
+                            wt_version, CURRENT_SCHEMA
+                        ),
+                        false,
+                    );
+                    errors.push(serde_json::json!({
+                        "code": "worktree_schema_unsupported",
+                        "message": format!(
+                            "issues worktree uses schema v{}, please upgrade brd",
+                            wt_version
+                        )
+                    }));
+                }
+            }
+            Ok(None) => {
+                // worktree doesn't exist yet, that's ok
+                record_check(
+                    "worktree_config_version",
+                    "issues worktree not yet created",
+                    true,
+                );
+            }
+            Err(msg) => {
+                record_check("worktree_config_version", &msg, false);
+                errors.push(serde_json::json!({
+                    "code": "worktree_config_error",
+                    "message": msg
+                }));
+            }
+        }
+    }
+
+    // check 5: all issue files parse correctly
     let issues = load_all_issues(paths, &config)?;
     record_check(
         "issues_parse",
@@ -82,7 +172,7 @@ pub fn cmd_doctor(cli: &Cli, paths: &RepoPaths) -> Result<()> {
         true, // load_all_issues already warns on parse errors
     );
 
-    // check 4: all issues at current schema version (check raw files, not migrated structs)
+    // check 6: all issues at current schema version (check raw files, not migrated structs)
     let mut needs_migration = Vec::new();
     let issues_dir = paths.issues_dir(&config);
     if issues_dir.exists() {
@@ -125,7 +215,7 @@ pub fn cmd_doctor(cli: &Cli, paths: &RepoPaths) -> Result<()> {
         }
     }
 
-    // check 5: no missing dependencies (renumbered from 4)
+    // check 7: no missing dependencies
     let mut missing_deps = Vec::new();
     for (id, issue) in &issues {
         for dep in issue.deps() {
@@ -145,7 +235,7 @@ pub fn cmd_doctor(cli: &Cli, paths: &RepoPaths) -> Result<()> {
         missing_deps.is_empty(),
     );
 
-    // check 6: no dependency cycles
+    // check 8: no dependency cycles
     let cycles = crate::graph::find_cycles(&issues);
     for cycle in &cycles {
         errors.push(serde_json::json!({
@@ -155,7 +245,7 @@ pub fn cmd_doctor(cli: &Cli, paths: &RepoPaths) -> Result<()> {
     }
     record_check("no_cycles", "no dependency cycles", cycles.is_empty());
 
-    // check 7: AGENTS.md block version (informational)
+    // check 9: AGENTS.md block version (informational)
     let agents_block_version = check_agents_block(paths);
     match agents_block_version {
         Some(version) if version >= AGENTS_BLOCK_VERSION => {
@@ -186,7 +276,7 @@ pub fn cmd_doctor(cli: &Cli, paths: &RepoPaths) -> Result<()> {
         }
     }
 
-    // check 8: AGENTS.md block mode matches config mode (informational)
+    // check 10: AGENTS.md block mode matches config mode (informational)
     let agents_path = paths.worktree_root.join("AGENTS.md");
     if agents_path.exists() {
         if let Ok(content) = std::fs::read_to_string(&agents_path) {
@@ -266,6 +356,56 @@ pub fn cmd_doctor(cli: &Cli, paths: &RepoPaths) -> Result<()> {
     } else {
         Err(BrdError::Other("doctor found errors".to_string()))
     }
+}
+
+/// Check external repo config and return (schema_version, is_supported).
+fn check_external_config(
+    paths: &RepoPaths,
+    external_path: &str,
+) -> std::result::Result<(u32, bool), String> {
+    use std::path::Path;
+
+    // resolve path
+    let resolved = if Path::new(external_path).is_absolute() {
+        std::path::PathBuf::from(external_path)
+    } else {
+        paths.worktree_root.join(external_path)
+    };
+
+    let resolved = resolved
+        .canonicalize()
+        .map_err(|_| format!("external repo not found: {}", external_path))?;
+
+    let external_paths = crate::repo::discover(Some(&resolved))
+        .map_err(|_| format!("external path is not a git repo: {}", resolved.display()))?;
+
+    let config = crate::config::Config::load(&external_paths.config_path())
+        .map_err(|e| format!("failed to load external config: {}", e))?;
+
+    Ok((
+        config.schema_version,
+        config.schema_version <= CURRENT_SCHEMA,
+    ))
+}
+
+/// Check issues worktree config and return Some((schema_version, is_supported)) or None if not created.
+fn check_worktree_config(paths: &RepoPaths) -> std::result::Result<Option<(u32, bool)>, String> {
+    let wt_config_path = paths
+        .issues_worktree_dir()
+        .join(".braid")
+        .join("config.toml");
+
+    if !wt_config_path.exists() {
+        return Ok(None);
+    }
+
+    let config = crate::config::Config::load(&wt_config_path)
+        .map_err(|e| format!("failed to load worktree config: {}", e))?;
+
+    Ok(Some((
+        config.schema_version,
+        config.schema_version <= CURRENT_SCHEMA,
+    )))
 }
 
 #[cfg(test)]

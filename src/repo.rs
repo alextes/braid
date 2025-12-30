@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 
 use crate::config::Config;
 use crate::error::{BrdError, Result};
+use crate::migrate::CURRENT_SCHEMA;
 
 /// paths discovered from git for a brd repository.
 #[derive(Debug, Clone)]
@@ -38,11 +39,11 @@ impl RepoPaths {
     /// - default mode: `.braid/issues/` in current worktree
     pub fn issues_dir(&self, config: &Config) -> PathBuf {
         // external-repo mode: resolve external repo and use its issues_dir
-        if let Some(ref external_path) = config.issues_repo {
-            if let Some(path) = self.resolve_external_issues_dir(external_path) {
-                return path;
-            }
-            // if resolution fails, fall through to local (will likely error later)
+        // if resolution fails, fall through to local (will likely error later)
+        if let Some(ref external_path) = config.issues_repo
+            && let Some(path) = self.resolve_external_issues_dir(external_path)
+        {
+            return path;
         }
 
         if config.is_issues_branch_mode() {
@@ -87,10 +88,10 @@ impl RepoPaths {
     /// - default mode: `.braid/config.toml` in current worktree
     pub fn resolved_config_path(&self, local_config: &Config) -> PathBuf {
         // external-repo mode: use external repo's config
-        if let Some(ref external_path) = local_config.issues_repo {
-            if let Some(path) = self.resolve_external_config_path(external_path) {
-                return path;
-            }
+        if let Some(ref external_path) = local_config.issues_repo
+            && let Some(path) = self.resolve_external_config_path(external_path)
+        {
+            return path;
         }
 
         if local_config.is_issues_branch_mode() {
@@ -175,6 +176,93 @@ impl RepoPaths {
     /// path to the local lock file (for single-machine coordination)
     pub fn lock_path(&self) -> PathBuf {
         self.brd_common_dir.join("lock")
+    }
+
+    /// validate that all resolved configs (external repo, issues worktree) are compatible.
+    /// call this early to catch schema version mismatches before any commands run.
+    pub fn validate_resolved_config(&self, local_config: &Config) -> Result<()> {
+        // external-repo mode: validate external repo's config
+        if let Some(ref external_path) = local_config.issues_repo {
+            self.validate_external_config(external_path)?;
+        }
+
+        // local-sync mode: validate issues worktree config if it exists
+        if local_config.is_issues_branch_mode() {
+            self.validate_worktree_config()?;
+        }
+
+        Ok(())
+    }
+
+    /// validate the external repo's config schema version.
+    fn validate_external_config(&self, external_path: &str) -> Result<()> {
+        // resolve path (relative to worktree_root or absolute)
+        let resolved = if Path::new(external_path).is_absolute() {
+            PathBuf::from(external_path)
+        } else {
+            self.worktree_root.join(external_path)
+        };
+
+        // canonicalize to handle .. and symlinks
+        let resolved = resolved.canonicalize().map_err(|_| {
+            BrdError::Other(format!("external issues repo not found: {}", external_path))
+        })?;
+
+        // discover that repo's paths
+        let external_paths = discover(Some(&resolved)).map_err(|_| {
+            BrdError::Other(format!(
+                "external path is not a git repository: {}",
+                resolved.display()
+            ))
+        })?;
+
+        // load that repo's config
+        let external_config = Config::load(&external_paths.config_path())
+            .map_err(|e| BrdError::Other(format!("failed to load external repo config: {}", e)))?;
+
+        // check schema version
+        if external_config.schema_version > CURRENT_SCHEMA {
+            return Err(BrdError::Other(format!(
+                "external repo uses schema v{}, but this brd only supports up to v{}. please upgrade brd.",
+                external_config.schema_version, CURRENT_SCHEMA
+            )));
+        }
+
+        // check for chaining
+        if external_config.is_external_repo_mode() {
+            return Err(BrdError::Other(
+                "external repo cannot itself use external-repo mode (chaining not allowed)"
+                    .to_string(),
+            ));
+        }
+
+        Ok(())
+    }
+
+    /// validate the issues worktree's config schema version (if it exists).
+    fn validate_worktree_config(&self) -> Result<()> {
+        let wt_config_path = self
+            .issues_worktree_dir()
+            .join(".braid")
+            .join("config.toml");
+
+        // worktree might not exist yet (will be created on first write)
+        if !wt_config_path.exists() {
+            return Ok(());
+        }
+
+        let wt_config = Config::load(&wt_config_path).map_err(|e| {
+            BrdError::Other(format!("failed to load issues worktree config: {}", e))
+        })?;
+
+        if wt_config.schema_version > CURRENT_SCHEMA {
+            return Err(BrdError::Other(format!(
+                "issues worktree uses schema v{}, but this brd only supports up to v{}. please upgrade brd.",
+                wt_config.schema_version, CURRENT_SCHEMA
+            )));
+        }
+
+        Ok(())
     }
 }
 

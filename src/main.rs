@@ -52,6 +52,8 @@ fn run(cli: &Cli) -> Result<()> {
     // validate config schema version early to prevent old brd from modifying upgraded repos
     let config = Config::load(&paths.config_path())?;
     config.validate()?;
+    // also validate external/worktree configs if in those modes
+    paths.validate_resolved_config(&config)?;
     verbose!(
         cli,
         "config: prefix={}, id_len={}, schema=v{}",
