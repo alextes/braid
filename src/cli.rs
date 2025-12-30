@@ -193,16 +193,28 @@ pub enum ModeAction {
         /// name of the sync branch (default: braid-issues)
         #[arg(default_value = "braid-issues")]
         branch: String,
+
+        /// skip confirmation prompt
+        #[arg(short = 'y', long)]
+        yes: bool,
     },
 
     /// switch to external-repo mode (issues in a separate repository)
     ExternalRepo {
         /// path to the external issues repository
         path: String,
+
+        /// skip confirmation prompt
+        #[arg(short = 'y', long)]
+        yes: bool,
     },
 
     /// switch back to git-native mode (issues on main)
-    Default,
+    Default {
+        /// skip confirmation prompt
+        #[arg(short = 'y', long)]
+        yes: bool,
+    },
 }
 
 #[derive(Subcommand)]

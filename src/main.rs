@@ -115,9 +115,13 @@ fn run(cli: &Cli) -> Result<()> {
         Command::Sync { push } => cmd_sync(cli, &paths, *push),
         Command::Mode { action } => match action {
             None => cmd_mode_show(cli, &paths),
-            Some(ModeAction::LocalSync { branch }) => cmd_mode_local_sync(cli, &paths, branch),
-            Some(ModeAction::ExternalRepo { path }) => cmd_mode_external_repo(cli, &paths, path),
-            Some(ModeAction::Default) => cmd_mode_default(cli, &paths),
+            Some(ModeAction::LocalSync { branch, yes }) => {
+                cmd_mode_local_sync(cli, &paths, branch, *yes)
+            }
+            Some(ModeAction::ExternalRepo { path, yes }) => {
+                cmd_mode_external_repo(cli, &paths, path, *yes)
+            }
+            Some(ModeAction::Default { yes }) => cmd_mode_default(cli, &paths, *yes),
         },
     }
 }

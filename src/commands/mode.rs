@@ -1,5 +1,6 @@
 //! brd mode command - show and switch workflow modes.
 
+use std::io::{self, BufRead, Write};
 use std::path::Path;
 
 use crate::cli::Cli;
@@ -7,6 +8,34 @@ use crate::config::Config;
 use crate::error::{BrdError, Result};
 use crate::git;
 use crate::repo::RepoPaths;
+
+/// Prompt for confirmation. Returns true if user confirms (Y/y or empty).
+fn confirm(prompt: &str) -> Result<bool> {
+    print!("{} [Y/n]: ", prompt);
+    io::stdout().flush()?;
+
+    let stdin = io::stdin();
+    let mut line = String::new();
+    stdin.lock().read_line(&mut line)?;
+    let answer = line.trim().to_lowercase();
+
+    Ok(answer.is_empty() || answer == "y" || answer == "yes")
+}
+
+/// Count .md files in a directory.
+fn count_issues(dir: &Path) -> usize {
+    if !dir.exists() {
+        return 0;
+    }
+    std::fs::read_dir(dir)
+        .map(|entries| {
+            entries
+                .filter_map(|e| e.ok())
+                .filter(|e| e.path().extension().is_some_and(|ext| ext == "md"))
+                .count()
+        })
+        .unwrap_or(0)
+}
 
 /// Check if a branch has an upstream tracking branch.
 fn has_upstream(branch: &str, cwd: &Path) -> bool {
@@ -186,7 +215,7 @@ pub fn cmd_mode_show(cli: &Cli, paths: &RepoPaths) -> Result<()> {
 }
 
 /// Switch to local-sync mode.
-pub fn cmd_mode_local_sync(cli: &Cli, paths: &RepoPaths, branch: &str) -> Result<()> {
+pub fn cmd_mode_local_sync(cli: &Cli, paths: &RepoPaths, branch: &str, yes: bool) -> Result<()> {
     let mut config = Config::load(&paths.config_path())?;
 
     // check if already in sync mode
@@ -202,6 +231,35 @@ pub fn cmd_mode_local_sync(cli: &Cli, paths: &RepoPaths, branch: &str) -> Result
         return Err(BrdError::Other(
             "working tree has uncommitted changes - commit or stash first".to_string(),
         ));
+    }
+
+    // confirmation prompt (unless -y or --json)
+    if !yes && !cli.json {
+        let local_issues = paths.worktree_root.join(".braid/issues");
+        let issue_count = count_issues(&local_issues);
+
+        println!("Switching to local-sync mode...");
+        println!();
+        println!("This will:");
+        println!("  • Create branch '{}' for issue storage", branch);
+        println!(
+            "  • Set up shared worktree at {}",
+            paths.brd_common_dir.join("issues").display()
+        );
+        if issue_count > 0 {
+            println!(
+                "  • Move {} issue(s) from .braid/issues/ to the worktree",
+                issue_count
+            );
+        }
+        println!("  • Commit the changes");
+        println!();
+
+        if !confirm("Continue?")? {
+            println!("Aborted.");
+            return Ok(());
+        }
+        println!();
     }
 
     if !cli.json {
@@ -313,12 +371,30 @@ pub fn cmd_mode_local_sync(cli: &Cli, paths: &RepoPaths, branch: &str) -> Result
 }
 
 /// Switch back to git-native mode.
-pub fn cmd_mode_default(cli: &Cli, paths: &RepoPaths) -> Result<()> {
+pub fn cmd_mode_default(cli: &Cli, paths: &RepoPaths, yes: bool) -> Result<()> {
     let mut config = Config::load(&paths.config_path())?;
 
     // handle external-repo mode first (simpler - just clear the config)
     if let Some(ref external_path) = config.issues_repo {
         let path = external_path.clone();
+
+        // confirmation prompt (unless -y or --json)
+        if !yes && !cli.json {
+            println!("Switching from external-repo to git-native mode...");
+            println!();
+            println!("This will:");
+            println!("  • Remove external repo reference from config");
+            println!("  • Issues will remain in external repo at {}", path);
+            println!("  • You'll need to manually copy issues if you want them locally");
+            println!("  • Commit the config change");
+            println!();
+
+            if !confirm("Continue?")? {
+                println!("Aborted.");
+                return Ok(());
+            }
+            println!();
+        }
 
         if !cli.json {
             println!("Switching from external-repo to git-native mode...");
@@ -376,10 +452,6 @@ pub fn cmd_mode_default(cli: &Cli, paths: &RepoPaths) -> Result<()> {
         ));
     }
 
-    if !cli.json {
-        println!("Switching to git-native mode...");
-    }
-
     // 1. get issues from sync worktree
     let issues_wt = paths.issues_worktree_dir();
     let wt_issues = issues_wt.join(".braid/issues");
@@ -391,6 +463,38 @@ pub fn cmd_mode_default(cli: &Cli, paths: &RepoPaths) -> Result<()> {
             "issues worktree has uncommitted changes - commit them first with `brd sync`"
                 .to_string(),
         ));
+    }
+
+    // confirmation prompt (unless -y or --json)
+    if !yes && !cli.json {
+        let issue_count = count_issues(&wt_issues);
+
+        println!("Switching from local-sync to git-native mode...");
+        println!();
+        println!("This will:");
+        if issue_count > 0 {
+            println!(
+                "  • Copy {} issue(s) from worktree to .braid/issues/",
+                issue_count
+            );
+        }
+        println!("  • Update config to remove issues_branch setting");
+        println!("  • Commit the changes");
+        println!(
+            "  • Leave worktree at {} (you can remove it manually)",
+            issues_wt.display()
+        );
+        println!();
+
+        if !confirm("Continue?")? {
+            println!("Aborted.");
+            return Ok(());
+        }
+        println!();
+    }
+
+    if !cli.json {
+        println!("Switching to git-native mode...");
     }
 
     std::fs::create_dir_all(&local_issues)?;
@@ -475,7 +579,12 @@ pub fn cmd_mode_default(cli: &Cli, paths: &RepoPaths) -> Result<()> {
 }
 
 /// Switch to external-repo mode.
-pub fn cmd_mode_external_repo(cli: &Cli, paths: &RepoPaths, external_path: &str) -> Result<()> {
+pub fn cmd_mode_external_repo(
+    cli: &Cli,
+    paths: &RepoPaths,
+    external_path: &str,
+    yes: bool,
+) -> Result<()> {
     use crate::repo::discover;
 
     let mut config = Config::load(&paths.config_path())?;
@@ -524,9 +633,35 @@ pub fn cmd_mode_external_repo(cli: &Cli, paths: &RepoPaths, external_path: &str)
         )));
     }
 
-    // load external config to verify it's valid
-    Config::load(&external_config_path)
+    // load external config to verify it's valid and count issues
+    let external_config = Config::load(&external_config_path)
         .map_err(|e| BrdError::Other(format!("failed to load external repo config: {}", e)))?;
+
+    // confirmation prompt (unless -y or --json)
+    if !yes && !cli.json {
+        let external_issues_dir = external_paths.issues_dir(&external_config);
+        let issue_count = count_issues(&external_issues_dir);
+
+        println!("Switching to external-repo mode...");
+        println!();
+        println!("This will:");
+        println!(
+            "  • Point this repo to use issues from {}",
+            canonical.display()
+        );
+        if issue_count > 0 {
+            println!("  • {} issue(s) available in external repo", issue_count);
+        }
+        println!("  • Local .braid/issues/ will be ignored");
+        println!("  • Commit the config change");
+        println!();
+
+        if !confirm("Continue?")? {
+            println!("Aborted.");
+            return Ok(());
+        }
+        println!();
+    }
 
     if !cli.json {
         println!("Switching to external-repo mode...");
