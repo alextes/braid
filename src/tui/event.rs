@@ -500,7 +500,7 @@ mod tests {
         assert_eq!(app.all_filter_query, "al");
         assert_eq!(app.visible_all_issues().len(), 1);
         assert_eq!(
-            app.visible_all_issues().get(0).map(String::as_str),
+            app.visible_all_issues().first().map(String::as_str),
             Some("brd-aaaa")
         );
 
@@ -541,7 +541,7 @@ mod tests {
         assert!(app.all_status_filter.contains(&Status::Done));
         assert_eq!(app.visible_all_issues().len(), 1);
         assert_eq!(
-            app.visible_all_issues().get(0).map(String::as_str),
+            app.visible_all_issues().first().map(String::as_str),
             Some("brd-bbbb")
         );
     }

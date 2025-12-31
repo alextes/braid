@@ -278,41 +278,41 @@ pub fn cmd_doctor(cli: &Cli, paths: &RepoPaths) -> Result<()> {
 
     // check 10: AGENTS.md block mode matches config mode (informational)
     let agents_path = paths.worktree_root.join("AGENTS.md");
-    if agents_path.exists() {
-        if let Ok(content) = std::fs::read_to_string(&agents_path) {
-            let block_mode = extract_mode(&content);
-            let config_mode = if config.is_issues_branch_mode() {
-                AgentsBlockMode::LocalSync
-            } else {
-                AgentsBlockMode::GitNative
-            };
+    if agents_path.exists()
+        && let Ok(content) = std::fs::read_to_string(&agents_path)
+    {
+        let block_mode = extract_mode(&content);
+        let config_mode = if config.is_issues_branch_mode() {
+            AgentsBlockMode::LocalSync
+        } else {
+            AgentsBlockMode::GitNative
+        };
 
-            match block_mode {
-                Some(mode) if mode == config_mode => {
-                    record_check(
-                        "agents_block_mode",
-                        &format!("AGENTS.md block mode matches config ({})", config_mode),
-                        true,
-                    );
+        match block_mode {
+            Some(mode) if mode == config_mode => {
+                record_check(
+                    "agents_block_mode",
+                    &format!("AGENTS.md block mode matches config ({})", config_mode),
+                    true,
+                );
+            }
+            Some(mode) => {
+                record_check(
+                    "agents_block_mode",
+                    &format!(
+                        "AGENTS.md block mode mismatch ({} != {})",
+                        mode, config_mode
+                    ),
+                    false,
+                );
+                if !cli.json {
+                    eprintln!("  current mode: {}", config_mode);
+                    eprintln!("  AGENTS.md block: {}", mode);
+                    eprintln!("  run `brd agent inject` to update");
                 }
-                Some(mode) => {
-                    record_check(
-                        "agents_block_mode",
-                        &format!(
-                            "AGENTS.md block mode mismatch ({} != {})",
-                            mode, config_mode
-                        ),
-                        false,
-                    );
-                    if !cli.json {
-                        eprintln!("  current mode: {}", config_mode);
-                        eprintln!("  AGENTS.md block: {}", mode);
-                        eprintln!("  run `brd agent inject` to update");
-                    }
-                }
-                None => {
-                    // block exists but no mode detected - already handled by version check
-                }
+            }
+            None => {
+                // block exists but no mode detected - already handled by version check
             }
         }
     }
@@ -746,8 +746,10 @@ Old content
         create_braid_dir(&paths);
 
         // Create config with local-sync mode
-        let mut config = crate::config::Config::default();
-        config.issues_branch = Some("braid-issues".to_string());
+        let config = crate::config::Config {
+            issues_branch: Some("braid-issues".to_string()),
+            ..Default::default()
+        };
         config.save(&paths.config_path()).unwrap();
 
         // Create AGENTS.md with git-native mode (mismatches config)
