@@ -188,6 +188,22 @@ fn setup_issues_branch(
         .unwrap_or(false);
 
     if !branch_exists {
+        // check if repo has any commits (HEAD must exist to create a branch)
+        let has_commits = std::process::Command::new("git")
+            .args(["rev-parse", "HEAD"])
+            .current_dir(worktree_root)
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+
+        if !has_commits {
+            return Err(BrdError::Other(
+                "cannot set up local-sync mode in a repo with no commits. \
+                 make an initial commit first, then run 'brd init --issues-branch <name>'."
+                    .to_string(),
+            ));
+        }
+
         // create the branch from current HEAD
         let output = std::process::Command::new("git")
             .args(["branch", branch_name])
@@ -405,6 +421,28 @@ mod tests {
             assert_eq!(config.id_prefix, "keep");
             let agent_toml = std::fs::read_to_string(braid_dir.join("agent.toml")).unwrap();
             assert!(agent_toml.contains("agent_id = \"keep\""));
+        });
+    }
+
+    #[test]
+    fn test_init_local_sync_fails_without_commits() {
+        // fresh repo with no commits should fail gracefully when local-sync mode requested
+        with_repo("no-commits", |_repo_path| {
+            let _env = EnvGuard::set("USER", Some("tester"));
+            let cli = make_cli(false);
+            let args = InitArgs {
+                issues_branch: Some("braid-issues".to_string()),
+                non_interactive: true,
+            };
+
+            let result = cmd_init(&cli, &args);
+            assert!(result.is_err());
+            let err = result.unwrap_err().to_string();
+            assert!(
+                err.contains("no commits"),
+                "expected 'no commits' in error, got: {}",
+                err
+            );
         });
     }
 }
