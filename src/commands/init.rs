@@ -122,10 +122,9 @@ pub fn cmd_init(cli: &Cli, args: &InitArgs) -> Result<()> {
 
 /// Determine workflow configuration based on args and interactive prompts.
 ///
-/// Uses a 3-question flow:
-/// Q1: Multiple local workers? -> sets issues_branch (required for instant local sync)
-/// Q2: (if Q1=No) Cleaner history? -> sets issues_branch (optional, for tidy history)
-/// Q3: Remote collaboration? -> sets auto_pull and auto_push
+/// Uses a 2-question flow with orthogonal choices:
+/// Q1: Auto-sync? (default: yes) -> sets auto_pull and auto_push
+/// Q2: Storage location? (default: with code) -> sets issues_branch
 fn determine_workflow_config(
     cli: &Cli,
     args: &InitArgs,
@@ -154,96 +153,74 @@ fn determine_workflow_config(
     println!();
 
     let stdin = io::stdin();
-    let mut issues_branch: Option<String> = None;
 
-    // Q1: Multiple local workers?
-    println!("Will multiple local processes work on issues at the same time?");
-    println!("(e.g., multiple AI agents, parallel terminal sessions)");
+    // Q1: Auto-sync?
+    println!("Auto-sync issues with git?");
+    println!("(pull before start, push after done)");
     println!();
-    println!("  1. No - just me or one process at a time");
-    println!("  2. Yes - multiple concurrent workers");
-    println!();
-    print!("Choice [1]: ");
-    io::stdout().flush()?;
-
-    let mut line = String::new();
-    stdin.lock().read_line(&mut line)?;
-    let q1_choice = line.trim();
-
-    match q1_choice {
-        "2" => {
-            // Multiple local workers -> need issues_branch for instant sync
-            issues_branch = Some("braid-issues".to_string());
-            println!();
-            println!("→ Using separate branch for instant visibility between local workers.");
-        }
-        "" | "1" => {
-            // Single worker -> ask Q2 about cleaner history
-            println!();
-
-            // Q2: Cleaner history?
-            println!("Keep issue commits separate from your code commits?");
-            println!();
-            println!("  1. No - issues commit alongside code (simpler)");
-            println!("  2. Yes - issues on separate branch (cleaner git history)");
-            println!();
-            print!("Choice [1]: ");
-            io::stdout().flush()?;
-
-            let mut q2_line = String::new();
-            stdin.lock().read_line(&mut q2_line)?;
-            let q2_choice = q2_line.trim();
-
-            match q2_choice {
-                "2" => {
-                    issues_branch = Some("braid-issues".to_string());
-                    println!();
-                    println!("→ Using separate branch to keep main history clean.");
-                    println!("  Trade-off: Requires `brd sync` to persist changes to git.");
-                }
-                "" | "1" => {
-                    // Issues on main, no issues_branch needed
-                }
-                _ => {
-                    eprintln!("Invalid choice '{}', using issues on main", q2_choice);
-                }
-            }
-        }
-        _ => {
-            eprintln!("Invalid choice '{}', assuming single worker", q1_choice);
-        }
-    }
-
-    println!();
-
-    // Q3: Remote collaboration?
-    println!("Do you collaborate with remote humans or AI agents?");
-    println!();
-    println!("  1. No - working solo or local-only");
-    println!("  2. Yes - syncing with teammates or remote agents");
+    println!("  1. Yes - stay in sync, prevents duplicate claims");
+    println!("  2. No - manual sync only (brd sync)");
     println!();
     print!("Choice [1]: ");
     io::stdout().flush()?;
 
-    let mut q3_line = String::new();
-    stdin.lock().read_line(&mut q3_line)?;
-    let q3_choice = q3_line.trim();
+    let mut q1_line = String::new();
+    stdin.lock().read_line(&mut q1_line)?;
+    let q1_choice = q1_line.trim();
 
-    let (auto_pull, auto_push) = match q3_choice {
+    let (auto_pull, auto_push) = match q1_choice {
         "2" => {
-            println!();
-            println!("→ Auto-sync enabled (pull on start, push on done).");
-            println!("  Trade-off: More git commits, but prevents claim conflicts.");
-            (true, true)
-        }
-        "" | "1" => {
             println!();
             println!("→ Manual sync mode. Use `brd sync` when ready to share changes.");
             (false, false)
         }
+        "" | "1" => {
+            println!();
+            println!("→ Auto-sync enabled.");
+            println!("  Trade-off: Network dependency, more commits.");
+            (true, true)
+        }
         _ => {
-            eprintln!("Invalid choice '{}', using manual sync", q3_choice);
-            (false, false)
+            eprintln!("Invalid choice '{}', using auto-sync", q1_choice);
+            (true, true)
+        }
+    };
+
+    println!();
+
+    // Q2: Storage location?
+    println!("Where should issues live?");
+    println!();
+    println!("  1. With code - issues in .braid/ on each branch");
+    println!("  2. Separate branch - single source of truth, cleaner history");
+    println!();
+    print!("Choice [1]: ");
+    io::stdout().flush()?;
+
+    let mut q2_line = String::new();
+    stdin.lock().read_line(&mut q2_line)?;
+    let q2_choice = q2_line.trim();
+
+    let issues_branch = match q2_choice {
+        "2" => {
+            println!();
+            println!("→ Using separate 'braid-issues' branch.");
+            println!("  Trade-off: Issue state decoupled from code.");
+            Some("braid-issues".to_string())
+        }
+        "" | "1" => {
+            println!();
+            println!("→ Issues stored with code.");
+            None
+        }
+        _ => {
+            // Handle "3" or other input - mention external-repo option
+            if q2_choice == "3" {
+                eprintln!("For external repo, run `brd mode external-repo <path>` after init.");
+            } else {
+                eprintln!("Invalid choice '{}', using issues with code", q2_choice);
+            }
+            None
         }
     };
 
