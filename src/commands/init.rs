@@ -122,9 +122,9 @@ pub fn cmd_init(cli: &Cli, args: &InitArgs) -> Result<()> {
 
 /// Determine workflow configuration based on args and interactive prompts.
 ///
-/// Uses a 2-question flow with orthogonal choices:
-/// Q1: Auto-sync? (default: yes) -> sets auto_pull and auto_push
-/// Q2: Storage location? (default: with code) -> sets issues_branch
+/// Uses a 2-question flow:
+/// Q1: Issues branch? (recommended: yes) -> sets issues_branch
+/// Q2: Auto-sync? (contextual recommendation) -> sets auto_pull and auto_push
 fn determine_workflow_config(
     cli: &Cli,
     args: &InitArgs,
@@ -139,10 +139,10 @@ fn determine_workflow_config(
         });
     }
 
-    // if non-interactive or json mode, use defaults (git-native, auto-sync on)
+    // if non-interactive or json mode, use defaults (issues_branch, auto-sync on)
     if args.non_interactive || cli.json {
         return Ok(WorkflowConfig {
-            issues_branch: None,
+            issues_branch: Some("braid-issues".to_string()),
             auto_pull: true,
             auto_push: true,
         });
@@ -154,12 +154,11 @@ fn determine_workflow_config(
 
     let stdin = io::stdin();
 
-    // Q1: Auto-sync?
-    println!("Auto-sync issues with git?");
-    println!("(pull before start, push after done)");
+    // Q1: Issues branch?
+    println!("Use a separate branch for issues? [recommended]");
     println!();
-    println!("  1. Yes - stay in sync, prevents duplicate claims");
-    println!("  2. No - manual sync only (brd sync)");
+    println!("  1. Yes - prevents local conflicts, cleaner history");
+    println!("  2. No - issues travel with code branches");
     println!();
     print!("Choice [1]: ");
     io::stdout().flush()?;
@@ -168,31 +167,37 @@ fn determine_workflow_config(
     stdin.lock().read_line(&mut q1_line)?;
     let q1_choice = q1_line.trim();
 
-    let (auto_pull, auto_push) = match q1_choice {
+    let issues_branch = match q1_choice {
         "2" => {
             println!();
-            println!("→ Manual sync mode. Use `brd sync` when ready to share changes.");
-            (false, false)
+            println!("→ Issues stored with code.");
+            println!("  Note: Use auto-sync for multi-agent coordination.");
+            None
         }
         "" | "1" => {
             println!();
-            println!("→ Auto-sync enabled.");
-            println!("  Trade-off: Network dependency, more commits.");
-            (true, true)
+            println!("→ Using separate 'braid-issues' branch.");
+            println!("  Trade-off: Issue state decoupled from code state.");
+            Some("braid-issues".to_string())
         }
         _ => {
-            eprintln!("Invalid choice '{}', using auto-sync", q1_choice);
-            (true, true)
+            eprintln!("Invalid choice '{}', using separate branch", q1_choice);
+            Some("braid-issues".to_string())
         }
     };
 
     println!();
 
-    // Q2: Storage location?
-    println!("Where should issues live?");
+    // Q2: Auto-sync? (recommendation depends on Q1)
+    println!("Auto-sync with git remote?");
+    println!("(pull on issue start, push on done)");
     println!();
-    println!("  1. With code - issues in .braid/ on each branch");
-    println!("  2. Separate branch - single source of truth, cleaner history");
+    if issues_branch.is_some() {
+        println!("  1. Yes - sync with remote collaborators");
+    } else {
+        println!("  1. Yes - required for multi-agent coordination [recommended]");
+    }
+    println!("  2. No - manual sync only (brd sync)");
     println!();
     print!("Choice [1]: ");
     io::stdout().flush()?;
@@ -201,26 +206,20 @@ fn determine_workflow_config(
     stdin.lock().read_line(&mut q2_line)?;
     let q2_choice = q2_line.trim();
 
-    let issues_branch = match q2_choice {
+    let (auto_pull, auto_push) = match q2_choice {
         "2" => {
             println!();
-            println!("→ Using separate 'braid-issues' branch.");
-            println!("  Trade-off: Issue state decoupled from code.");
-            Some("braid-issues".to_string())
+            println!("→ Manual sync mode. Use `brd sync` when ready to share changes.");
+            (false, false)
         }
         "" | "1" => {
             println!();
-            println!("→ Issues stored with code.");
-            None
+            println!("→ Auto-sync enabled.");
+            (true, true)
         }
         _ => {
-            // Handle "3" or other input - mention external-repo option
-            if q2_choice == "3" {
-                eprintln!("For external repo, run `brd mode external-repo <path>` after init.");
-            } else {
-                eprintln!("Invalid choice '{}', using issues with code", q2_choice);
-            }
-            None
+            eprintln!("Invalid choice '{}', using auto-sync", q2_choice);
+            (true, true)
         }
     };
 
@@ -398,6 +397,20 @@ mod tests {
         let repo_path = dir.path().join(name);
         std::fs::create_dir_all(&repo_path).unwrap();
         git_ok(&repo_path, &["init"]);
+        // Create initial commit so issues_branch worktree can be created
+        std::fs::write(repo_path.join("README.md"), "# Test\n").unwrap();
+        git_ok(&repo_path, &["add", "."]);
+        git_ok(&repo_path, &["commit", "-m", "initial"]);
+        let _cwd = CwdGuard::enter(&repo_path);
+        f(&repo_path);
+    }
+
+    fn with_empty_repo<F: FnOnce(&Path)>(name: &str, f: F) {
+        let _lock = INIT_TEST_LOCK.lock().unwrap();
+        let dir = tempdir().unwrap();
+        let repo_path = dir.path().join(name);
+        std::fs::create_dir_all(&repo_path).unwrap();
+        git_ok(&repo_path, &["init"]);
         let _cwd = CwdGuard::enter(&repo_path);
         f(&repo_path);
     }
@@ -491,7 +504,7 @@ mod tests {
     #[test]
     fn test_init_local_sync_fails_without_commits() {
         // fresh repo with no commits should fail gracefully when local-sync mode requested
-        with_repo("no-commits", |_repo_path| {
+        with_empty_repo("no-commits", |_repo_path| {
             let _env = EnvGuard::set("USER", Some("tester"));
             let cli = make_cli(false);
             let args = InitArgs {
