@@ -316,16 +316,7 @@ pub fn cmd_mode_local_sync(cli: &Cli, paths: &RepoPaths, branch: &str, yes: bool
     config.issues_branch = Some(branch.to_string());
     config.save(&paths.config_path())?;
 
-    // 5. create symlink for editor visibility
-    if let Err(e) = create_issues_symlink(paths, &config) {
-        if !cli.json {
-            eprintln!("  warning: could not create issues symlink: {}", e);
-        }
-    } else if !cli.json {
-        println!("  created .braid/issues symlink for editor visibility");
-    }
-
-    // 6. commit the changes
+    // 5. commit the changes
     if !git::run(&["add", ".braid"], &paths.worktree_root)? {
         return Err(BrdError::Other(
             "failed to stage .braid changes".to_string(),
@@ -733,36 +724,6 @@ pub fn cmd_mode_external_repo(
     Ok(())
 }
 
-/// Create a symlink from .braid/issues/ to the shared issues worktree.
-/// This makes issues visible in editors when using local-sync mode.
-pub fn create_issues_symlink(paths: &RepoPaths, config: &Config) -> Result<()> {
-    let symlink_path = paths.worktree_root.join(".braid/issues");
-    let target = paths.issues_dir(config);
-
-    // if path exists and is not a symlink, don't touch it
-    if symlink_path.exists() && !symlink_path.is_symlink() {
-        // real directory exists, skip
-        return Ok(());
-    }
-
-    // remove existing symlink if present
-    if symlink_path.is_symlink() {
-        std::fs::remove_file(&symlink_path)?;
-    }
-
-    // create symlink
-    #[cfg(unix)]
-    std::os::unix::fs::symlink(&target, &symlink_path)?;
-
-    #[cfg(windows)]
-    std::os::windows::fs::symlink_dir(&target, &symlink_path)?;
-
-    // add to .git/info/exclude
-    add_to_git_exclude(paths, ISSUES_SYMLINK_PATTERN)?;
-
-    Ok(())
-}
-
 /// Remove the issues symlink if it exists.
 pub fn remove_issues_symlink(paths: &RepoPaths) -> Result<()> {
     let symlink_path = paths.worktree_root.join(".braid/issues");
@@ -773,44 +734,6 @@ pub fn remove_issues_symlink(paths: &RepoPaths) -> Result<()> {
 
     // remove from .git/info/exclude
     remove_from_git_exclude(paths, ISSUES_SYMLINK_PATTERN)?;
-
-    Ok(())
-}
-
-/// Check if the issues symlink exists and points to a valid target.
-pub fn has_issues_symlink(paths: &RepoPaths) -> bool {
-    let symlink_path = paths.worktree_root.join(".braid/issues");
-    symlink_path.is_symlink() && symlink_path.exists()
-}
-
-/// Add a pattern to .git/info/exclude if not already present.
-fn add_to_git_exclude(paths: &RepoPaths, pattern: &str) -> Result<()> {
-    let exclude_path = paths.git_common_dir.join("info/exclude");
-
-    // ensure info directory exists
-    if let Some(parent) = exclude_path.parent() {
-        std::fs::create_dir_all(parent)?;
-    }
-
-    // read existing content
-    let content = std::fs::read_to_string(&exclude_path).unwrap_or_default();
-
-    // check if pattern already exists
-    if content.lines().any(|line| line.trim() == pattern) {
-        return Ok(());
-    }
-
-    // append pattern
-    let mut file = std::fs::OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(&exclude_path)?;
-
-    // add newline if file doesn't end with one
-    if !content.is_empty() && !content.ends_with('\n') {
-        writeln!(file)?;
-    }
-    writeln!(file, "{}", pattern)?;
 
     Ok(())
 }

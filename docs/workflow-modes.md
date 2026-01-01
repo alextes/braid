@@ -69,14 +69,6 @@ issues live on a dedicated sync branch in a shared worktree. all local agents se
 4. changes visible instantly to all agents (shared filesystem)
 5. `brd sync` pushes/pulls to remote when needed
 
-### editor access
-
-when switching to local-sync mode, braid creates a symlink at `.braid/issues/` pointing to the shared worktree. this makes issues visible in your editor's file tree and fuzzy finder.
-
-if the symlink is missing, you can:
-- re-run `brd mode local-sync` to recreate it
-- use `brd edit <id>` to open any issue in `$EDITOR`
-
 ### workflow
 
 ```bash

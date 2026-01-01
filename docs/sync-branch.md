@@ -72,14 +72,6 @@ when you run `brd start`, `brd done`, or other issue commands:
 2. reads/writes issues in the shared worktree
 3. changes are visible to all local agents immediately
 
-### editor access
-
-to make issues visible in your editor, braid creates a symlink at `.braid/issues/` pointing to the shared issues worktree. this is set up automatically when switching to local-sync mode.
-
-if the symlink is missing:
-- run `brd mode local-sync` to recreate it
-- or use `brd edit <id>` to open issues in `$EDITOR`
-
 ### remote sync
 
 use `brd sync` to push/pull with the remote:
@@ -129,6 +121,31 @@ brd agent init agent-one
 cd ~/.braid/worktrees/repo/agent-one
 brd start <issue-id>   # writes to shared worktree, visible to all
 ```
+
+## editing issues
+
+use `brd edit <id>` to open any issue in your `$EDITOR`:
+
+```bash
+brd edit brd-abc1      # open specific issue
+brd edit               # open current "doing" issue
+```
+
+**advanced: editor integration via symlink**
+
+if you want issues visible in your editor's file tree and fuzzy finder, create a symlink from `.braid/issues/` to the shared worktree:
+
+```bash
+# find the shared worktree location (inside .git)
+ls .git/brd/issues/.braid/issues/
+
+# create symlink and exclude from git
+rm -rf .braid/issues
+ln -s ../.git/brd/issues/.braid/issues .braid/issues
+echo '.braid/issues' >> .git/info/exclude
+```
+
+note: remove the symlink before switching to git-native mode.
 
 ## troubleshooting
 

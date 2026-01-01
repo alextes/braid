@@ -38,14 +38,19 @@ pub fn cmd_dep_add(cli: &Cli, paths: &RepoPaths, blocked_id: &str, blocker_id: &
     if !blocked.frontmatter.deps.contains(&blocker_full) {
         blocked.frontmatter.deps.push(blocker_full.clone());
         blocked.touch();
-        let issue_path = paths.issues_dir(&config).join(format!("{}.md", blocked_full));
+        let issue_path = paths
+            .issues_dir(&config)
+            .join(format!("{}.md", blocked_full));
         blocked.save(&issue_path)?;
     }
 
     if cli.json {
         println!(r#"{{"ok": true}}"#);
     } else {
-        println!("Added dependency: {} blocked by {}", blocked_full, blocker_full);
+        println!(
+            "Added dependency: {} blocked by {}",
+            blocked_full, blocker_full
+        );
     }
 
     Ok(())
@@ -65,13 +70,18 @@ pub fn cmd_dep_rm(cli: &Cli, paths: &RepoPaths, blocked_id: &str, blocker_id: &s
 
     blocked.frontmatter.deps.retain(|d| d != &blocker_full);
     blocked.touch();
-    let issue_path = paths.issues_dir(&config).join(format!("{}.md", blocked_full));
+    let issue_path = paths
+        .issues_dir(&config)
+        .join(format!("{}.md", blocked_full));
     blocked.save(&issue_path)?;
 
     if cli.json {
         println!(r#"{{"ok": true}}"#);
     } else {
-        println!("Removed dependency: {} no longer blocked by {}", blocked_full, blocker_full);
+        println!(
+            "Removed dependency: {} no longer blocked by {}",
+            blocked_full, blocker_full
+        );
     }
 
     Ok(())
