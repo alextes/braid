@@ -77,6 +77,12 @@ pub enum Command {
         id: String,
     },
 
+    /// open an issue in $EDITOR
+    Edit {
+        /// issue ID (optional - opens current "doing" issue if omitted)
+        id: Option<String>,
+    },
+
     /// list ready issues
     Ready,
 

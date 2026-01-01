@@ -72,6 +72,14 @@ when you run `brd start`, `brd done`, or other issue commands:
 2. reads/writes issues in the shared worktree
 3. changes are visible to all local agents immediately
 
+### editor access
+
+to make issues visible in your editor, braid creates a symlink at `.braid/issues/` pointing to the shared issues worktree. this is set up automatically when switching to local-sync mode.
+
+if the symlink is missing:
+- run `brd mode local-sync` to recreate it
+- or use `brd edit <id>` to open issues in `$EDITOR`
+
 ### remote sync
 
 use `brd sync` to push/pull with the remote:

@@ -7,6 +7,7 @@ mod completions;
 mod dep;
 mod doctor;
 mod done;
+mod edit;
 mod init;
 mod ls;
 mod migrate;
@@ -41,10 +42,14 @@ pub use completions::cmd_completions;
 pub use dep::{cmd_dep_add, cmd_dep_rm};
 pub use doctor::cmd_doctor;
 pub use done::cmd_done;
+pub use edit::cmd_edit;
 pub use init::cmd_init;
 pub use ls::cmd_ls;
 pub use migrate::cmd_migrate;
-pub use mode::{cmd_mode_external_repo, cmd_mode_git_native, cmd_mode_local_sync, cmd_mode_show};
+pub use mode::{
+    cmd_mode_external_repo, cmd_mode_git_native, cmd_mode_local_sync, cmd_mode_show,
+    has_issues_symlink,
+};
 pub use ready::cmd_ready;
 pub use rm::cmd_rm;
 pub use search::cmd_search;

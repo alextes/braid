@@ -6,7 +6,8 @@ use crate::migrate::{self, CURRENT_SCHEMA};
 use crate::repo::RepoPaths;
 
 use super::{
-    AGENTS_BLOCK_VERSION, AgentsBlockMode, check_agents_block, extract_mode, load_all_issues,
+    AGENTS_BLOCK_VERSION, AgentsBlockMode, check_agents_block, extract_mode, has_issues_symlink,
+    load_all_issues,
 };
 
 /// Parse frontmatter from markdown content.
@@ -162,9 +163,20 @@ pub fn cmd_doctor(cli: &Cli, paths: &RepoPaths) -> Result<()> {
                 }));
             }
         }
+
+        // check 5: issues symlink for editor visibility (informational)
+        let has_symlink = has_issues_symlink(paths);
+        record_check(
+            "issues_symlink",
+            "issues symlink for editor visibility",
+            has_symlink,
+        );
+        if !has_symlink && !cli.json {
+            eprintln!("  hint: run `brd mode local-sync` to recreate, or use `brd edit <id>`");
+        }
     }
 
-    // check 5: all issue files parse correctly
+    // check 6: all issue files parse correctly
     let issues = load_all_issues(paths, &config)?;
     record_check(
         "issues_parse",
