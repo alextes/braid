@@ -39,6 +39,19 @@ impl TestEnv {
             .output()
             .expect("failed to disable gpg signing");
 
+        // create initial commit (required for local-sync mode)
+        std::fs::write(dir.path().join("README.md"), "# Test\n").expect("failed to write README");
+        Command::new("git")
+            .args(["add", "."])
+            .current_dir(dir.path())
+            .output()
+            .expect("failed to git add");
+        Command::new("git")
+            .args(["commit", "-m", "initial"])
+            .current_dir(dir.path())
+            .output()
+            .expect("failed to git commit");
+
         // initialize braid
         let output = Self::run_brd_in(&dir.path().to_path_buf(), &["init"]);
         assert!(
@@ -46,6 +59,14 @@ impl TestEnv {
             "brd init failed: {}",
             Self::stderr(&output)
         );
+
+        // disable auto-sync for tests (no remote available)
+        let config_path = dir.path().join(".braid/config.toml");
+        let config = std::fs::read_to_string(&config_path).expect("failed to read config");
+        let config = config
+            .replace("auto_pull = true", "auto_pull = false")
+            .replace("auto_push = true", "auto_push = false");
+        std::fs::write(&config_path, config).expect("failed to write config");
 
         Self { dir }
     }
@@ -344,12 +365,38 @@ fn test_json_output_show() {
 fn test_json_output_init() {
     let dir = tempfile::tempdir().expect("failed to create temp dir");
 
-    // initialize git repo
+    // initialize git repo with initial commit
     Command::new("git")
         .args(["init"])
         .current_dir(dir.path())
         .output()
         .expect("failed to init git");
+    Command::new("git")
+        .args(["config", "user.email", "test@test.com"])
+        .current_dir(dir.path())
+        .output()
+        .expect("failed to config git email");
+    Command::new("git")
+        .args(["config", "user.name", "Test User"])
+        .current_dir(dir.path())
+        .output()
+        .expect("failed to config git name");
+    Command::new("git")
+        .args(["config", "commit.gpgsign", "false"])
+        .current_dir(dir.path())
+        .output()
+        .expect("failed to disable gpg signing");
+    std::fs::write(dir.path().join("README.md"), "# Test\n").expect("failed to write README");
+    Command::new("git")
+        .args(["add", "."])
+        .current_dir(dir.path())
+        .output()
+        .expect("failed to git add");
+    Command::new("git")
+        .args(["commit", "-m", "initial"])
+        .current_dir(dir.path())
+        .output()
+        .expect("failed to git commit");
 
     let output = Command::new(env!("CARGO_BIN_EXE_brd"))
         .args(["--json", "init"])
@@ -372,7 +419,8 @@ fn test_json_output_init() {
             .unwrap()
             .contains(dir.path().to_str().unwrap())
     );
-    assert!(json["sync_branch"].is_null());
+    // default in JSON mode is local-sync with issues_branch
+    assert_eq!(json["issues_branch"].as_str().unwrap(), "braid-issues");
 }
 
 #[test]
