@@ -173,7 +173,7 @@ pub fn cmd_doctor(cli: &Cli, paths: &RepoPaths) -> Result<()> {
         );
         if !has_symlink && !cli.json {
             eprintln!("  hint: use `brd edit <id>` to open issues, or recreate symlink manually:");
-            eprintln!("    ln -s {} .braid/issues", paths.issues_dir(&config).display());
+            eprintln!("    rm -rf .braid/issues && ln -s {} .braid/issues", paths.issues_dir(&config).display());
         }
     }
 
