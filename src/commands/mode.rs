@@ -207,7 +207,7 @@ pub fn cmd_mode_show(cli: &Cli, paths: &RepoPaths) -> Result<()> {
             println!("To enable remote sync: `brd sync --push`");
         }
     } else {
-        println!("Mode: git-native (default)");
+        println!("Mode: git-native");
         println!();
         println!("Issues sync via git - merge to main, rebase to get updates.");
         println!("Good for: solo work, small teams, remote agents.");

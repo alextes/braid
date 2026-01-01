@@ -471,7 +471,7 @@ this repo uses **local-sync mode** — issues live on the `{branch}` branch in a
 
 **switching modes:**
 - `brd mode` — show current mode
-- `brd mode default` — switch back to git-native mode"#
+- `brd mode git-native` — switch to git-native mode"#
         )
     } else {
         r#"## syncing issues (git-native mode)

@@ -6,11 +6,11 @@ braid supports different workflow modes to match how you and your team work. run
 
 | mode | use case | setup | issue sync |
 |------|----------|-------|------------|
-| git-native | solo, small teams, remote agents | default | via git (push/pull main) |
+| git-native | solo, small teams, remote agents | `brd init` | via git (push/pull main) |
 | local-sync | multiple local agents | `brd mode local-sync` | instant (shared worktree) |
 | external-repo | separation, privacy, multi-repo | `brd mode external-repo <path>` | via external repo |
 
-## git-native mode (default)
+## git-native mode
 
 issues live alongside code in `.braid/issues/` and sync through git.
 
@@ -45,7 +45,7 @@ brd agent ship
 
 ### setup
 
-this is the default mode. just initialize braid:
+just initialize braid:
 
 ```bash
 brd init
@@ -108,7 +108,7 @@ brd init --sync-branch braid-issues
 to return to git-native mode:
 
 ```bash
-brd mode default
+brd mode git-native
 ```
 
 this copies issues back to main and removes the sync branch config.
@@ -174,7 +174,7 @@ brd mode external-repo ../my-issues-repo
 to return to git-native mode:
 
 ```bash
-brd mode default
+brd mode git-native
 ```
 
 note: issues remain in the external repo. you'll need to manually copy them if you want them in the code repo.
