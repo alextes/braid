@@ -172,7 +172,8 @@ pub fn cmd_doctor(cli: &Cli, paths: &RepoPaths) -> Result<()> {
             has_symlink,
         );
         if !has_symlink && !cli.json {
-            eprintln!("  hint: run `brd mode local-sync` to recreate, or use `brd edit <id>`");
+            eprintln!("  hint: use `brd edit <id>` to open issues, or recreate symlink manually:");
+            eprintln!("    ln -s {} .braid/issues", paths.issues_dir(&config).display());
         }
     }
 
