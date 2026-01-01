@@ -87,8 +87,8 @@ fn run(cli: &Cli) -> Result<()> {
         Command::Ready => cmd_ready(cli, &paths),
         Command::Status => cmd_status(cli, &paths),
         Command::Dep { action } => match action {
-            DepAction::Add { child, parent } => cmd_dep_add(cli, &paths, child, parent),
-            DepAction::Rm { child, parent } => cmd_dep_rm(cli, &paths, child, parent),
+            DepAction::Add { blocked, blocker } => cmd_dep_add(cli, &paths, blocked, blocker),
+            DepAction::Rm { blocked, blocker } => cmd_dep_rm(cli, &paths, blocked, blocker),
         },
         Command::Start {
             id,

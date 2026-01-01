@@ -9,21 +9,21 @@ use crate::repo::RepoPaths;
 
 use super::{load_all_issues, resolve_issue_id};
 
-pub fn cmd_dep_add(cli: &Cli, paths: &RepoPaths, child_id: &str, parent_id: &str) -> Result<()> {
+pub fn cmd_dep_add(cli: &Cli, paths: &RepoPaths, blocked_id: &str, blocker_id: &str) -> Result<()> {
     let config = Config::load(&paths.config_path())?;
     let _lock = LockGuard::acquire(&paths.lock_path())?;
 
     let mut issues = load_all_issues(paths, &config)?;
-    let child_full = resolve_issue_id(child_id, &issues)?;
-    let parent_full = resolve_issue_id(parent_id, &issues)?;
+    let blocked_full = resolve_issue_id(blocked_id, &issues)?;
+    let blocker_full = resolve_issue_id(blocker_id, &issues)?;
 
     // check not self-dep
-    if child_full == parent_full {
+    if blocked_full == blocker_full {
         return Err(BrdError::Other("cannot add self-dependency".to_string()));
     }
 
     // check for cycles
-    if let Some(cycle_path) = would_create_cycle(&child_full, &parent_full, &issues) {
+    if let Some(cycle_path) = would_create_cycle(&blocked_full, &blocker_full, &issues) {
         let cycle_str = cycle_path.join(" -> ");
         return Err(BrdError::Other(format!(
             "cannot add dependency: would create cycle: {}",
@@ -31,47 +31,47 @@ pub fn cmd_dep_add(cli: &Cli, paths: &RepoPaths, child_id: &str, parent_id: &str
         )));
     }
 
-    let child = issues
-        .get_mut(&child_full)
-        .ok_or_else(|| BrdError::IssueNotFound(child_id.to_string()))?;
+    let blocked = issues
+        .get_mut(&blocked_full)
+        .ok_or_else(|| BrdError::IssueNotFound(blocked_id.to_string()))?;
 
-    if !child.frontmatter.deps.contains(&parent_full) {
-        child.frontmatter.deps.push(parent_full.clone());
-        child.touch();
-        let issue_path = paths.issues_dir(&config).join(format!("{}.md", child_full));
-        child.save(&issue_path)?;
+    if !blocked.frontmatter.deps.contains(&blocker_full) {
+        blocked.frontmatter.deps.push(blocker_full.clone());
+        blocked.touch();
+        let issue_path = paths.issues_dir(&config).join(format!("{}.md", blocked_full));
+        blocked.save(&issue_path)?;
     }
 
     if cli.json {
         println!(r#"{{"ok": true}}"#);
     } else {
-        println!("Added dependency: {} -> {}", child_full, parent_full);
+        println!("Added dependency: {} blocked by {}", blocked_full, blocker_full);
     }
 
     Ok(())
 }
 
-pub fn cmd_dep_rm(cli: &Cli, paths: &RepoPaths, child_id: &str, parent_id: &str) -> Result<()> {
+pub fn cmd_dep_rm(cli: &Cli, paths: &RepoPaths, blocked_id: &str, blocker_id: &str) -> Result<()> {
     let config = Config::load(&paths.config_path())?;
     let _lock = LockGuard::acquire(&paths.lock_path())?;
 
     let mut issues = load_all_issues(paths, &config)?;
-    let child_full = resolve_issue_id(child_id, &issues)?;
-    let parent_full = resolve_issue_id(parent_id, &issues)?;
+    let blocked_full = resolve_issue_id(blocked_id, &issues)?;
+    let blocker_full = resolve_issue_id(blocker_id, &issues)?;
 
-    let child = issues
-        .get_mut(&child_full)
-        .ok_or_else(|| BrdError::IssueNotFound(child_id.to_string()))?;
+    let blocked = issues
+        .get_mut(&blocked_full)
+        .ok_or_else(|| BrdError::IssueNotFound(blocked_id.to_string()))?;
 
-    child.frontmatter.deps.retain(|d| d != &parent_full);
-    child.touch();
-    let issue_path = paths.issues_dir(&config).join(format!("{}.md", child_full));
-    child.save(&issue_path)?;
+    blocked.frontmatter.deps.retain(|d| d != &blocker_full);
+    blocked.touch();
+    let issue_path = paths.issues_dir(&config).join(format!("{}.md", blocked_full));
+    blocked.save(&issue_path)?;
 
     if cli.json {
         println!(r#"{{"ok": true}}"#);
     } else {
-        println!("Removed dependency: {} -> {}", child_full, parent_full);
+        println!("Removed dependency: {} no longer blocked by {}", blocked_full, blocker_full);
     }
 
     Ok(())

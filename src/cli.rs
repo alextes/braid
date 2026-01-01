@@ -260,19 +260,19 @@ pub enum AgentAction {
 
 #[derive(Subcommand)]
 pub enum DepAction {
-    /// add a dependency (child depends on parent)
+    /// add a dependency (blocked depends on blocker)
     Add {
-        /// the issue that will depend on parent
-        child: String,
-        /// the issue that blocks child
-        parent: String,
+        /// the issue that will be blocked
+        blocked: String,
+        /// the issue that blocks it
+        blocker: String,
     },
     /// remove a dependency
     Rm {
         /// the issue to remove dependency from
-        child: String,
-        /// the dependency to remove
-        parent: String,
+        blocked: String,
+        /// the blocker to remove
+        blocker: String,
     },
 }
 
