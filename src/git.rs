@@ -121,6 +121,7 @@ mod tests {
         test::run_ok(dir.path(), &["init"]);
         test::run_ok(dir.path(), &["config", "user.email", "test@test.com"]);
         test::run_ok(dir.path(), &["config", "user.name", "test"]);
+        test::run_ok(dir.path(), &["config", "commit.gpgsign", "false"]);
         std::fs::write(dir.path().join("README.md"), "test\n").unwrap();
         test::run_ok(dir.path(), &["add", "."]);
         test::run_ok(dir.path(), &["commit", "-m", "init"]);

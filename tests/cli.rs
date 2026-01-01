@@ -33,6 +33,12 @@ impl TestEnv {
             .output()
             .expect("failed to config git name");
 
+        Command::new("git")
+            .args(["config", "commit.gpgsign", "false"])
+            .current_dir(dir.path())
+            .output()
+            .expect("failed to disable gpg signing");
+
         // initialize braid
         let output = Self::run_brd_in(&dir.path().to_path_buf(), &["init"]);
         assert!(
