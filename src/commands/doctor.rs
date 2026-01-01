@@ -234,6 +234,11 @@ pub fn cmd_doctor(cli: &Cli, paths: &RepoPaths) -> Result<()> {
         "no missing dependencies",
         missing_deps.is_empty(),
     );
+    if !cli.json && !missing_deps.is_empty() {
+        for (issue, dep) in &missing_deps {
+            eprintln!("  error: {} depends on missing issue {}", issue, dep);
+        }
+    }
 
     // check 8: no dependency cycles
     let cycles = crate::graph::find_cycles(&issues);
@@ -244,6 +249,11 @@ pub fn cmd_doctor(cli: &Cli, paths: &RepoPaths) -> Result<()> {
         }));
     }
     record_check("no_cycles", "no dependency cycles", cycles.is_empty());
+    if !cli.json && !cycles.is_empty() {
+        for cycle in &cycles {
+            eprintln!("  error: dependency cycle: {:?}", cycle);
+        }
+    }
 
     // check 9: AGENTS.md block version (informational)
     let agents_block_version = check_agents_block(paths);
@@ -327,25 +337,20 @@ pub fn cmd_doctor(cli: &Cli, paths: &RepoPaths) -> Result<()> {
         });
         println!("{}", serde_json::to_string_pretty(&json).unwrap());
     } else if !ok {
-        println!();
+        // Print any remaining errors that weren't printed inline
+        let mut has_other_errors = false;
         for e in &errors {
             if let Some(code) = e.get("code").and_then(|c| c.as_str()) {
-                match code {
-                    "missing_dep" => {
-                        let issue = e.get("issue").and_then(|i| i.as_str()).unwrap_or("?");
-                        let dep = e.get("dep").and_then(|d| d.as_str()).unwrap_or("?");
-                        eprintln!("  error: {} depends on missing issue {}", issue, dep);
-                    }
-                    "cycle" => {
-                        if let Some(cycle) = e.get("cycle") {
-                            eprintln!("  error: dependency cycle: {}", cycle);
-                        }
-                    }
-                    _ => {
-                        if let Some(msg) = e.get("message").and_then(|m| m.as_str()) {
-                            eprintln!("  error: {}", msg);
-                        }
-                    }
+                // Skip errors already printed inline
+                if code == "missing_dep" || code == "cycle" {
+                    continue;
+                }
+                if !has_other_errors {
+                    println!();
+                    has_other_errors = true;
+                }
+                if let Some(msg) = e.get("message").and_then(|m| m.as_str()) {
+                    eprintln!("  error: {}", msg);
                 }
             }
         }
