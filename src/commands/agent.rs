@@ -314,6 +314,13 @@ pub fn cmd_agent_pr(cli: &Cli, paths: &RepoPaths) -> Result<()> {
     // get current branch
     let branch = git::current_branch(&paths.worktree_root)?;
 
+    // check if on main
+    if branch == "main" {
+        return Err(BrdError::Other(
+            "PRs require a feature branch - use `brd agent init <name>` to create one".to_string(),
+        ));
+    }
+
     // extract issue ID from branch name
     let issue_id = extract_issue_id_from_branch(&branch).ok_or_else(|| {
         BrdError::Other(format!(
@@ -416,7 +423,7 @@ basic flow:
 1. `brd start` — claim the next ready issue (auto-syncs, commits, and pushes)
 2. do the work, commit as usual
 3. `brd done <id>` — mark the issue complete
-4. `brd agent ship` — push your work to main
+4. `brd agent merge` — merge your work to main
 
 useful commands:
 - `brd ls` — list all issues
@@ -434,7 +441,7 @@ cat .braid/agent.toml 2>/dev/null && echo "yes, worktree" || echo "no, main"
 
 if you're in a worktree:
 - `brd start` handles syncing automatically
-- use `brd agent ship` to merge your work to main (rebase + fast-forward push)
+- use `brd agent merge` to merge your work to main (rebase + fast-forward)
 - if you see schema mismatch errors, rebase onto latest main
 
 ## design and meta issues
@@ -487,7 +494,7 @@ this repo uses **git-native mode** — issues live alongside code and sync via g
 ```bash
 brd done <id>
 git add .braid && git commit -m "chore(braid): done <id>"
-brd agent ship  # or create a PR
+brd agent merge  # or create a PR
 ```
 
 **switching modes:**
@@ -792,7 +799,7 @@ mod tests {
         let config = Config::default();
         let block = generate_block(&config);
         assert!(block.contains("## syncing issues (git-native mode)"));
-        assert!(block.contains("brd agent ship"));
+        assert!(block.contains("brd agent merge"));
         assert!(!block.contains("## syncing issues (local-sync mode)"));
     }
 

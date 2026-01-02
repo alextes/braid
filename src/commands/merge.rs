@@ -1,4 +1,4 @@
-//! brd ship command - push changes to main via rebase + fast-forward.
+//! brd agent merge command - merge changes to main via rebase + fast-forward.
 
 use crate::cli::Cli;
 use crate::config::Config;
@@ -11,11 +11,12 @@ fn is_agent_worktree(paths: &RepoPaths) -> bool {
     paths.worktree_root.join(".braid/agent.toml").exists()
 }
 
-pub fn cmd_ship(cli: &Cli, paths: &RepoPaths) -> Result<()> {
+pub fn cmd_merge(cli: &Cli, paths: &RepoPaths) -> Result<()> {
     // step 0: check we're in an agent worktree
     if !is_agent_worktree(paths) {
         return Err(BrdError::Other(
-            "not in an agent worktree - brd agent ship only works from agent worktrees".to_string(),
+            "not in an agent worktree - brd agent merge only works from agent worktrees"
+                .to_string(),
         ));
     }
 
@@ -28,8 +29,23 @@ pub fn cmd_ship(cli: &Cli, paths: &RepoPaths) -> Result<()> {
 
     let branch = git::current_branch(&paths.worktree_root)?;
 
+    // check if already on main
+    if branch == "main" {
+        if cli.json {
+            let json = serde_json::json!({
+                "ok": false,
+                "error": "already_on_main",
+                "message": "already on main - use git push directly"
+            });
+            println!("{}", serde_json::to_string_pretty(&json).unwrap());
+        } else {
+            eprintln!("already on main - use `git push` directly");
+        }
+        return Ok(());
+    }
+
     if !cli.json {
-        println!("shipping {} to main...", branch);
+        println!("merging {} to main...", branch);
     }
 
     // step 2: fetch origin main
@@ -68,7 +84,7 @@ pub fn cmd_ship(cli: &Cli, paths: &RepoPaths) -> Result<()> {
             || stderr.contains("failed to push")
         {
             return Err(BrdError::Other(
-                "push rejected (not fast-forward) - main has moved, run `brd agent ship` again"
+                "push rejected (not fast-forward) - main has moved, run `brd agent merge` again"
                     .to_string(),
             ));
         }
@@ -90,12 +106,12 @@ pub fn cmd_ship(cli: &Cli, paths: &RepoPaths) -> Result<()> {
         let json = serde_json::json!({
             "ok": true,
             "branch": branch,
-            "action": "shipped",
+            "action": "merged",
             "issues_branch": issues_branch,
         });
         println!("{}", serde_json::to_string_pretty(&json).unwrap());
     } else {
-        println!("shipped {} to main", branch);
+        println!("merged {} to main", branch);
         if let Some(sb) = issues_branch {
             println!();
             println!("note: sync branch mode is active ({})", sb);

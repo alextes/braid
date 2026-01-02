@@ -248,8 +248,8 @@ pub enum AgentAction {
     /// create PR from current branch
     Pr,
 
-    /// push changes to main (rebase + fast-forward push)
-    Ship,
+    /// merge changes to main (rebase + fast-forward)
+    Merge,
 
     /// inject/update the braid instructions block in AGENTS.md
     Inject,

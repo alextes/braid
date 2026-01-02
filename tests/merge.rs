@@ -1,4 +1,4 @@
-//! integration tests for the brd ship command.
+//! integration tests for the brd agent merge command.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -6,12 +6,12 @@ use std::process::{Command, Output};
 
 use tempfile::TempDir;
 
-struct ShipEnv {
+struct MergeEnv {
     repo: TempDir,
     remote: TempDir,
 }
 
-impl ShipEnv {
+impl MergeEnv {
     fn new() -> Self {
         let repo = tempfile::tempdir().expect("failed to create temp repo");
         let remote = tempfile::tempdir().expect("failed to create temp remote");
@@ -147,15 +147,19 @@ fn stderr(output: &Output) -> String {
 }
 
 #[test]
-fn test_ship_success_flow() {
-    let env = ShipEnv::new();
+fn test_merge_success_flow() {
+    let env = MergeEnv::new();
 
     env.git_ok(&["checkout", "-b", "agent-test"]);
     env.write_file("work.txt", "agent work\n");
     env.commit_all("agent work");
 
-    let output = env.brd(&["agent", "ship"]);
-    assert!(output.status.success(), "ship failed: {}", stderr(&output));
+    let output = env.brd(&["agent", "merge"]);
+    assert!(
+        output.status.success(),
+        "merge failed: {}",
+        stderr(&output)
+    );
 
     let branch = env.git_stdout(&["rev-parse", "--abbrev-ref", "HEAD"]);
     assert_eq!(branch, "agent-test");
@@ -169,20 +173,20 @@ fn test_ship_success_flow() {
 }
 
 #[test]
-fn test_ship_dirty_worktree() {
-    let env = ShipEnv::new();
+fn test_merge_dirty_worktree() {
+    let env = MergeEnv::new();
 
     env.git_ok(&["checkout", "-b", "agent-test"]);
     env.write_file("dirty.txt", "dirty\n");
 
-    let output = env.brd(&["agent", "ship"]);
+    let output = env.brd(&["agent", "merge"]);
     assert!(!output.status.success());
     assert!(stderr(&output).contains("working tree is dirty"));
 }
 
 #[test]
-fn test_ship_rebase_conflict() {
-    let env = ShipEnv::new();
+fn test_merge_rebase_conflict() {
+    let env = MergeEnv::new();
 
     env.write_file("conflict.txt", "base\n");
     env.commit_all("add conflict base");
@@ -198,14 +202,14 @@ fn test_ship_rebase_conflict() {
     env.git_ok(&["push", "origin", "main"]);
 
     env.git_ok(&["checkout", "agent-test"]);
-    let output = env.brd(&["agent", "ship"]);
+    let output = env.brd(&["agent", "merge"]);
     assert!(!output.status.success());
     assert!(stderr(&output).contains("rebase failed - resolve conflicts manually"));
 }
 
 #[test]
-fn test_ship_push_rejected() {
-    let env = ShipEnv::new();
+fn test_merge_push_rejected() {
+    let env = MergeEnv::new();
 
     env.reject_remote_pushes();
 
@@ -213,7 +217,7 @@ fn test_ship_push_rejected() {
     env.write_file("work.txt", "agent work\n");
     env.commit_all("agent work");
 
-    let output = env.brd(&["agent", "ship"]);
+    let output = env.brd(&["agent", "merge"]);
     assert!(!output.status.success());
     assert!(stderr(&output).contains("push rejected"));
 }

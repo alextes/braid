@@ -79,7 +79,7 @@ fn check_unshipped_done_issues(
                 unshipped.len(),
                 unshipped.join(", ")
             );
-            eprintln!("  consider running `brd agent ship` first");
+            eprintln!("  consider running `brd agent merge` first");
         }
         Ok(Some(unshipped))
     }

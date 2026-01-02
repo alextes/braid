@@ -15,7 +15,7 @@ mod mode;
 mod ready;
 mod rm;
 mod search;
-mod ship;
+mod merge;
 mod show;
 mod skip;
 mod start;
@@ -50,7 +50,7 @@ pub use mode::{cmd_mode_external_repo, cmd_mode_git_native, cmd_mode_local_sync,
 pub use ready::cmd_ready;
 pub use rm::cmd_rm;
 pub use search::cmd_search;
-pub use ship::cmd_ship;
+pub use merge::cmd_merge;
 pub use show::cmd_show;
 pub use skip::cmd_skip;
 pub use start::{
