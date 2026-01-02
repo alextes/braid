@@ -7,7 +7,7 @@ use braid::commands::{
     cmd_status, cmd_sync, cmd_tui,
 };
 use braid::config::Config;
-use braid::error::Result;
+use braid::error::{BrdError, Result};
 use braid::repo;
 use braid::verbose;
 use clap::Parser;
@@ -47,6 +47,11 @@ fn run(cli: &Cli) -> Result<()> {
 
     // all other commands need repo discovery
     let paths = repo::discover(cli.repo.as_deref())?;
+
+    // check if braid is initialized
+    if !paths.braid_dir().exists() {
+        return Err(BrdError::NotInitialized);
+    }
     verbose!(cli, "found .braid at {}", paths.braid_dir().display());
 
     // validate config schema version early to prevent old brd from modifying upgraded repos

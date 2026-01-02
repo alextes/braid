@@ -13,6 +13,7 @@ pub enum ExitCode {
     ClaimConflict = 14,
     InvalidGraph = 15,
     ParseError = 16,
+    NotInitialized = 17,
 }
 
 impl From<ExitCode> for i32 {
@@ -25,6 +26,9 @@ impl From<ExitCode> for i32 {
 pub enum BrdError {
     #[error("not a git repository")]
     NotGitRepo,
+
+    #[error("braid not initialized\n\nrun `brd init` to set up issue tracking")]
+    NotInitialized,
 
     #[error("control root not found or invalid: {0}")]
     ControlRootInvalid(String),
@@ -55,6 +59,7 @@ impl BrdError {
     pub fn exit_code(&self) -> ExitCode {
         match self {
             BrdError::NotGitRepo => ExitCode::NotGitRepo,
+            BrdError::NotInitialized => ExitCode::NotInitialized,
             BrdError::ControlRootInvalid(_) => ExitCode::ControlRootInvalid,
             BrdError::IssueNotFound(_) => ExitCode::IssueNotFound,
             BrdError::AmbiguousId(_, _) => ExitCode::AmbiguousId,
@@ -69,6 +74,7 @@ impl BrdError {
     pub fn code_str(&self) -> &'static str {
         match self {
             BrdError::NotGitRepo => "not_git_repo",
+            BrdError::NotInitialized => "not_initialized",
             BrdError::ControlRootInvalid(_) => "control_root_invalid",
             BrdError::IssueNotFound(_) => "issue_not_found",
             BrdError::AmbiguousId(_, _) => "ambiguous_id",
