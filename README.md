@@ -14,7 +14,6 @@ takes inspiration from [beads](https://github.com/steveyegge/beads).
 - **issues in git** — markdown files versioned alongside code, no external service
 - **dependency tracking** — issues can block other issues; `brd ready` shows what's unblocked
 - **multi-agent ready** — claim-based workflow prevents duplicate work across parallel agents
-- **auto-selection** — `brd start` picks the highest priority ready issue when no ID given
 - **simple cli** — partial ID matching, intuitive commands, works like you'd expect
 
 ## braid vs beads
