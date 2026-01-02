@@ -14,6 +14,7 @@ pub enum ExitCode {
     InvalidGraph = 15,
     ParseError = 16,
     NotInitialized = 17,
+    AlreadyInitialized = 18,
 }
 
 impl From<ExitCode> for i32 {
@@ -48,6 +49,9 @@ pub enum BrdError {
     #[error("parse error in {0}: {1}")]
     ParseError(String, String),
 
+    #[error("braid is already initialized in this repo")]
+    AlreadyInitialized,
+
     #[error("io error: {0}")]
     Io(#[from] std::io::Error),
 
@@ -66,6 +70,7 @@ impl BrdError {
             BrdError::ClaimConflict(_, _) => ExitCode::ClaimConflict,
             BrdError::InvalidGraph => ExitCode::InvalidGraph,
             BrdError::ParseError(_, _) => ExitCode::ParseError,
+            BrdError::AlreadyInitialized => ExitCode::AlreadyInitialized,
             BrdError::Io(_) => ExitCode::GenericFailure,
             BrdError::Other(_) => ExitCode::GenericFailure,
         }
@@ -81,6 +86,7 @@ impl BrdError {
             BrdError::ClaimConflict(_, _) => "claim_conflict",
             BrdError::InvalidGraph => "invalid_graph",
             BrdError::ParseError(_, _) => "parse_error",
+            BrdError::AlreadyInitialized => "already_initialized",
             BrdError::Io(_) => "io_error",
             BrdError::Other(_) => "error",
         }
@@ -99,11 +105,17 @@ mod tests {
         assert_eq!(i32::from(ExitCode::UsageError), 2);
         assert_eq!(i32::from(ExitCode::NotGitRepo), 10);
         assert_eq!(i32::from(ExitCode::ParseError), 16);
+        assert_eq!(i32::from(ExitCode::NotInitialized), 17);
+        assert_eq!(i32::from(ExitCode::AlreadyInitialized), 18);
     }
 
     #[test]
     fn test_brd_error_exit_code_mapping() {
         assert_eq!(BrdError::NotGitRepo.exit_code(), ExitCode::NotGitRepo);
+        assert_eq!(
+            BrdError::NotInitialized.exit_code(),
+            ExitCode::NotInitialized
+        );
         assert_eq!(
             BrdError::ControlRootInvalid("bad".into()).exit_code(),
             ExitCode::ControlRootInvalid
@@ -126,6 +138,10 @@ mod tests {
             ExitCode::ParseError
         );
         assert_eq!(
+            BrdError::AlreadyInitialized.exit_code(),
+            ExitCode::AlreadyInitialized
+        );
+        assert_eq!(
             BrdError::Io(std::io::Error::other("io")).exit_code(),
             ExitCode::GenericFailure
         );
@@ -138,6 +154,7 @@ mod tests {
     #[test]
     fn test_brd_error_code_str_mapping() {
         assert_eq!(BrdError::NotGitRepo.code_str(), "not_git_repo");
+        assert_eq!(BrdError::NotInitialized.code_str(), "not_initialized");
         assert_eq!(
             BrdError::ControlRootInvalid("bad".into()).code_str(),
             "control_root_invalid"
@@ -158,6 +175,10 @@ mod tests {
         assert_eq!(
             BrdError::ParseError("issue".into(), "bad".into()).code_str(),
             "parse_error"
+        );
+        assert_eq!(
+            BrdError::AlreadyInitialized.code_str(),
+            "already_initialized"
         );
         assert_eq!(
             BrdError::Io(std::io::Error::other("io")).code_str(),

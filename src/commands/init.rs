@@ -35,6 +35,15 @@ pub fn cmd_init(cli: &Cli, args: &InitArgs) -> Result<()> {
 
     let brd_common_dir = git_common_dir.join("brd");
 
+    // check if already initialized
+    if config_path.exists() {
+        if !cli.json {
+            eprintln!("hint: use `brd mode` to change configuration");
+            eprintln!("hint: use `brd doctor` to check repo health");
+        }
+        return Err(BrdError::AlreadyInitialized);
+    }
+
     // determine workflow config: from args, interactive prompt, or defaults
     let workflow = determine_workflow_config(cli, args, &worktree_root)?;
 
@@ -462,8 +471,8 @@ mod tests {
     }
 
     #[test]
-    fn test_init_idempotent_preserves_config_and_agent() {
-        with_repo("keep-config", |repo_path| {
+    fn test_init_errors_if_already_initialized() {
+        with_repo("already-init", |_repo_path| {
             let _env = EnvGuard::set("USER", Some("first"));
             let cli = make_cli(false);
             let args = InitArgs {
@@ -471,21 +480,14 @@ mod tests {
                 non_interactive: true,
             };
 
+            // first init succeeds
             cmd_init(&cli, &args).unwrap();
 
-            let braid_dir = repo_path.join(".braid");
-            let mut config = Config::load(&braid_dir.join("config.toml")).unwrap();
-            config.id_prefix = "keep".to_string();
-            config.save(&braid_dir.join("config.toml")).unwrap();
-            std::fs::write(braid_dir.join("agent.toml"), "agent_id = \"keep\"\n").unwrap();
-
-            let _env2 = EnvGuard::set("USER", Some("second"));
-            cmd_init(&cli, &args).unwrap();
-
-            let config = Config::load(&braid_dir.join("config.toml")).unwrap();
-            assert_eq!(config.id_prefix, "keep");
-            let agent_toml = std::fs::read_to_string(braid_dir.join("agent.toml")).unwrap();
-            assert!(agent_toml.contains("agent_id = \"keep\""));
+            // second init fails with already_initialized
+            let result = cmd_init(&cli, &args);
+            assert!(result.is_err());
+            let err = result.unwrap_err();
+            assert_eq!(err.code_str(), "already_initialized");
         });
     }
 
