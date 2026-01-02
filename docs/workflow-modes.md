@@ -1,229 +1,190 @@
-# workflow modes
+# workflow configuration
 
-braid supports different workflow modes to match how you and your team work. run `brd mode` to see your current mode.
+braid's workflow is controlled by two independent config dimensions. run `brd mode` to see your current configuration.
 
-## overview
+## two dimensions
 
-| mode | use case | setup | issue sync |
-|------|----------|-------|------------|
-| git-native | solo, small teams, remote agents | `brd init` | via git (push/pull main) |
-| local-sync | multiple local agents | `brd mode local-sync` | instant (shared worktree) |
-| external-repo | separation, privacy, multi-repo | `brd mode external-repo <path>` | via external repo |
+### 1. issue storage
 
-## git-native mode
+where do issues live?
 
-issues live alongside code in `.braid/issues/` and sync through git.
+| setting | location | visibility |
+|---------|----------|------------|
+| `issues_branch = None` | `.braid/issues/` on your branch | issues travel with code |
+| `issues_branch = "braid-issues"` | shared worktree | instant local visibility |
+| `issues_repo = "../path"` | external repository | fully separate |
 
-### when to use
+### 2. auto-sync
 
-- solo development
-- small teams with occasional collaboration
-- remote agents (each in their own clone)
-- PR-based workflows
+should braid sync with git automatically?
 
-### how it works
+| setting | behavior |
+|---------|----------|
+| `auto_pull = true` | fetch + rebase before `brd start` |
+| `auto_push = true` | commit + push after `brd done` |
+| both `false` | manual sync only (`brd sync`) |
 
-1. `brd start` auto-syncs: fetches, rebases, claims, commits, and pushes
-2. issue state changes flow through your normal git workflow
-3. merge to main or create PRs to share issue state
-4. race conditions handled by git push conflicts (optimistic locking)
+these are **independent** — you can combine any storage with any sync setting.
 
-### workflow
+## common configurations
 
-```bash
-# claim an issue (auto-syncs with origin/main)
-brd start
+| storage | auto-sync | called | use case |
+|---------|-----------|--------|----------|
+| with code | on | git-native | remote agents, small teams |
+| separate branch | on | local-sync | multiple local agents |
+| with code | off | manual | full control, offline work |
+| external repo | varies | external-repo | multi-repo, privacy |
 
-# do the work
-git add . && git commit -m "feat: implement feature"
+## brd init
 
-# mark done and ship
-brd done <id>
-git add .braid && git commit -m "done: <id>"
-brd agent ship
+`brd init` asks two questions to configure your workflow:
+
+```
+Q1: Use a separate branch for issues? [recommended]
+    1. Yes → issues_branch = "braid-issues"
+    2. No  → issues_branch = None (issues with code)
+
+Q2: Auto-sync with git remote?
+    1. Yes → auto_pull = true, auto_push = true
+    2. No  → manual sync only
 ```
 
-### setup
+**defaults:**
+- `brd init` (interactive): asks both questions
+- `brd init -y` (non-interactive): `issues_branch = "braid-issues"`, auto-sync enabled
 
-just initialize braid:
+to get issues-with-code (git-native): answer "No" to Q1 during interactive init.
 
-```bash
-brd init
+## storage configurations
+
+### issues with code (git-native)
+
+issues live in `.braid/issues/` alongside your code.
+
+```toml
+# .braid/config.toml
+issues_branch = # not set
+auto_pull = true
+auto_push = true
 ```
 
-## local-sync mode
+**how it works:**
+- `brd start` fetches, rebases, claims issue, commits, pushes
+- issue changes flow through normal git workflow
+- race conditions handled by git push conflicts
 
-issues live on a dedicated sync branch in a shared worktree. all local agents see changes instantly.
-
-### when to use
-
-- multiple AI agents on the same machine
-- you want instant issue visibility between agents
-- you want to keep issue commits separate from code history
-
-### how it works
-
-1. issues live on a sync branch (e.g., `braid-issues`)
-2. all local agents share a single issues worktree
-3. `brd start` and `brd done` write to the shared worktree
-4. changes visible instantly to all agents (shared filesystem)
-5. `brd sync` pushes/pulls to remote when needed
-
-### workflow
-
+**workflow:**
 ```bash
-# claim an issue (visible to other agents immediately)
-brd start
-
-# do the work
-git add . && git commit -m "feat: implement feature"
-
-# mark done
-brd done <id>
-
-# ship code to main
-brd agent ship
-
-# optionally sync issues to remote
-brd sync
+brd start              # claim issue (syncs with remote)
+# work, commit
+brd done <id>          # mark done (pushes to remote)
 ```
 
-### setup
+### separate branch (local-sync)
 
-switch from git-native to local-sync:
+issues live on a dedicated branch in a shared worktree.
 
-```bash
-brd mode local-sync              # uses default branch: braid-issues
-brd mode local-sync my-issues    # custom branch name
+```toml
+# .braid/config.toml
+issues_branch = "braid-issues"
+auto_pull = true
+auto_push = true
 ```
 
-or initialize a new repo directly in local-sync mode:
+**how it works:**
+- issues stored at `.git/brd/issues/` (shared worktree)
+- all local agents see changes instantly (shared filesystem)
+- `brd sync` pushes/pulls the issues branch to remote
 
+**workflow:**
 ```bash
-brd init --sync-branch braid-issues
+brd start              # claim issue (instant local visibility)
+# work, commit
+brd done <id>          # mark done (instant local visibility)
+brd sync               # push issues to remote when ready
 ```
 
-### switching back
+### external repository
 
-to return to git-native mode:
+issues live in a completely separate git repo.
 
-```bash
-brd mode git-native
+```toml
+# .braid/config.toml
+issues_repo = "../my-issues-repo"
 ```
 
-this copies issues back to main and removes the sync branch config.
+**how it works:**
+- external repo has its own braid config
+- all brd commands read/write to external repo
+- external repo can use any storage mode internally
 
-## external-repo mode
-
-issues live in a completely separate git repository. the code repo points to the external issues repo via config.
-
-### when to use
-
-- separation of concerns: keep issue history separate from code history
-- privacy: private issues repo with public code repo
-- multi-repo coordination: one issues repo for multiple code projects
-
-### how it works
-
-1. you create a separate git repo for issues and initialize braid in it
-2. your code repo points to the external repo via `issues_repo` config
-3. all brd commands read/write from the external repo
-4. the external repo can use git-native or local-sync mode internally
-
-### workflow
-
+**setup:**
 ```bash
-# in external issues repo
-cd ../my-issues-repo
-git init && brd init
+# create external issues repo
+mkdir ../my-issues-repo && cd ../my-issues-repo
+git init && brd init -y
 git add -A && git commit -m "init braid"
 
-# in code repo, point to external issues
+# point code repo to it
 cd ../my-code-repo
 brd mode external-repo ../my-issues-repo
-
-# use brd normally (reads/writes to external repo)
-brd add "new feature"
-brd start
-brd done <id>
 ```
 
-### setup
+## switching configurations
 
-1. create the external issues repo and initialize braid:
+use `brd mode` to change your configuration:
 
 ```bash
-mkdir my-issues-repo && cd my-issues-repo
-git init
-brd init
-git add -A && git commit -m "init braid"
-# optionally push to remote
-git remote add origin <url>
-git push -u origin main
+brd mode                           # show current config
+brd mode local-sync                # enable issues_branch
+brd mode local-sync my-branch      # custom branch name
+brd mode external-repo ../path     # point to external repo
+brd mode git-native                # clear issues_branch/issues_repo
 ```
 
-2. point your code repo to it:
+**constraints:**
+- switching to local-sync or external-repo requires being in git-native first
+- to switch between local-sync and external-repo: go through git-native
+- `brd mode git-native` copies issues back to `.braid/issues/` if needed
 
-```bash
-cd my-code-repo
-brd mode external-repo ../my-issues-repo
+## auto-sync details
+
+auto-sync works with **any** storage configuration:
+
+| command | auto_pull | auto_push |
+|---------|-----------|-----------|
+| `brd start` | fetch + rebase issues | — |
+| `brd done` | — | commit + push issues |
+
+you can disable auto-sync for any storage mode:
+
+```toml
+# local-sync with manual remote sync
+issues_branch = "braid-issues"
+auto_pull = false
+auto_push = false
 ```
 
-### switching back
+then use `brd sync` when you want to share with remote.
 
-to return to git-native mode:
+## config reference
 
-```bash
-brd mode git-native
+```toml
+# .braid/config.toml
+schema_version = 6
+id_prefix = "brd"
+id_len = 4
+
+# storage (pick one)
+issues_branch = "braid-issues"   # or omit for issues-with-code
+# issues_repo = "../path"        # or point to external repo
+
+# sync behavior
+auto_pull = true                 # fetch+rebase on brd start
+auto_push = true                 # commit+push on brd done
 ```
-
-note: issues remain in the external repo. you'll need to manually copy them if you want them in the code repo.
-
-## choosing a mode
-
-### start with git-native
-
-git-native mode is simpler and works for most cases:
-- no extra branch to manage
-- familiar git workflow
-- works with PRs naturally
-
-### switch to local-sync when
-
-- you have 2+ agents on the same machine
-- agents are stepping on each other's claims
-- you want cleaner main branch history
-
-### switch to external-repo when
-
-- you want issue history completely separate from code
-- you need privacy (private issues, public code)
-- you're coordinating issues across multiple code repos
-
-## mode-specific behavior
-
-### `brd start`
-
-| mode | behavior |
-|------|----------|
-| git-native | fetch, rebase, claim, commit, push to main |
-| local-sync | claim in shared worktree (instant visibility) |
-| external-repo | claim in external repo (follows that repo's mode) |
-
-### `brd agent ship`
-
-same in all modes: rebase + fast-forward push to main. only ships code, not issues.
-
-### `brd sync`
-
-| mode | behavior |
-|------|----------|
-| git-native | not used (issues sync via normal git) |
-| local-sync | commit + push/pull sync branch |
-| external-repo | not used (sync in external repo via its mode) |
 
 ## see also
 
-- [agent-workflow.md](agent-workflow.md) — full agent worktree guide
-- [sync-branch.md](sync-branch.md) — local-sync mode details
-- [configuration.md](configuration.md) — config options
+- [agent-workflow.md](agent-workflow.md) — agent worktree guide
+- [configuration.md](configuration.md) — full config reference
