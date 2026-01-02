@@ -82,6 +82,9 @@ pub fn cmd_done(
             .map(|(id, _)| id.clone())
             .collect();
 
+        // Build a set of result IDs for quick lookup
+        let result_set: HashSet<&String> = resolved_results.iter().collect();
+
         for dependent_id in &dependents {
             {
                 let dependent = issues
@@ -93,6 +96,12 @@ pub fn cmd_done(
                     dependent.touch();
                     changed_ids.insert(dependent_id.clone());
                 }
+            }
+
+            // Skip adding result deps if this dependent is itself a result issue.
+            // Result issues are parallel outputs, not dependent on each other.
+            if result_set.contains(dependent_id) {
+                continue;
             }
 
             for result_id in &resolved_results {
@@ -437,6 +446,48 @@ mod tests {
         let impl_issue = issues.get("brd-impl").unwrap();
         assert!(impl_issue.deps().contains(&"brd-existing".to_string()));
         assert!(impl_issue.deps().contains(&"brd-upstream".to_string()));
+    }
+
+    #[test]
+    fn test_done_design_multiple_results_that_are_also_dependents() {
+        // Scenario: design issue has two impl issues that both depend on it
+        // Closing with --result for both should NOT create cross-deps between them
+        let (_dir, paths, config) = create_test_repo();
+        write_design_issue(&paths, &config, "brd-design");
+        write_issue_with_deps(&paths, &config, "brd-impl1", vec!["brd-design".to_string()]);
+        write_issue_with_deps(&paths, &config, "brd-impl2", vec!["brd-design".to_string()]);
+
+        let cli = make_cli();
+        // This should succeed - impl1 and impl2 are parallel, not dependent on each other
+        cmd_done(
+            &cli,
+            &paths,
+            "brd-design",
+            false,
+            &["brd-impl1".to_string(), "brd-impl2".to_string()],
+            true,
+        )
+        .unwrap();
+
+        let issues = load_all_issues(&paths, &config).unwrap();
+        let impl1 = issues.get("brd-impl1").unwrap();
+        let impl2 = issues.get("brd-impl2").unwrap();
+
+        // Neither should depend on the other
+        assert!(
+            !impl1.deps().contains(&"brd-impl2".to_string()),
+            "impl1 should not depend on impl2"
+        );
+        assert!(
+            !impl2.deps().contains(&"brd-impl1".to_string()),
+            "impl2 should not depend on impl1"
+        );
+        // Design issue should not be in deps anymore
+        assert!(!impl1.deps().contains(&"brd-design".to_string()));
+        assert!(!impl2.deps().contains(&"brd-design".to_string()));
+        // Design issue should be done
+        let design = issues.get("brd-design").unwrap();
+        assert_eq!(design.status(), Status::Done);
     }
 
     #[test]
