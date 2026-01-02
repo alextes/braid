@@ -166,7 +166,10 @@ fn determine_workflow_config(
     let stdin = io::stdin();
 
     // Q1: Issues branch?
-    print!("store issues on a separate branch? [Y/n]: ");
+    println!("store issues on a separate branch?");
+    println!("  Y: prevents merge conflicts, cleaner git history");
+    println!("  n: issues travel with code branches");
+    print!("[Y/n]: ");
     io::stdout().flush()?;
 
     let mut q1_line = String::new();
@@ -182,8 +185,13 @@ fn determine_workflow_config(
         }
     };
 
+    println!();
+
     // Q2: Auto-sync?
-    print!("auto-sync with remote? [Y/n]: ");
+    println!("auto-sync with remote?");
+    println!("  Y: pull on start, push on done - keeps collaborators in sync");
+    println!("  n: manual sync only (use `brd sync`)");
+    print!("[Y/n]: ");
     io::stdout().flush()?;
 
     let mut q2_line = String::new();
