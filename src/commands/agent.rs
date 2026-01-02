@@ -408,7 +408,7 @@ pub fn cmd_agent_pr(cli: &Cli, paths: &RepoPaths) -> Result<()> {
 // ============================================================================
 
 /// current version of the agents block
-pub const AGENTS_BLOCK_VERSION: u32 = 4;
+pub const AGENTS_BLOCK_VERSION: u32 = 5;
 
 const BLOCK_START: &str = "<!-- braid:agents:start";
 const BLOCK_END: &str = "<!-- braid:agents:end -->";
@@ -420,10 +420,12 @@ fn generate_static_block() -> String {
 this repo uses braid (`brd`) for issue tracking. issues live in `.braid/issues/` as markdown files.
 
 basic flow:
-1. `brd start` — claim the next ready issue (auto-syncs, commits, and pushes)
+1. `brd start` — claim the next ready issue
 2. do the work, commit as usual
 3. `brd done <id>` — mark the issue complete
-4. `brd agent merge` — merge your work to main
+4. ship your work:
+   - in a worktree: `brd agent merge` (rebase + ff-merge to main)
+   - on main: just `git push` (you're already there)
 
 useful commands:
 - `brd ls` — list all issues
@@ -431,7 +433,7 @@ useful commands:
 - `brd show <id>` — view issue details
 - `brd mode` — show current workflow mode
 
-## working in agent worktrees
+## working on main vs in a worktree
 
 **quick check — am i in a worktree?**
 
@@ -439,10 +441,15 @@ useful commands:
 cat .braid/agent.toml 2>/dev/null && echo "yes, worktree" || echo "no, main"
 ```
 
-if you're in a worktree:
+**if you're in a worktree (feature branch):**
 - `brd start` handles syncing automatically
-- use `brd agent merge` to merge your work to main (rebase + fast-forward)
+- use `brd agent merge` to ship (rebase + ff-merge to main)
 - if you see schema mismatch errors, rebase onto latest main
+
+**if you're on main:**
+- `brd start` syncs and claims
+- after `brd done`, just `git push` your code commits
+- no `brd agent merge` needed — you're already on main
 
 ## design and meta issues
 
@@ -487,14 +494,19 @@ this repo uses **git-native mode** — issues live alongside code and sync via g
 
 **how it works:**
 - `brd start` auto-syncs: fetches, rebases, claims, commits, and pushes
+- `brd done` marks complete and auto-pushes (if auto_push enabled)
 - issue changes flow through your normal git workflow
-- merge to main or create PRs to share issue state
 
-**after marking an issue done:**
+**in a worktree (feature branch):**
 ```bash
-brd done <id>
-git add .braid && git commit -m "chore(braid): done <id>"
-brd agent merge  # or create a PR
+brd done <id>        # marks done, auto-pushes issue state
+brd agent merge      # ship code to main (rebase + ff-merge)
+```
+
+**on main:**
+```bash
+brd done <id>        # marks done, auto-pushes issue state
+git push             # push your code commits
 ```
 
 **switching modes:**
