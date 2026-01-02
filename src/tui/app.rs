@@ -903,3 +903,330 @@ fn get_agent_id(worktree_root: &std::path::Path) -> String {
     }
     std::env::var("USER").unwrap_or_else(|_| "unknown".to_string())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use tempfile::TempDir;
+
+    struct TestEnv {
+        _dir: TempDir,
+        paths: RepoPaths,
+        config: Config,
+    }
+
+    impl TestEnv {
+        fn new() -> Self {
+            let dir = tempfile::tempdir().expect("failed to create temp dir");
+            let worktree_root = dir.path().to_path_buf();
+            let git_common_dir = worktree_root.join(".git");
+            let brd_common_dir = git_common_dir.join("brd");
+            fs::create_dir_all(&brd_common_dir).expect("failed to create brd dir");
+            fs::create_dir_all(worktree_root.join(".braid/issues"))
+                .expect("failed to create issues dir");
+
+            let config = Config::default();
+            let config_path = worktree_root.join(".braid/config.toml");
+            config.save(&config_path).expect("failed to write config");
+
+            Self {
+                _dir: dir,
+                paths: RepoPaths {
+                    worktree_root,
+                    git_common_dir,
+                    brd_common_dir,
+                },
+                config,
+            }
+        }
+
+        fn add_issue(&self, id: &str, title: &str, priority: Priority, status: Status) {
+            let mut issue = Issue::new(id.to_string(), title.to_string(), priority, vec![]);
+            issue.frontmatter.status = status;
+            let issue_path = self
+                .paths
+                .issues_dir(&self.config)
+                .join(format!("{}.md", id));
+            issue.save(&issue_path).expect("failed to save issue");
+        }
+
+        fn app(&self) -> App {
+            App::new(&self.paths).expect("failed to create app")
+        }
+    }
+
+    #[test]
+    fn test_apply_filter_matches_title() {
+        let env = TestEnv::new();
+        env.add_issue("brd-aaaa", "fix authentication bug", Priority::P1, Status::Todo);
+        env.add_issue("brd-bbbb", "add logging feature", Priority::P2, Status::Todo);
+        env.add_issue("brd-cccc", "authentication refactor", Priority::P3, Status::Todo);
+
+        let mut app = env.app();
+        app.all_filter_query = "auth".to_string();
+        app.apply_filter();
+
+        assert_eq!(app.filtered_all_issues.len(), 2);
+        assert!(app.filtered_all_issues.contains(&"brd-aaaa".to_string()));
+        assert!(app.filtered_all_issues.contains(&"brd-cccc".to_string()));
+    }
+
+    #[test]
+    fn test_apply_filter_only_matches_title() {
+        let env = TestEnv::new();
+        env.add_issue("brd-aaaa", "first issue", Priority::P1, Status::Todo);
+        env.add_issue("brd-bbbb", "second issue", Priority::P2, Status::Todo);
+
+        let mut app = env.app();
+        // filter by ID should not match (filter only works on title)
+        app.all_filter_query = "aaaa".to_string();
+        app.apply_filter();
+
+        assert_eq!(app.filtered_all_issues.len(), 0);
+
+        // filter by title works
+        app.all_filter_query = "first".to_string();
+        app.apply_filter();
+
+        assert_eq!(app.filtered_all_issues.len(), 1);
+        assert_eq!(app.filtered_all_issues[0], "brd-aaaa");
+    }
+
+    #[test]
+    fn test_apply_filter_case_insensitive() {
+        let env = TestEnv::new();
+        env.add_issue("brd-aaaa", "Fix BUG in Parser", Priority::P1, Status::Todo);
+
+        let mut app = env.app();
+        app.all_filter_query = "bug".to_string();
+        app.apply_filter();
+
+        assert_eq!(app.filtered_all_issues.len(), 1);
+    }
+
+    #[test]
+    fn test_toggle_status_filter() {
+        let env = TestEnv::new();
+        let mut app = env.app();
+
+        assert!(app.all_status_filter.is_empty());
+
+        app.toggle_status_filter(Status::Done);
+        assert!(app.all_status_filter.contains(&Status::Done));
+
+        app.toggle_status_filter(Status::Skip);
+        assert!(app.all_status_filter.contains(&Status::Done));
+        assert!(app.all_status_filter.contains(&Status::Skip));
+
+        // toggle off
+        app.toggle_status_filter(Status::Done);
+        assert!(!app.all_status_filter.contains(&Status::Done));
+        assert!(app.all_status_filter.contains(&Status::Skip));
+    }
+
+    #[test]
+    fn test_move_up_at_top_stays_at_top() {
+        let env = TestEnv::new();
+        env.add_issue("brd-aaaa", "first", Priority::P1, Status::Todo);
+        env.add_issue("brd-bbbb", "second", Priority::P2, Status::Todo);
+
+        let mut app = env.app();
+        app.all_selected = 0;
+        app.active_pane = ActivePane::All;
+
+        app.move_up();
+        assert_eq!(app.all_selected, 0);
+    }
+
+    #[test]
+    fn test_move_down_at_bottom_stays_at_bottom() {
+        let env = TestEnv::new();
+        env.add_issue("brd-aaaa", "first", Priority::P1, Status::Todo);
+        env.add_issue("brd-bbbb", "second", Priority::P2, Status::Todo);
+
+        let mut app = env.app();
+        app.all_selected = 1; // at bottom
+        app.active_pane = ActivePane::All;
+
+        app.move_down();
+        assert_eq!(app.all_selected, 1);
+    }
+
+    #[test]
+    fn test_switch_pane_toggles() {
+        let env = TestEnv::new();
+        let mut app = env.app();
+
+        assert_eq!(app.active_pane, ActivePane::Ready);
+
+        app.switch_pane();
+        assert_eq!(app.active_pane, ActivePane::All);
+
+        app.switch_pane();
+        assert_eq!(app.active_pane, ActivePane::Ready);
+    }
+
+    #[test]
+    fn test_confirm_title_empty_rejected() {
+        let env = TestEnv::new();
+        let mut app = env.app();
+
+        app.input_mode = InputMode::Title("".to_string());
+        app.confirm_title();
+
+        // should still be in Title mode
+        assert!(matches!(app.input_mode, InputMode::Title(_)));
+        assert_eq!(app.message.as_deref(), Some("title cannot be empty"));
+    }
+
+    #[test]
+    fn test_confirm_title_whitespace_rejected() {
+        let env = TestEnv::new();
+        let mut app = env.app();
+
+        app.input_mode = InputMode::Title("   ".to_string());
+        app.confirm_title();
+
+        assert!(matches!(app.input_mode, InputMode::Title(_)));
+        assert_eq!(app.message.as_deref(), Some("title cannot be empty"));
+    }
+
+    #[test]
+    fn test_confirm_title_moves_to_priority() {
+        let env = TestEnv::new();
+        let mut app = env.app();
+
+        app.input_mode = InputMode::Title("my issue".to_string());
+        app.confirm_title();
+
+        assert!(matches!(
+            app.input_mode,
+            InputMode::Priority { ref title, selected } if title == "my issue" && selected == 2
+        ));
+    }
+
+    #[test]
+    fn test_confirm_priority_moves_to_type() {
+        let env = TestEnv::new();
+        let mut app = env.app();
+
+        app.input_mode = InputMode::Priority {
+            title: "my issue".to_string(),
+            selected: 1,
+        };
+        app.confirm_priority();
+
+        assert!(matches!(
+            app.input_mode,
+            InputMode::Type { ref title, priority, selected }
+            if title == "my issue" && priority == 1 && selected == 0
+        ));
+    }
+
+    #[test]
+    fn test_confirm_type_moves_to_deps() {
+        let env = TestEnv::new();
+        let mut app = env.app();
+
+        app.input_mode = InputMode::Type {
+            title: "my issue".to_string(),
+            priority: 2,
+            selected: 1, // design
+        };
+        app.confirm_type();
+
+        assert!(matches!(
+            app.input_mode,
+            InputMode::Deps { ref title, priority, type_idx, ref selected_deps, cursor }
+            if title == "my issue" && priority == 2 && type_idx == 1 && selected_deps.is_empty() && cursor == 0
+        ));
+    }
+
+    #[test]
+    fn test_toggle_dep_adds_and_removes() {
+        let env = TestEnv::new();
+        env.add_issue("brd-aaaa", "dep issue", Priority::P1, Status::Todo);
+
+        let mut app = env.app();
+        app.input_mode = InputMode::Deps {
+            title: "new issue".to_string(),
+            priority: 2,
+            type_idx: 0,
+            selected_deps: vec![],
+            cursor: 0,
+        };
+
+        // toggle on
+        app.toggle_dep();
+        if let InputMode::Deps { selected_deps, .. } = &app.input_mode {
+            assert_eq!(selected_deps.len(), 1);
+            assert!(selected_deps.contains(&"brd-aaaa".to_string()));
+        } else {
+            panic!("expected Deps mode");
+        }
+
+        // toggle off
+        app.toggle_dep();
+        if let InputMode::Deps { selected_deps, .. } = &app.input_mode {
+            assert!(selected_deps.is_empty());
+        } else {
+            panic!("expected Deps mode");
+        }
+    }
+
+    #[test]
+    fn test_clear_filter_resets_state() {
+        let env = TestEnv::new();
+        env.add_issue("brd-aaaa", "issue", Priority::P1, Status::Todo);
+
+        let mut app = env.app();
+        app.all_filter_query = "test".to_string();
+        app.all_status_filter.insert(Status::Done);
+        app.apply_filter();
+
+        // filtered list should be empty (no match)
+        assert!(app.filtered_all_issues.is_empty());
+
+        app.clear_filter();
+
+        assert!(app.all_filter_query.is_empty());
+        assert!(app.all_status_filter.is_empty());
+        // after clearing filter, has_filter() returns false so visible_all_issues
+        // returns all_issues instead of filtered_all_issues
+        assert!(!app.has_filter());
+    }
+
+    #[test]
+    fn test_visible_all_issues_uses_filter_when_active() {
+        let env = TestEnv::new();
+        env.add_issue("brd-aaaa", "alpha", Priority::P1, Status::Todo);
+        env.add_issue("brd-bbbb", "beta", Priority::P2, Status::Todo);
+
+        let mut app = env.app();
+
+        // no filter - returns all issues
+        assert_eq!(app.visible_all_issues().len(), 2);
+
+        // with filter - returns filtered
+        app.all_filter_query = "alpha".to_string();
+        app.apply_filter();
+        assert_eq!(app.visible_all_issues().len(), 1);
+        assert_eq!(app.visible_all_issues()[0], "brd-aaaa");
+    }
+
+    #[test]
+    fn test_has_filter() {
+        let env = TestEnv::new();
+        let mut app = env.app();
+
+        assert!(!app.has_filter());
+
+        app.all_filter_query = "test".to_string();
+        assert!(app.has_filter());
+
+        app.all_filter_query.clear();
+        app.all_status_filter.insert(Status::Done);
+        assert!(app.has_filter());
+    }
+}
