@@ -188,17 +188,6 @@ pub fn cmd_ls(
                 )
             };
 
-            let tags_info = if issue.tags().is_empty() {
-                None
-            } else {
-                let tags = issue
-                    .tags()
-                    .iter()
-                    .map(|tag| format!("#{tag}"))
-                    .collect::<Vec<_>>()
-                    .join(" ");
-                Some(tags)
-            };
 
             // show owner for doing issues (max 12 chars)
             let owner_info = if issue.status() == Status::Doing {
@@ -282,16 +271,27 @@ pub fn cmd_ls(
                 deps_info
             );
 
-            if let Some(tags) = tags_info.as_ref() {
-                if use_color {
-                    print!(
-                        " {}{}{}",
-                        SetForegroundColor(Color::Cyan),
-                        tags,
-                        SetForegroundColor(Color::Reset)
-                    );
-                } else {
-                    print!(" {}", tags);
+            if !issue.tags().is_empty() {
+                print!(" ");
+                for (i, tag) in issue.tags().iter().enumerate() {
+                    if i > 0 {
+                        print!(" ");
+                    }
+                    if use_color {
+                        let color = if tag == "bug" {
+                            Color::Red
+                        } else {
+                            Color::Cyan
+                        };
+                        print!(
+                            "{}#{}{}",
+                            SetForegroundColor(color),
+                            tag,
+                            SetForegroundColor(Color::Reset)
+                        );
+                    } else {
+                        print!("#{}", tag);
+                    }
                 }
             }
 
