@@ -83,23 +83,20 @@ if you're in a worktree:
 - show progress as "done/total" in `brd ls`
 - typically not picked up directly — work on the child issues instead
 
-## syncing issues (git-native mode)
+## syncing issues (local-sync mode)
 
-this repo uses **git-native mode** — issues live alongside code and sync via git.
+this repo uses **local-sync mode** — issues live on the `braid-issues` branch in a shared worktree.
 
 **how it works:**
-- `brd start` auto-syncs: fetches, rebases, claims, commits, and pushes
-- issue changes flow through your normal git workflow
-- merge to main or create PRs to share issue state
+- all local agents see issue changes instantly (shared filesystem)
+- `brd start` and `brd done` write to the shared worktree automatically
+- no manual commits needed for issue state changes
 
-**after marking an issue done:**
-```bash
-brd done <id>
-git add .braid && git commit -m "done: <id>"
-brd agent ship  # or create a PR
-```
+**remote sync:**
+- run `brd sync` to push issue changes to the remote
+- run `brd sync` to pull others' issue changes
 
 **switching modes:**
 - `brd mode` — show current mode
-- `brd mode local-sync` — switch to local-sync mode for multi-agent setups
+- `brd mode git-native` — switch to git-native mode
 <!-- braid:agents:end -->
