@@ -51,7 +51,7 @@ download the latest release from [GitHub Releases](https://github.com/alextes/br
 ## quickstart
 
 ```bash
-# initialize in your repo
+# initialize in your repo (follow the prompts, or use -y for defaults)
 cd your-project
 brd init
 
@@ -61,6 +61,8 @@ brd add "my first task" -p P1
 # start working
 brd start
 ```
+
+`brd init` asks two questions: where to store issues and whether to auto-sync with git. the defaults work well for most setups.
 
 ## commands
 
@@ -79,8 +81,8 @@ brd start
 
 ### dependencies
 
-- `brd dep add <child> <parent>` — make child depend on parent
-- `brd dep rm <child> <parent>` — remove dependency
+- `brd dep add <blocked> <blocker>` — blocked depends on blocker
+- `brd dep rm <blocked> <blocker>` — remove dependency
 
 ### multi-agent
 
@@ -107,22 +109,38 @@ see [docs/configuration.md](docs/configuration.md) for full details.
 
 braid enables multiple AI agents to work on the same codebase in parallel without stepping on each other's toes.
 
-**getting started:** we recommend starting with a single agent in your main worktree. once you're comfortable with the braid workflow and find yourself waiting for your agent to finish, set up a second agent in its own worktree with `brd agent init`.
-
-**model recommendations:** we've found braid works best with Claude Opus 4.5, but GPT-5.2 Codex also performs acceptably.
-
-**how it works:**
-
-1. each agent gets their own git worktree via `brd agent init <name>`
-2. each worktree has its own `.braid/` directory — git is the source of truth
-3. when an agent runs `brd start`, the issue is marked as "doing" with their agent ID
-4. agents sync issue state by pulling/pushing to the sync branch (default: main)
-5. race conditions are handled by git push conflicts (optimistic locking)
-
-**the workflow:**
+### try it now
 
 ```bash
-# agent picks up work (auto-syncs, commits, and pushes the claim)
+# switch to local-sync mode (instant visibility between agents)
+brd mode local-sync
+
+# create two tasks
+brd add "implement feature A"
+brd add "implement feature B"
+
+# set up two agent worktrees
+brd agent init agent-one
+brd agent init agent-two
+
+# in each worktree, tell the agent to pick up work
+cd .worktrees/agent-one && brd start   # claims feature A
+cd .worktrees/agent-two && brd start   # claims feature B (not A!)
+```
+
+each agent automatically claims a different issue — no conflicts, no coordination needed.
+
+### how it works
+
+1. each agent gets their own git worktree via `brd agent init <name>`
+2. when an agent runs `brd start`, the issue is marked as "doing" with their agent ID
+3. in local-sync mode, all agents see claims instantly (shared filesystem)
+4. in git-native mode, claims sync via git push/pull (optimistic locking)
+
+### the workflow
+
+```bash
+# agent picks up work
 brd start              # claims next ready issue
 
 # agent does the work and commits
@@ -130,34 +148,26 @@ git add . && git commit -m "feat: implement the thing"
 
 # agent marks done and ships
 brd done <id>
-git add .braid && git commit -m "done: <id>"
 brd agent ship         # rebase + fast-forward merge to main
 ```
-
-`brd start` automatically:
-- fetches and rebases on origin/main
-- claims the issue
-- commits and pushes the claim (with auto-retry on conflicts)
-
-use `--no-sync` to skip fetch/rebase, or `--no-push` to claim locally only.
 
 see [docs/agent-workflow.md](docs/agent-workflow.md) for the full guide.
 
 ## workflow modes
 
-braid supports three workflow modes. check your current mode with `brd mode`.
+braid's workflow is controlled by two independent settings: **issue storage** and **auto-sync**. check your current config with `brd mode`.
 
-| mode | use case | issue sync |
-|------|----------|------------|
-| **git-native** (default) | solo, small teams, remote agents | via git push/pull |
-| **local-sync** | multiple local agents | instant (shared worktree) |
-| **external-repo** | separation of concerns, privacy, multi-repo | via external repo |
+| storage | auto-sync | called | use case |
+|---------|-----------|--------|----------|
+| with code | on | git-native | solo, remote agents |
+| separate branch | on | local-sync | multiple local agents |
+| external repo | varies | external-repo | privacy, multi-repo |
 
-**git-native mode** is the default. issues sync through normal git operations — `brd start` auto-syncs with origin/main.
+**git-native**: issues live in `.braid/issues/` and sync via git push/pull.
 
-**local-sync mode** is for multiple agents on the same machine. issues live on a sync branch in a shared worktree, visible instantly to all agents.
+**local-sync**: issues live on a separate branch in a shared worktree — all local agents see changes instantly.
 
-**external-repo mode** stores issues in a separate repository. useful for keeping issue history separate from code, privacy (private issues, public code), or coordinating issues across multiple code repos.
+**external-repo**: issues live in a separate repository entirely.
 
 ```bash
 # switch to local-sync mode
@@ -167,7 +177,7 @@ brd mode local-sync
 brd mode external-repo ../my-issues-repo
 
 # switch back to git-native
-brd mode default
+brd mode git-native
 ```
 
 see [docs/workflow-modes.md](docs/workflow-modes.md) for details.
