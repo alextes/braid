@@ -657,7 +657,20 @@ fn age_color(duration: TimeDuration) -> Color {
 }
 
 fn draw_input_dialog(f: &mut Frame, app: &App) {
-    let area = centered_rect(50, 8, f.area());
+    // determine dialog height based on mode
+    let height = match &app.input_mode {
+        InputMode::Title(_) => 3,                                            // slim: just input
+        InputMode::Priority { .. } => 7,                                     // title + 4 options
+        InputMode::Type { .. } => 7,                                         // title + pri + 3 options
+        InputMode::Deps { .. } => 12.min(app.all_issues.len() as u16 + 5),   // title + pri + type + scrollable list
+        InputMode::EditSelect { .. } => 7,
+        InputMode::EditTitle { .. } => 5,
+        InputMode::EditPriority { .. } => 7,
+        InputMode::EditStatus { .. } => 8,
+        InputMode::Filter(_) | InputMode::Normal => return,
+    };
+
+    let area = centered_rect(50, height, f.area());
 
     // clear the area behind the dialog
     f.render_widget(Clear, area);
@@ -665,7 +678,7 @@ fn draw_input_dialog(f: &mut Frame, app: &App) {
     match &app.input_mode {
         InputMode::Title(title) => {
             let block = Block::default()
-                .title(" New Issue - Title (Enter to confirm, Esc to cancel) ")
+                .title(" New Issue - Title (Enter, Esc) ")
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(Color::Yellow));
 
@@ -677,7 +690,7 @@ fn draw_input_dialog(f: &mut Frame, app: &App) {
         }
         InputMode::Priority { title, selected } => {
             let block = Block::default()
-                .title(" New Issue - Priority (Enter to create, Esc to cancel) ")
+                .title(" Priority (Enter, Esc) ")
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(Color::Yellow));
 
@@ -713,6 +726,123 @@ fn draw_input_dialog(f: &mut Frame, app: &App) {
 
             let list = List::new(items);
             f.render_widget(list, chunks[1]);
+        }
+        InputMode::Type {
+            title,
+            priority,
+            selected,
+        } => {
+            let block = Block::default()
+                .title(" Type (Enter, Esc) ")
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::Yellow));
+
+            let priorities = ["P0", "P1", "P2", "P3"];
+            let types = ["(none)", "design", "meta"];
+            let items: Vec<ListItem> = types
+                .iter()
+                .enumerate()
+                .map(|(i, t)| {
+                    let style = if i == *selected {
+                        Style::default()
+                            .bg(Color::Yellow)
+                            .fg(Color::Black)
+                            .add_modifier(Modifier::BOLD)
+                    } else {
+                        Style::default()
+                    };
+                    ListItem::new(format!("  {}", t)).style(style)
+                })
+                .collect();
+
+            let inner = block.inner(area);
+            f.render_widget(block, area);
+
+            let chunks = Layout::default()
+                .direction(Direction::Vertical)
+                .constraints([Constraint::Length(1), Constraint::Length(1), Constraint::Min(0)])
+                .split(inner);
+
+            let title_line =
+                Paragraph::new(format!("Title: {}", title)).style(Style::default().fg(Color::Cyan));
+            f.render_widget(title_line, chunks[0]);
+
+            let priority_line = Paragraph::new(format!("Priority: {}", priorities[*priority]))
+                .style(Style::default().fg(Color::Cyan));
+            f.render_widget(priority_line, chunks[1]);
+
+            let list = List::new(items);
+            f.render_widget(list, chunks[2]);
+        }
+        InputMode::Deps {
+            title,
+            priority,
+            type_idx,
+            selected_deps,
+            cursor,
+        } => {
+            let block = Block::default()
+                .title(" Dependencies (Space toggle, Enter create, Esc) ")
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::Yellow));
+
+            let priorities = ["P0", "P1", "P2", "P3"];
+            let types = ["(none)", "design", "meta"];
+
+            let items: Vec<ListItem> = app
+                .all_issues
+                .iter()
+                .enumerate()
+                .map(|(i, id)| {
+                    let is_selected = selected_deps.contains(id);
+                    let checkbox = if is_selected { "[x]" } else { "[ ]" };
+                    let style = if i == *cursor {
+                        Style::default()
+                            .bg(Color::Yellow)
+                            .fg(Color::Black)
+                            .add_modifier(Modifier::BOLD)
+                    } else if is_selected {
+                        Style::default().fg(Color::Green)
+                    } else {
+                        Style::default()
+                    };
+                    ListItem::new(format!(" {} {}", checkbox, id)).style(style)
+                })
+                .collect();
+
+            let inner = block.inner(area);
+            f.render_widget(block, area);
+
+            let chunks = Layout::default()
+                .direction(Direction::Vertical)
+                .constraints([
+                    Constraint::Length(1),
+                    Constraint::Length(1),
+                    Constraint::Length(1),
+                    Constraint::Min(0),
+                ])
+                .split(inner);
+
+            let title_line =
+                Paragraph::new(format!("Title: {}", title)).style(Style::default().fg(Color::Cyan));
+            f.render_widget(title_line, chunks[0]);
+
+            let priority_line = Paragraph::new(format!("Priority: {}", priorities[*priority]))
+                .style(Style::default().fg(Color::Cyan));
+            f.render_widget(priority_line, chunks[1]);
+
+            let type_line = Paragraph::new(format!("Type: {}", types[*type_idx]))
+                .style(Style::default().fg(Color::Cyan));
+            f.render_widget(type_line, chunks[2]);
+
+            if app.all_issues.is_empty() {
+                let empty = Paragraph::new("  (no existing issues)")
+                    .style(Style::default().fg(Color::DarkGray));
+                f.render_widget(empty, chunks[3]);
+            } else {
+                let list = List::new(items);
+                f.render_widget(list, chunks[3]);
+            }
         }
         InputMode::EditSelect { issue_id, selected } => {
             let block = Block::default()

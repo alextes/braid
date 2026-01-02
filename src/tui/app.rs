@@ -5,7 +5,7 @@ use std::collections::{HashMap, HashSet};
 use crate::config::Config;
 use crate::error::{BrdError, Result};
 use crate::graph::{DerivedState, compute_derived, get_ready_issues};
-use crate::issue::{Issue, Priority, Status};
+use crate::issue::{Issue, IssueType, Priority, Status};
 use crate::lock::LockGuard;
 use crate::repo::RepoPaths;
 
@@ -32,6 +32,20 @@ pub enum InputMode {
     Title(String),
     /// selecting priority (for new issue)
     Priority { title: String, selected: usize },
+    /// selecting type (for new issue)
+    Type {
+        title: String,
+        priority: usize,
+        selected: usize,
+    },
+    /// selecting dependencies (for new issue)
+    Deps {
+        title: String,
+        priority: usize,
+        type_idx: usize,
+        selected_deps: Vec<String>,
+        cursor: usize,
+    },
     /// selecting which field to edit
     EditSelect { issue_id: String, selected: usize },
     /// editing issue title
@@ -565,10 +579,68 @@ impl App {
         }
     }
 
-    /// create the issue with the given title and priority.
+    /// confirm priority and move to type selection.
+    pub fn confirm_priority(&mut self) {
+        if let InputMode::Priority { title, selected } = &self.input_mode {
+            self.input_mode = InputMode::Type {
+                title: title.clone(),
+                priority: *selected,
+                selected: 0, // default to (none)
+            };
+        }
+    }
+
+    /// confirm type and move to deps selection.
+    pub fn confirm_type(&mut self) {
+        if let InputMode::Type {
+            title,
+            priority,
+            selected,
+        } = &self.input_mode
+        {
+            // get list of existing issue ids for dep selection
+            let mut issue_ids: Vec<String> = self.all_issues.clone();
+            issue_ids.sort();
+
+            self.input_mode = InputMode::Deps {
+                title: title.clone(),
+                priority: *priority,
+                type_idx: *selected,
+                selected_deps: Vec::new(),
+                cursor: 0,
+            };
+        }
+    }
+
+    /// toggle dependency selection at cursor.
+    pub fn toggle_dep(&mut self) {
+        if let InputMode::Deps {
+            selected_deps,
+            cursor,
+            ..
+        } = &mut self.input_mode
+        {
+            if *cursor < self.all_issues.len() {
+                let issue_id = self.all_issues[*cursor].clone();
+                if let Some(pos) = selected_deps.iter().position(|d| d == &issue_id) {
+                    selected_deps.remove(pos);
+                } else {
+                    selected_deps.push(issue_id);
+                }
+            }
+        }
+    }
+
+    /// create the issue with all collected data.
     pub fn create_issue(&mut self, paths: &RepoPaths) -> Result<()> {
-        let (title, priority_idx) = match &self.input_mode {
-            InputMode::Priority { title, selected } => (title.clone(), *selected),
+        let (title, priority_idx, type_idx, deps) = match &self.input_mode {
+            InputMode::Deps {
+                title,
+                priority,
+                type_idx,
+                selected_deps,
+                ..
+            } => (title.clone(), *priority, *type_idx, selected_deps.clone()),
             _ => return Ok(()),
         };
 
@@ -580,9 +652,16 @@ impl App {
             _ => Priority::P2,
         };
 
+        let issue_type = match type_idx {
+            1 => Some(IssueType::Design),
+            2 => Some(IssueType::Meta),
+            _ => None, // 0 = (none)
+        };
+
         let issues_dir = paths.issues_dir(&self.config);
         let id = generate_issue_id(&self.config, &issues_dir)?;
-        let issue = Issue::new(id.clone(), title, priority, vec![]);
+        let mut issue = Issue::new(id.clone(), title, priority, deps);
+        issue.frontmatter.issue_type = issue_type;
 
         let _lock = LockGuard::acquire(&paths.lock_path())?;
 

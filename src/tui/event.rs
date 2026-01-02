@@ -52,12 +52,7 @@ fn handle_key_event(app: &mut App, paths: &RepoPaths, key: KeyEvent) -> Result<b
         InputMode::Priority { title, selected } => {
             match key.code {
                 KeyCode::Esc => app.cancel_add_issue(),
-                KeyCode::Enter => {
-                    if let Err(e) = app.create_issue(paths) {
-                        app.message = Some(format!("error: {}", e));
-                        app.input_mode = InputMode::Normal;
-                    }
-                }
+                KeyCode::Enter => app.confirm_priority(),
                 KeyCode::Up | KeyCode::Char('k') => {
                     if *selected > 0 {
                         app.input_mode = InputMode::Priority {
@@ -71,6 +66,80 @@ fn handle_key_event(app: &mut App, paths: &RepoPaths, key: KeyEvent) -> Result<b
                         app.input_mode = InputMode::Priority {
                             title: title.clone(),
                             selected: selected + 1,
+                        };
+                    }
+                }
+                _ => {}
+            }
+            return Ok(false);
+        }
+        InputMode::Type {
+            title,
+            priority,
+            selected,
+        } => {
+            match key.code {
+                KeyCode::Esc => app.cancel_add_issue(),
+                KeyCode::Enter => app.confirm_type(),
+                KeyCode::Up | KeyCode::Char('k') => {
+                    if *selected > 0 {
+                        app.input_mode = InputMode::Type {
+                            title: title.clone(),
+                            priority: *priority,
+                            selected: selected - 1,
+                        };
+                    }
+                }
+                KeyCode::Down | KeyCode::Char('j') => {
+                    if *selected < 2 {
+                        // 3 options: (none), design, meta
+                        app.input_mode = InputMode::Type {
+                            title: title.clone(),
+                            priority: *priority,
+                            selected: selected + 1,
+                        };
+                    }
+                }
+                _ => {}
+            }
+            return Ok(false);
+        }
+        InputMode::Deps {
+            title,
+            priority,
+            type_idx,
+            selected_deps,
+            cursor,
+        } => {
+            let max_cursor = app.all_issues.len().saturating_sub(1);
+            match key.code {
+                KeyCode::Esc => app.cancel_add_issue(),
+                KeyCode::Enter => {
+                    if let Err(e) = app.create_issue(paths) {
+                        app.message = Some(format!("error: {}", e));
+                        app.input_mode = InputMode::Normal;
+                    }
+                }
+                KeyCode::Char(' ') => app.toggle_dep(),
+                KeyCode::Up | KeyCode::Char('k') => {
+                    if *cursor > 0 {
+                        app.input_mode = InputMode::Deps {
+                            title: title.clone(),
+                            priority: *priority,
+                            type_idx: *type_idx,
+                            selected_deps: selected_deps.clone(),
+                            cursor: cursor - 1,
+                        };
+                    }
+                }
+                KeyCode::Down | KeyCode::Char('j') => {
+                    if *cursor < max_cursor {
+                        app.input_mode = InputMode::Deps {
+                            title: title.clone(),
+                            priority: *priority,
+                            type_idx: *type_idx,
+                            selected_deps: selected_deps.clone(),
+                            cursor: cursor + 1,
                         };
                     }
                 }
@@ -434,6 +503,7 @@ mod tests {
         let env = TestEnv::new();
         let mut app = env.app();
 
+        // start add flow
         handle_key_event(&mut app, &env.paths, key(KeyCode::Char('a'))).expect("start add failed");
         assert!(matches!(
             app.input_mode,
@@ -441,10 +511,12 @@ mod tests {
         ));
         assert!(app.message.is_none());
 
+        // empty title rejected
         handle_key_event(&mut app, &env.paths, key(KeyCode::Enter)).expect("empty title failed");
         assert_eq!(app.message.as_deref(), Some("title cannot be empty"));
         assert!(matches!(app.input_mode, InputMode::Title(_)));
 
+        // type title
         handle_key_event(&mut app, &env.paths, key(KeyCode::Char('t'))).expect("title char failed");
         handle_key_event(&mut app, &env.paths, key(KeyCode::Char('e'))).expect("title char failed");
         assert!(matches!(
@@ -452,11 +524,13 @@ mod tests {
             InputMode::Title(ref title) if title == "te"
         ));
 
+        // confirm title → priority selection
         handle_key_event(&mut app, &env.paths, key(KeyCode::Enter)).expect("confirm title failed");
         assert!(
             matches!(app.input_mode, InputMode::Priority { ref title, selected } if title == "te" && selected == 2)
         );
 
+        // navigate priority
         handle_key_event(&mut app, &env.paths, key(KeyCode::Up)).expect("priority up failed");
         handle_key_event(&mut app, &env.paths, key(KeyCode::Up)).expect("priority up failed");
         handle_key_event(&mut app, &env.paths, key(KeyCode::Up)).expect("priority up failed");
@@ -468,6 +542,19 @@ mod tests {
         handle_key_event(&mut app, &env.paths, key(KeyCode::Down)).expect("priority down failed");
         assert!(matches!(app.input_mode, InputMode::Priority { selected, .. } if selected == 3));
 
+        // confirm priority → type selection
+        handle_key_event(&mut app, &env.paths, key(KeyCode::Enter)).expect("confirm priority failed");
+        assert!(matches!(app.input_mode, InputMode::Type { priority, selected, .. } if priority == 3 && selected == 0));
+
+        // navigate type (0=none, 1=design, 2=meta)
+        handle_key_event(&mut app, &env.paths, key(KeyCode::Down)).expect("type down failed");
+        assert!(matches!(app.input_mode, InputMode::Type { selected, .. } if selected == 1));
+
+        // confirm type → deps selection
+        handle_key_event(&mut app, &env.paths, key(KeyCode::Enter)).expect("confirm type failed");
+        assert!(matches!(app.input_mode, InputMode::Deps { type_idx, .. } if type_idx == 1));
+
+        // confirm deps (no deps selected) → create issue
         handle_key_event(&mut app, &env.paths, key(KeyCode::Enter)).expect("create issue failed");
         assert!(matches!(app.input_mode, InputMode::Normal));
         assert_eq!(app.message.as_deref(), Some("refreshed"));
