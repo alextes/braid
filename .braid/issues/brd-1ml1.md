@@ -3,12 +3,12 @@ schema_version: 6
 id: brd-1ml1
 title: 'design: behavior when brd init called on already-initialized repo'
 priority: P2
-status: todo
+status: doing
 type: design
 deps: []
-owner: null
+owner: agent-one
 created_at: 2026-01-02T13:27:04.292405Z
-updated_at: 2026-01-02T13:27:04.292405Z
+updated_at: 2026-01-02T13:32:58.702286Z
 ---
 
 ## Problem
