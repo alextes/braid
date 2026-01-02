@@ -195,7 +195,7 @@ pub fn commit_and_push_main_with_action(
         return Err(BrdError::Other("failed to stage .braid".to_string()));
     }
 
-    let commit_msg = format!("{}: {}", action, issue_id);
+    let commit_msg = format!("chore(braid): {} {}", action, issue_id);
     if !git::run(&["commit", "-m", &commit_msg], &paths.worktree_root)? {
         // Nothing to commit is ok
         if !cli.json {
@@ -279,7 +279,7 @@ pub fn commit_and_push_issues_branch_with_action(
         ));
     }
 
-    let commit_msg = format!("{}: {}", action, issue_id);
+    let commit_msg = format!("chore(braid): {} {}", action, issue_id);
     if !git::run(&["commit", "-m", &commit_msg], &issues_wt)? && !cli.json {
         eprintln!("  (no changes to commit in sync branch)");
     }

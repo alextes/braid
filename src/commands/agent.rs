@@ -486,7 +486,7 @@ this repo uses **git-native mode** — issues live alongside code and sync via g
 **after marking an issue done:**
 ```bash
 brd done <id>
-git add .braid && git commit -m "done: <id>"
+git add .braid && git commit -m "chore(braid): done <id>"
 brd agent ship  # or create a PR
 ```
 
