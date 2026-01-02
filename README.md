@@ -18,12 +18,12 @@ takes inspiration from [beads](https://github.com/steveyegge/beads).
 
 ## braid vs beads
 
-| | braid | beads |
-| --- | --- | --- |
-| storage | markdown issues in `.braid/issues/` | jsonl issues in `.beads/` |
-| workflow | repo-local, explicit git pull/push | distributed with auto-sync + daemon |
-| ids | human-readable prefix + random suffix | hash-based ids + hierarchy |
-| extras | minimal cli, no background services | sqlite cache, compaction, community tools |
+|          | braid                                 | beads                                     |
+| -------- | ------------------------------------- | ----------------------------------------- |
+| storage  | markdown issues in `.braid/issues/`   | jsonl issues in `.beads/`                 |
+| workflow | repo-local, explicit git pull/push    | distributed with auto-sync + daemon       |
+| ids      | human-readable prefix + random suffix | hash-based ids + hierarchy                |
+| extras   | minimal cli, no background services   | sqlite cache, compaction, community tools |
 
 ## installation
 
@@ -156,11 +156,11 @@ see [docs/agent-workflow.md](docs/agent-workflow.md) for the full guide.
 
 braid's workflow is controlled by two independent settings: **issue storage** and **auto-sync**. check your current config with `brd mode`.
 
-| storage | auto-sync | called | use case |
-|---------|-----------|--------|----------|
-| with code | on | git-native | solo, remote agents |
-| separate branch | on | local-sync | multiple local agents |
-| external repo | varies | external-repo | privacy, multi-repo |
+| storage         | auto-sync | called        | use case              |
+| --------------- | --------- | ------------- | --------------------- |
+| with code       | on        | git-native    | solo, remote agents   |
+| separate branch | on        | local-sync    | multiple local agents |
+| external repo   | varies    | external-repo | privacy, multi-repo   |
 
 **git-native**: issues live in `.braid/issues/` and sync via git push/pull.
 
