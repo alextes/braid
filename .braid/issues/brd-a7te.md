@@ -3,13 +3,13 @@ schema_version: 6
 id: brd-a7te
 title: 'TUI: allow adding deps when creating issues'
 priority: P3
-status: doing
+status: done
 deps: []
 tags:
 - TUI
-owner: agent-three
+owner: null
 created_at: 2025-12-27T13:49:24.218099Z
-updated_at: 2026-01-02T13:23:03.422733Z
+updated_at: 2026-01-02T13:28:16.433966Z
 acceptance:
 - issue creation flow allows selecting dependencies
 ---
