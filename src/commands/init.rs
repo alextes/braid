@@ -397,6 +397,8 @@ mod tests {
         let repo_path = dir.path().join(name);
         std::fs::create_dir_all(&repo_path).unwrap();
         git_ok(&repo_path, &["init"]);
+        git_ok(&repo_path, &["config", "user.email", "test@test.com"]);
+        git_ok(&repo_path, &["config", "user.name", "Test User"]);
         // Create initial commit so issues_branch worktree can be created
         std::fs::write(repo_path.join("README.md"), "# Test\n").unwrap();
         git_ok(&repo_path, &["add", "."]);
@@ -411,6 +413,8 @@ mod tests {
         let repo_path = dir.path().join(name);
         std::fs::create_dir_all(&repo_path).unwrap();
         git_ok(&repo_path, &["init"]);
+        git_ok(&repo_path, &["config", "user.email", "test@test.com"]);
+        git_ok(&repo_path, &["config", "user.name", "Test User"]);
         let _cwd = CwdGuard::enter(&repo_path);
         f(&repo_path);
     }
