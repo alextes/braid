@@ -3,11 +3,11 @@ schema_version: 6
 id: brd-rzk2
 title: add tests for TUI modules
 priority: P2
-status: todo
+status: doing
 deps: []
-owner: null
+owner: agent-three
 created_at: 2025-12-31T08:27:38.467381Z
-updated_at: 2025-12-31T08:27:38.467381Z
+updated_at: 2026-01-02T21:06:06.121698Z
 ---
 
 The TUI module has 2,375 lines across 3 files with only 1 test:
