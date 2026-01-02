@@ -103,18 +103,29 @@ pub fn cmd_init(cli: &Cli, args: &InitArgs) -> Result<()> {
         });
         println!("{}", serde_json::to_string_pretty(&json).unwrap());
     } else {
-        println!("Initialized braid in {}", braid_dir.display());
+        println!("braid initialized");
         println!();
-        println!("Configuration:");
-        if let Some(branch) = &workflow.issues_branch {
-            println!("  issues_branch = \"{}\"", branch);
-        }
-        println!("  auto_pull = {}", workflow.auto_pull);
-        println!("  auto_push = {}", workflow.auto_push);
+
+        // mode description
+        let mode_desc = match &workflow.issues_branch {
+            Some(branch) => format!("issues branch ({})", branch),
+            None => "issues in code branches".to_string(),
+        };
+        println!("  mode:       {}", mode_desc);
+
+        // auto-sync description
+        let sync_desc = if workflow.auto_pull && workflow.auto_push {
+            "enabled (pull on start, push on done)"
+        } else {
+            "disabled (use `brd sync` manually)"
+        };
+        println!("  auto-sync:  {}", sync_desc);
+
+        println!("  location:   .braid/");
         println!();
-        println!("Next steps:");
-        println!("  brd add \"my first task\"     # create an issue");
-        println!("  brd agent inject            # add agent instructions to AGENTS.md");
+        println!("next steps:");
+        println!("  brd add \"my first task\"");
+        println!("  brd agent inject");
     }
 
     Ok(())
@@ -128,7 +139,7 @@ pub fn cmd_init(cli: &Cli, args: &InitArgs) -> Result<()> {
 fn determine_workflow_config(
     cli: &Cli,
     args: &InitArgs,
-    worktree_root: &std::path::Path,
+    _worktree_root: &std::path::Path,
 ) -> Result<WorkflowConfig> {
     // if explicitly set via --issues-branch, use it with default auto_sync
     if let Some(branch) = args.issues_branch.clone() {
@@ -149,76 +160,41 @@ fn determine_workflow_config(
     }
 
     // interactive prompts
-    println!("Initializing braid in {}...", worktree_root.display());
+    println!("initializing braid...");
     println!();
 
     let stdin = io::stdin();
 
     // Q1: Issues branch?
-    println!("Use a separate branch for issues? [recommended]");
-    println!();
-    println!("  1. Yes - prevents local conflicts, cleaner history");
-    println!("  2. No - issues travel with code branches");
-    println!();
-    print!("Choice [1]: ");
+    print!("store issues on a separate branch? [Y/n]: ");
     io::stdout().flush()?;
 
     let mut q1_line = String::new();
     stdin.lock().read_line(&mut q1_line)?;
-    let q1_choice = q1_line.trim();
+    let q1_choice = q1_line.trim().to_lowercase();
 
-    let issues_branch = match q1_choice {
-        "2" => {
-            println!();
-            println!("→ Issues stored with code.");
-            println!("  Note: Use auto-sync for multi-agent coordination.");
-            None
-        }
-        "" | "1" => {
-            println!();
-            println!("→ Using separate 'braid-issues' branch.");
-            println!("  Trade-off: Issue state decoupled from code state.");
-            Some("braid-issues".to_string())
-        }
+    let issues_branch = match q1_choice.as_str() {
+        "n" | "no" => None,
+        "" | "y" | "yes" => Some("braid-issues".to_string()),
         _ => {
-            eprintln!("Invalid choice '{}', using separate branch", q1_choice);
+            eprintln!("invalid choice '{}', using separate branch", q1_choice);
             Some("braid-issues".to_string())
         }
     };
 
-    println!();
-
-    // Q2: Auto-sync? (recommendation depends on Q1)
-    println!("Auto-sync with git remote?");
-    println!("(pull on issue start, push on done)");
-    println!();
-    if issues_branch.is_some() {
-        println!("  1. Yes - sync with remote collaborators");
-    } else {
-        println!("  1. Yes - required for multi-agent coordination [recommended]");
-    }
-    println!("  2. No - manual sync only (brd sync)");
-    println!();
-    print!("Choice [1]: ");
+    // Q2: Auto-sync?
+    print!("auto-sync with remote? [Y/n]: ");
     io::stdout().flush()?;
 
     let mut q2_line = String::new();
     stdin.lock().read_line(&mut q2_line)?;
-    let q2_choice = q2_line.trim();
+    let q2_choice = q2_line.trim().to_lowercase();
 
-    let (auto_pull, auto_push) = match q2_choice {
-        "2" => {
-            println!();
-            println!("→ Manual sync mode. Use `brd sync` when ready to share changes.");
-            (false, false)
-        }
-        "" | "1" => {
-            println!();
-            println!("→ Auto-sync enabled.");
-            (true, true)
-        }
+    let (auto_pull, auto_push) = match q2_choice.as_str() {
+        "n" | "no" => (false, false),
+        "" | "y" | "yes" => (true, true),
         _ => {
-            eprintln!("Invalid choice '{}', using auto-sync", q2_choice);
+            eprintln!("invalid choice '{}', using auto-sync", q2_choice);
             (true, true)
         }
     };
@@ -282,12 +258,16 @@ fn setup_issues_branch(
         }
 
         if !json {
-            println!("Created sync branch '{}'", branch_name);
+            println!("creating issues branch '{}'...", branch_name);
         }
     }
 
     // 2. create issues worktree if it doesn't exist
     if !issues_wt_path.exists() {
+        if !json {
+            println!("creating issues worktree...");
+        }
+
         let output = std::process::Command::new("git")
             .args(["worktree", "add"])
             .arg(&issues_wt_path)
@@ -301,10 +281,6 @@ fn setup_issues_branch(
                 "failed to create issues worktree: {}",
                 stderr
             )));
-        }
-
-        if !json {
-            println!("Created issues worktree at {}", issues_wt_path.display());
         }
 
         // 3. copy existing issues to the worktree if any exist
