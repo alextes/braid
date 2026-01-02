@@ -82,6 +82,32 @@ fn format_ready_output(
         }
         let _ = write!(output, "  {}{}", type_col, issue.title());
 
+        // show tags with #bug in red
+        if !issue.tags().is_empty() {
+            let _ = write!(output, " ");
+            for (i, tag) in issue.tags().iter().enumerate() {
+                if i > 0 {
+                    let _ = write!(output, " ");
+                }
+                if use_color {
+                    let color = if tag == "bug" {
+                        Color::Red
+                    } else {
+                        Color::Cyan
+                    };
+                    let _ = write!(
+                        output,
+                        "{}#{}{}",
+                        SetForegroundColor(color),
+                        tag,
+                        SetForegroundColor(Color::Reset)
+                    );
+                } else {
+                    let _ = write!(output, "#{}", tag);
+                }
+            }
+        }
+
         if use_color && (is_doing || issue.issue_type().is_some()) {
             let _ = write!(output, "{}", SetAttribute(Attribute::Reset));
         }
