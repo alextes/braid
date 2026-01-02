@@ -1,7 +1,7 @@
 ---
 schema_version: 6
 id: brd-e27d
-title: manual testing checklist for workflow modes
+title: testing checklist for workflow modes
 priority: P2
 status: todo
 deps: []
@@ -12,7 +12,7 @@ updated_at: 2026-01-02T13:27:04.113387Z
 
 ## Purpose
 
-Track manual testing of braid's workflow configurations before v1.0.
+Track testing of braid's workflow configurations before v1.0. Can be worked through manually or with AI assistance.
 
 ## Checklist
 
@@ -47,6 +47,6 @@ Track manual testing of braid's workflow configurations before v1.0.
 - [ ] Point code repo to it
 - [ ] Commands read/write to external repo
 
-## Notes
+## Related
 
-Some of these could become integration tests - see related issues.
+- brd-u9ka: integration tests for core paths from this checklist
