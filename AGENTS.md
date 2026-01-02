@@ -68,7 +68,16 @@ cat .braid/agent.toml 2>/dev/null && echo "yes, worktree" || echo "no, main"
 if you're in a worktree:
 - `brd start` handles syncing automatically
 - use `brd agent ship` to merge your work to main (rebase + fast-forward push)
-- if you see schema mismatch errors, rebase onto latest main
+
+### schema mismatch errors
+
+if you see an error like "this repo uses schema vX, but this brd only supports up to vY":
+
+1. **rebase first**: `git fetch origin main && git rebase origin/main`
+2. **rebuild**: `cargo build --release`
+3. **if still failing**: stop and ask the human - there may be an unreleased schema change
+
+**NEVER manually edit `schema_version` in config files.** this causes data inconsistency between agents and can corrupt the issues branch.
 
 ## design and meta issues
 

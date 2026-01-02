@@ -151,3 +151,209 @@ fn generate_commit_message(repo_root: &std::path::Path) -> Result<String> {
 
     Ok(msg)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use tempfile::tempdir;
+
+    fn setup_git_repo() -> tempfile::TempDir {
+        let dir = tempdir().unwrap();
+
+        // init git repo
+        Command::new("git")
+            .args(["init"])
+            .current_dir(dir.path())
+            .output()
+            .unwrap();
+
+        // configure git user for commits
+        Command::new("git")
+            .args(["config", "user.email", "test@test.com"])
+            .current_dir(dir.path())
+            .output()
+            .unwrap();
+        Command::new("git")
+            .args(["config", "user.name", "Test"])
+            .current_dir(dir.path())
+            .output()
+            .unwrap();
+        // disable gpg signing for tests
+        Command::new("git")
+            .args(["config", "commit.gpgsign", "false"])
+            .current_dir(dir.path())
+            .output()
+            .unwrap();
+
+        // create .braid/issues directory
+        fs::create_dir_all(dir.path().join(".braid/issues")).unwrap();
+
+        // initial commit so we have a HEAD
+        fs::write(dir.path().join(".gitkeep"), "").unwrap();
+        Command::new("git")
+            .args(["add", "."])
+            .current_dir(dir.path())
+            .output()
+            .unwrap();
+        Command::new("git")
+            .args(["commit", "-m", "initial"])
+            .current_dir(dir.path())
+            .output()
+            .unwrap();
+
+        dir
+    }
+
+    fn make_cli() -> Cli {
+        Cli {
+            json: false,
+            repo: None,
+            no_color: true,
+            verbose: false,
+            command: crate::cli::Command::Doctor,
+        }
+    }
+
+    fn make_paths(dir: &tempfile::TempDir) -> RepoPaths {
+        RepoPaths {
+            worktree_root: dir.path().to_path_buf(),
+            git_common_dir: dir.path().join(".git"),
+            brd_common_dir: dir.path().join(".git/brd"),
+        }
+    }
+
+    #[test]
+    fn test_commit_no_braid_dir() {
+        let dir = tempdir().unwrap();
+        let cli = make_cli();
+        let paths = RepoPaths {
+            worktree_root: dir.path().to_path_buf(),
+            git_common_dir: dir.path().join(".git"),
+            brd_common_dir: dir.path().join(".git/brd"),
+        };
+
+        let result = cmd_commit(&cli, &paths, None);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("no .braid directory"));
+    }
+
+    #[test]
+    fn test_commit_nothing_to_commit() {
+        let dir = setup_git_repo();
+        let cli = make_cli();
+        let paths = make_paths(&dir);
+
+        // no changes to .braid, should succeed with "nothing to commit"
+        let result = cmd_commit(&cli, &paths, None);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_commit_with_new_issue() {
+        let dir = setup_git_repo();
+        let cli = make_cli();
+        let paths = make_paths(&dir);
+
+        // create a new issue file
+        fs::write(
+            dir.path().join(".braid/issues/brd-test.md"),
+            "---\ntitle: test\n---\n",
+        ).unwrap();
+
+        let result = cmd_commit(&cli, &paths, None);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_commit_with_custom_message() {
+        let dir = setup_git_repo();
+        let cli = make_cli();
+        let paths = make_paths(&dir);
+
+        // create a new issue file
+        fs::write(
+            dir.path().join(".braid/issues/brd-custom.md"),
+            "---\ntitle: custom\n---\n",
+        ).unwrap();
+
+        let result = cmd_commit(&cli, &paths, Some("custom commit message"));
+        assert!(result.is_ok());
+
+        // verify commit message
+        let log = Command::new("git")
+            .args(["log", "-1", "--format=%s"])
+            .current_dir(dir.path())
+            .output()
+            .unwrap();
+        let msg = String::from_utf8_lossy(&log.stdout);
+        assert!(msg.contains("custom commit message"));
+    }
+
+    #[test]
+    fn test_generate_commit_message_single_add() {
+        let dir = setup_git_repo();
+
+        // create and stage a new issue
+        fs::write(
+            dir.path().join(".braid/issues/brd-aaaa.md"),
+            "---\ntitle: test\n---\n",
+        ).unwrap();
+        Command::new("git")
+            .args(["add", ".braid"])
+            .current_dir(dir.path())
+            .output()
+            .unwrap();
+
+        let msg = generate_commit_message(dir.path()).unwrap();
+        assert!(msg.contains("add 1"));
+        assert!(msg.contains("brd-aaaa"));
+    }
+
+    #[test]
+    fn test_generate_commit_message_multiple_changes() {
+        let dir = setup_git_repo();
+
+        // create initial issues and commit them
+        fs::write(
+            dir.path().join(".braid/issues/brd-0001.md"),
+            "---\ntitle: one\n---\n",
+        ).unwrap();
+        fs::write(
+            dir.path().join(".braid/issues/brd-0002.md"),
+            "---\ntitle: two\n---\n",
+        ).unwrap();
+        Command::new("git")
+            .args(["add", ".braid"])
+            .current_dir(dir.path())
+            .output()
+            .unwrap();
+        Command::new("git")
+            .args(["commit", "-m", "add issues"])
+            .current_dir(dir.path())
+            .output()
+            .unwrap();
+
+        // now modify one, delete one, add one
+        fs::write(
+            dir.path().join(".braid/issues/brd-0001.md"),
+            "---\ntitle: one modified\n---\n",
+        ).unwrap();
+        fs::remove_file(dir.path().join(".braid/issues/brd-0002.md")).unwrap();
+        fs::write(
+            dir.path().join(".braid/issues/brd-0003.md"),
+            "---\ntitle: three\n---\n",
+        ).unwrap();
+
+        Command::new("git")
+            .args(["add", ".braid"])
+            .current_dir(dir.path())
+            .output()
+            .unwrap();
+
+        let msg = generate_commit_message(dir.path()).unwrap();
+        assert!(msg.contains("add 1"));
+        assert!(msg.contains("update 1"));
+        assert!(msg.contains("remove 1"));
+    }
+}

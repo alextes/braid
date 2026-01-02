@@ -764,3 +764,394 @@ fn remove_from_git_exclude(paths: &RepoPaths, pattern: &str) -> Result<()> {
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use std::process::Command;
+    use tempfile::tempdir;
+
+    fn setup_git_repo() -> tempfile::TempDir {
+        let dir = tempdir().unwrap();
+
+        Command::new("git")
+            .args(["init"])
+            .current_dir(dir.path())
+            .output()
+            .unwrap();
+
+        Command::new("git")
+            .args(["config", "user.email", "test@test.com"])
+            .current_dir(dir.path())
+            .output()
+            .unwrap();
+        Command::new("git")
+            .args(["config", "user.name", "Test"])
+            .current_dir(dir.path())
+            .output()
+            .unwrap();
+        Command::new("git")
+            .args(["config", "commit.gpgsign", "false"])
+            .current_dir(dir.path())
+            .output()
+            .unwrap();
+
+        // initial commit
+        fs::write(dir.path().join(".gitkeep"), "").unwrap();
+        Command::new("git")
+            .args(["add", "."])
+            .current_dir(dir.path())
+            .output()
+            .unwrap();
+        Command::new("git")
+            .args(["commit", "-m", "initial"])
+            .current_dir(dir.path())
+            .output()
+            .unwrap();
+
+        dir
+    }
+
+    fn make_cli() -> Cli {
+        Cli {
+            json: false,
+            repo: None,
+            no_color: true,
+            verbose: false,
+            command: crate::cli::Command::Doctor,
+        }
+    }
+
+    fn make_paths(dir: &tempfile::TempDir) -> RepoPaths {
+        RepoPaths {
+            worktree_root: dir.path().to_path_buf(),
+            git_common_dir: dir.path().join(".git"),
+            brd_common_dir: dir.path().join(".git/brd"),
+        }
+    }
+
+    fn setup_braid_config(dir: &tempfile::TempDir, content: &str) {
+        fs::create_dir_all(dir.path().join(".braid")).unwrap();
+        fs::write(dir.path().join(".braid/config.toml"), content).unwrap();
+    }
+
+    // count_issues tests
+    #[test]
+    fn test_count_issues_empty_dir() {
+        let dir = tempdir().unwrap();
+        fs::create_dir_all(dir.path().join("issues")).unwrap();
+        assert_eq!(count_issues(&dir.path().join("issues")), 0);
+    }
+
+    #[test]
+    fn test_count_issues_nonexistent_dir() {
+        let dir = tempdir().unwrap();
+        assert_eq!(count_issues(&dir.path().join("nonexistent")), 0);
+    }
+
+    #[test]
+    fn test_count_issues_with_md_files() {
+        let dir = tempdir().unwrap();
+        let issues_dir = dir.path().join("issues");
+        fs::create_dir_all(&issues_dir).unwrap();
+
+        fs::write(issues_dir.join("issue1.md"), "content").unwrap();
+        fs::write(issues_dir.join("issue2.md"), "content").unwrap();
+        fs::write(issues_dir.join("not-an-issue.txt"), "content").unwrap();
+
+        assert_eq!(count_issues(&issues_dir), 2);
+    }
+
+    // has_upstream tests
+    #[test]
+    fn test_has_upstream_no_upstream() {
+        let dir = setup_git_repo();
+
+        Command::new("git")
+            .args(["branch", "test-branch"])
+            .current_dir(dir.path())
+            .output()
+            .unwrap();
+
+        assert!(!has_upstream("test-branch", dir.path()));
+    }
+
+    // get_upstream tests
+    #[test]
+    fn test_get_upstream_no_upstream() {
+        let dir = setup_git_repo();
+
+        Command::new("git")
+            .args(["branch", "test-branch"])
+            .current_dir(dir.path())
+            .output()
+            .unwrap();
+
+        assert!(get_upstream("test-branch", dir.path()).is_none());
+    }
+
+    // is_behind_main tests
+    #[test]
+    fn test_is_behind_main_same_commit() {
+        let dir = setup_git_repo();
+
+        // ensure we're on main
+        let _ = Command::new("git")
+            .args(["branch", "-M", "main"])
+            .current_dir(dir.path())
+            .output();
+
+        // create a branch at same commit as main
+        Command::new("git")
+            .args(["branch", "test-branch"])
+            .current_dir(dir.path())
+            .output()
+            .unwrap();
+
+        // checkout the branch
+        Command::new("git")
+            .args(["checkout", "test-branch"])
+            .current_dir(dir.path())
+            .output()
+            .unwrap();
+
+        assert!(!is_behind_main(dir.path()));
+    }
+
+    #[test]
+    fn test_is_behind_main_behind() {
+        let dir = setup_git_repo();
+
+        // ensure we're on main
+        let _ = Command::new("git")
+            .args(["branch", "-M", "main"])
+            .current_dir(dir.path())
+            .output();
+
+        // create a branch at current commit
+        Command::new("git")
+            .args(["branch", "test-branch"])
+            .current_dir(dir.path())
+            .output()
+            .unwrap();
+
+        // add a commit to main
+        fs::write(dir.path().join("new-file.txt"), "content").unwrap();
+        Command::new("git")
+            .args(["add", "."])
+            .current_dir(dir.path())
+            .output()
+            .unwrap();
+        Command::new("git")
+            .args(["commit", "-m", "new commit on main"])
+            .current_dir(dir.path())
+            .output()
+            .unwrap();
+
+        // checkout the branch (now behind main)
+        Command::new("git")
+            .args(["checkout", "test-branch"])
+            .current_dir(dir.path())
+            .output()
+            .unwrap();
+
+        assert!(is_behind_main(dir.path()));
+    }
+
+    // cmd_mode_show tests
+    #[test]
+    fn test_mode_show_git_native() {
+        let dir = setup_git_repo();
+        let cli = make_cli();
+        let paths = make_paths(&dir);
+
+        setup_braid_config(&dir, "schema_version = 6\nid_prefix = \"tst\"\nid_len = 4\n");
+
+        let result = cmd_mode_show(&cli, &paths);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_mode_show_local_sync() {
+        let dir = setup_git_repo();
+        let cli = make_cli();
+        let paths = make_paths(&dir);
+
+        setup_braid_config(
+            &dir,
+            "schema_version = 6\nid_prefix = \"tst\"\nid_len = 4\nissues_branch = \"braid-issues\"\n",
+        );
+
+        let result = cmd_mode_show(&cli, &paths);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_mode_show_external_repo() {
+        let dir = setup_git_repo();
+        let cli = make_cli();
+        let paths = make_paths(&dir);
+
+        setup_braid_config(
+            &dir,
+            "schema_version = 6\nid_prefix = \"tst\"\nid_len = 4\nissues_repo = \"../external\"\n",
+        );
+
+        let result = cmd_mode_show(&cli, &paths);
+        assert!(result.is_ok());
+    }
+
+    // cmd_mode_local_sync tests
+    #[test]
+    fn test_mode_local_sync_already_in_sync_mode() {
+        let dir = setup_git_repo();
+        let cli = make_cli();
+        let paths = make_paths(&dir);
+
+        setup_braid_config(
+            &dir,
+            "schema_version = 6\nid_prefix = \"tst\"\nid_len = 4\nissues_branch = \"existing-branch\"\n",
+        );
+
+        let result = cmd_mode_local_sync(&cli, &paths, "new-branch", true);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("already in sync mode"));
+    }
+
+    #[test]
+    fn test_mode_local_sync_uncommitted_changes() {
+        let dir = setup_git_repo();
+        let cli = make_cli();
+        let paths = make_paths(&dir);
+
+        setup_braid_config(&dir, "schema_version = 6\nid_prefix = \"tst\"\nid_len = 4\n");
+
+        // create uncommitted changes
+        fs::write(dir.path().join("uncommitted.txt"), "content").unwrap();
+
+        let result = cmd_mode_local_sync(&cli, &paths, "braid-issues", true);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("uncommitted changes"));
+    }
+
+    #[test]
+    fn test_mode_local_sync_success() {
+        let dir = setup_git_repo();
+        let cli = make_cli();
+        let paths = make_paths(&dir);
+
+        fs::create_dir_all(&paths.brd_common_dir).unwrap();
+        setup_braid_config(&dir, "schema_version = 6\nid_prefix = \"tst\"\nid_len = 4\n");
+
+        // commit the .braid directory
+        Command::new("git")
+            .args(["add", ".braid"])
+            .current_dir(dir.path())
+            .output()
+            .unwrap();
+        Command::new("git")
+            .args(["commit", "-m", "add braid config"])
+            .current_dir(dir.path())
+            .output()
+            .unwrap();
+
+        let result = cmd_mode_local_sync(&cli, &paths, "braid-issues", true);
+        assert!(result.is_ok());
+
+        // verify config was updated
+        let config = Config::load(&paths.config_path()).unwrap();
+        assert_eq!(config.issues_branch, Some("braid-issues".to_string()));
+    }
+
+    // cmd_mode_git_native tests
+    #[test]
+    fn test_mode_git_native_already_in_git_native() {
+        let dir = setup_git_repo();
+        let cli = make_cli();
+        let paths = make_paths(&dir);
+
+        setup_braid_config(&dir, "schema_version = 6\nid_prefix = \"tst\"\nid_len = 4\n");
+
+        let result = cmd_mode_git_native(&cli, &paths, true);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("already in git-native mode"));
+    }
+
+    #[test]
+    fn test_mode_git_native_from_external() {
+        let dir = setup_git_repo();
+        let cli = make_cli();
+        let paths = make_paths(&dir);
+
+        setup_braid_config(
+            &dir,
+            "schema_version = 6\nid_prefix = \"tst\"\nid_len = 4\nissues_repo = \"../external\"\n",
+        );
+
+        // commit the config
+        Command::new("git")
+            .args(["add", ".braid"])
+            .current_dir(dir.path())
+            .output()
+            .unwrap();
+        Command::new("git")
+            .args(["commit", "-m", "add braid config"])
+            .current_dir(dir.path())
+            .output()
+            .unwrap();
+
+        let result = cmd_mode_git_native(&cli, &paths, true);
+        assert!(result.is_ok());
+
+        // verify config was updated
+        let config = Config::load(&paths.config_path()).unwrap();
+        assert!(config.issues_repo.is_none());
+    }
+
+    // cmd_mode_external_repo tests
+    #[test]
+    fn test_mode_external_repo_already_in_sync_mode() {
+        let dir = setup_git_repo();
+        let cli = make_cli();
+        let paths = make_paths(&dir);
+
+        setup_braid_config(
+            &dir,
+            "schema_version = 6\nid_prefix = \"tst\"\nid_len = 4\nissues_branch = \"issues\"\n",
+        );
+
+        let result = cmd_mode_external_repo(&cli, &paths, "../external", true);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("currently in local-sync mode"));
+    }
+
+    #[test]
+    fn test_mode_external_repo_already_in_external_mode() {
+        let dir = setup_git_repo();
+        let cli = make_cli();
+        let paths = make_paths(&dir);
+
+        setup_braid_config(
+            &dir,
+            "schema_version = 6\nid_prefix = \"tst\"\nid_len = 4\nissues_repo = \"../existing\"\n",
+        );
+
+        let result = cmd_mode_external_repo(&cli, &paths, "../new-external", true);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("already in external-repo mode"));
+    }
+
+    #[test]
+    fn test_mode_external_repo_nonexistent_path() {
+        let dir = setup_git_repo();
+        let cli = make_cli();
+        let paths = make_paths(&dir);
+
+        setup_braid_config(&dir, "schema_version = 6\nid_prefix = \"tst\"\nid_len = 4\n");
+
+        let result = cmd_mode_external_repo(&cli, &paths, "/nonexistent/path", true);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("does not exist"));
+    }
+}

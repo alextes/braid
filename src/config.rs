@@ -6,6 +6,41 @@ use std::path::Path;
 use crate::error::{BrdError, Result};
 use crate::migrate::CURRENT_SCHEMA;
 
+/// Build a context-aware schema mismatch error message.
+///
+/// If `worktree_root` is provided and contains `.braid/agent.toml`, the message
+/// includes agent-specific guidance (rebase onto main first).
+pub fn schema_mismatch_error(
+    location: &str,
+    repo_version: u32,
+    supported_version: u32,
+    worktree_root: Option<&Path>,
+) -> BrdError {
+    let is_agent_worktree = worktree_root
+        .map(|root| root.join(".braid/agent.toml").exists())
+        .unwrap_or(false);
+
+    let base_msg = format!(
+        "{} uses schema v{}, but this brd only supports up to v{}",
+        location, repo_version, supported_version
+    );
+
+    let guidance = if is_agent_worktree {
+        r#"
+
+for agent worktrees:
+  1. rebase on main: git fetch origin main && git rebase origin/main
+  2. rebuild: cargo build --release
+  3. if still failing, ask human - there may be an unreleased schema change
+
+NEVER manually edit schema_version in config files."#
+    } else {
+        "\n\nupgrade brd: cargo install braid"
+    };
+
+    BrdError::Other(format!("{}{}", base_msg, guidance))
+}
+
 /// Default value for auto_pull and auto_push (true for safety).
 fn default_true() -> bool {
     true
@@ -102,12 +137,15 @@ impl Config {
 
     /// validate the config.
     /// fails if the repo uses a newer schema than this brd version supports.
-    pub fn validate(&self) -> Result<()> {
+    /// pass `worktree_root` to get context-aware error messages for agent worktrees.
+    pub fn validate(&self, worktree_root: Option<&Path>) -> Result<()> {
         if self.schema_version > CURRENT_SCHEMA {
-            return Err(BrdError::Other(format!(
-                "this repo uses schema v{}, but this brd only supports up to v{}. please upgrade brd.",
-                self.schema_version, CURRENT_SCHEMA
-            )));
+            return Err(schema_mismatch_error(
+                "this repo",
+                self.schema_version,
+                CURRENT_SCHEMA,
+                worktree_root,
+            ));
         }
         if self.id_len < 4 || self.id_len > 10 {
             return Err(BrdError::ParseError(
@@ -205,26 +243,26 @@ mod tests {
     #[test]
     fn test_config_validation() {
         let mut config = Config::default();
-        assert!(config.validate().is_ok());
+        assert!(config.validate(None).is_ok());
 
         // schema_version at current is ok
         config.schema_version = CURRENT_SCHEMA;
-        assert!(config.validate().is_ok());
+        assert!(config.validate(None).is_ok());
 
         // schema_version below current is ok (old repo)
         config.schema_version = 1;
-        assert!(config.validate().is_ok());
+        assert!(config.validate(None).is_ok());
 
         // schema_version above current should fail (repo newer than brd)
         config.schema_version = CURRENT_SCHEMA + 1;
-        assert!(config.validate().is_err());
+        assert!(config.validate(None).is_err());
 
         config.schema_version = CURRENT_SCHEMA;
         config.id_len = 3;
-        assert!(config.validate().is_err());
+        assert!(config.validate(None).is_err());
 
         config.id_len = 4;
         config.id_prefix = "x".to_string();
-        assert!(config.validate().is_err());
+        assert!(config.validate(None).is_err());
     }
 }

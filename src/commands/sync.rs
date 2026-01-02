@@ -154,3 +154,166 @@ pub fn cmd_sync(cli: &Cli, paths: &RepoPaths, push: bool) -> Result<()> {
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use std::process::Command;
+    use tempfile::tempdir;
+
+    fn setup_git_repo() -> tempfile::TempDir {
+        let dir = tempdir().unwrap();
+
+        Command::new("git")
+            .args(["init"])
+            .current_dir(dir.path())
+            .output()
+            .unwrap();
+
+        Command::new("git")
+            .args(["config", "user.email", "test@test.com"])
+            .current_dir(dir.path())
+            .output()
+            .unwrap();
+        Command::new("git")
+            .args(["config", "user.name", "Test"])
+            .current_dir(dir.path())
+            .output()
+            .unwrap();
+        Command::new("git")
+            .args(["config", "commit.gpgsign", "false"])
+            .current_dir(dir.path())
+            .output()
+            .unwrap();
+
+        // initial commit
+        fs::write(dir.path().join(".gitkeep"), "").unwrap();
+        Command::new("git")
+            .args(["add", "."])
+            .current_dir(dir.path())
+            .output()
+            .unwrap();
+        Command::new("git")
+            .args(["commit", "-m", "initial"])
+            .current_dir(dir.path())
+            .output()
+            .unwrap();
+
+        dir
+    }
+
+    fn make_cli() -> Cli {
+        Cli {
+            json: false,
+            repo: None,
+            no_color: true,
+            verbose: false,
+            command: crate::cli::Command::Doctor,
+        }
+    }
+
+    fn make_paths(dir: &tempfile::TempDir) -> RepoPaths {
+        RepoPaths {
+            worktree_root: dir.path().to_path_buf(),
+            git_common_dir: dir.path().join(".git"),
+            brd_common_dir: dir.path().join(".git/brd"),
+        }
+    }
+
+    #[test]
+    fn test_stash_count_empty() {
+        let dir = setup_git_repo();
+        let count = stash_count(dir.path()).unwrap();
+        assert_eq!(count, 0);
+    }
+
+    #[test]
+    fn test_stash_count_with_stash() {
+        let dir = setup_git_repo();
+
+        // create a file and stash it
+        fs::write(dir.path().join("unstaged.txt"), "content").unwrap();
+        Command::new("git")
+            .args(["stash", "push", "--include-untracked"])
+            .current_dir(dir.path())
+            .output()
+            .unwrap();
+
+        let count = stash_count(dir.path()).unwrap();
+        assert_eq!(count, 1);
+
+        // add another stash
+        fs::write(dir.path().join("another.txt"), "content").unwrap();
+        Command::new("git")
+            .args(["stash", "push", "--include-untracked"])
+            .current_dir(dir.path())
+            .output()
+            .unwrap();
+
+        let count = stash_count(dir.path()).unwrap();
+        assert_eq!(count, 2);
+    }
+
+    #[test]
+    fn test_has_upstream_no_upstream() {
+        let dir = setup_git_repo();
+
+        // create a branch without upstream
+        Command::new("git")
+            .args(["branch", "test-branch"])
+            .current_dir(dir.path())
+            .output()
+            .unwrap();
+
+        let result = has_upstream("test-branch", dir.path()).unwrap();
+        assert!(!result);
+    }
+
+    #[test]
+    fn test_sync_not_in_sync_mode() {
+        let dir = setup_git_repo();
+        let cli = make_cli();
+        let paths = make_paths(&dir);
+
+        // create config without issues_branch
+        fs::create_dir_all(dir.path().join(".braid")).unwrap();
+        fs::write(
+            dir.path().join(".braid/config.toml"),
+            "schema_version = 6\nid_prefix = \"tst\"\nid_len = 4\n",
+        ).unwrap();
+
+        let result = cmd_sync(&cli, &paths, false);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("not in sync branch mode"));
+    }
+
+    #[test]
+    fn test_sync_creates_worktree() {
+        let dir = setup_git_repo();
+        let cli = make_cli();
+        let paths = make_paths(&dir);
+
+        // create brd common dir and config with issues_branch
+        fs::create_dir_all(&paths.brd_common_dir).unwrap();
+        fs::create_dir_all(dir.path().join(".braid")).unwrap();
+        fs::write(
+            dir.path().join(".braid/config.toml"),
+            "schema_version = 6\nid_prefix = \"tst\"\nid_len = 4\nissues_branch = \"braid-issues\"\n",
+        ).unwrap();
+
+        // create the issues branch
+        Command::new("git")
+            .args(["branch", "braid-issues"])
+            .current_dir(dir.path())
+            .output()
+            .unwrap();
+
+        // run sync - should create worktree
+        let result = cmd_sync(&cli, &paths, false);
+        assert!(result.is_ok());
+
+        // verify worktree was created
+        assert!(paths.brd_common_dir.join("issues").exists());
+    }
+}

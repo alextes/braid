@@ -2,7 +2,7 @@
 
 use std::path::{Path, PathBuf};
 
-use crate::config::Config;
+use crate::config::{Config, schema_mismatch_error};
 use crate::error::{BrdError, Result};
 use crate::migrate::CURRENT_SCHEMA;
 
@@ -222,10 +222,12 @@ impl RepoPaths {
 
         // check schema version
         if external_config.schema_version > CURRENT_SCHEMA {
-            return Err(BrdError::Other(format!(
-                "external repo uses schema v{}, but this brd only supports up to v{}. please upgrade brd.",
-                external_config.schema_version, CURRENT_SCHEMA
-            )));
+            return Err(schema_mismatch_error(
+                "external repo",
+                external_config.schema_version,
+                CURRENT_SCHEMA,
+                Some(&self.worktree_root),
+            ));
         }
 
         // check for chaining
@@ -256,10 +258,12 @@ impl RepoPaths {
         })?;
 
         if wt_config.schema_version > CURRENT_SCHEMA {
-            return Err(BrdError::Other(format!(
-                "issues worktree uses schema v{}, but this brd only supports up to v{}. please upgrade brd.",
-                wt_config.schema_version, CURRENT_SCHEMA
-            )));
+            return Err(schema_mismatch_error(
+                "issues worktree",
+                wt_config.schema_version,
+                CURRENT_SCHEMA,
+                Some(&self.worktree_root),
+            ));
         }
 
         Ok(())
