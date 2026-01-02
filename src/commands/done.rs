@@ -491,6 +491,51 @@ mod tests {
     }
 
     #[test]
+    fn test_done_design_results_and_external_dependent() {
+        // Scenario: design has two impl issues that depend on it, PLUS an external issue
+        // that also depends on the design. The external should depend on both results.
+        let (_dir, paths, config) = create_test_repo();
+        write_design_issue(&paths, &config, "brd-design");
+        write_issue_with_deps(&paths, &config, "brd-impl1", vec!["brd-design".to_string()]);
+        write_issue_with_deps(&paths, &config, "brd-impl2", vec!["brd-design".to_string()]);
+        write_issue_with_deps(&paths, &config, "brd-external", vec!["brd-design".to_string()]);
+
+        let cli = make_cli();
+        cmd_done(
+            &cli,
+            &paths,
+            "brd-design",
+            false,
+            &["brd-impl1".to_string(), "brd-impl2".to_string()],
+            true,
+        )
+        .unwrap();
+
+        let issues = load_all_issues(&paths, &config).unwrap();
+
+        // impl1 and impl2 should have no deps (design dep removed, no cross-deps)
+        let impl1 = issues.get("brd-impl1").unwrap();
+        let impl2 = issues.get("brd-impl2").unwrap();
+        assert!(impl1.deps().is_empty(), "impl1 should have no deps");
+        assert!(impl2.deps().is_empty(), "impl2 should have no deps");
+
+        // external should now depend on BOTH impl1 and impl2
+        let external = issues.get("brd-external").unwrap();
+        assert!(
+            external.deps().contains(&"brd-impl1".to_string()),
+            "external should depend on impl1"
+        );
+        assert!(
+            external.deps().contains(&"brd-impl2".to_string()),
+            "external should depend on impl2"
+        );
+        assert!(
+            !external.deps().contains(&"brd-design".to_string()),
+            "external should not depend on design anymore"
+        );
+    }
+
+    #[test]
     fn test_done_design_rejects_cycles() {
         let (_dir, paths, config) = create_test_repo();
         write_design_issue(&paths, &config, "brd-design");
