@@ -281,11 +281,17 @@ mod tests {
         fs::write(
             dir.path().join(".braid/config.toml"),
             "schema_version = 6\nid_prefix = \"tst\"\nid_len = 4\n",
-        ).unwrap();
+        )
+        .unwrap();
 
         let result = cmd_sync(&cli, &paths, false);
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("not in sync branch mode"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("not in sync branch mode")
+        );
     }
 
     #[test]

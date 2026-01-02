@@ -155,11 +155,7 @@ fn test_merge_success_flow() {
     env.commit_all("agent work");
 
     let output = env.brd(&["agent", "merge"]);
-    assert!(
-        output.status.success(),
-        "merge failed: {}",
-        stderr(&output)
-    );
+    assert!(output.status.success(), "merge failed: {}", stderr(&output));
 
     let branch = env.git_stdout(&["rev-parse", "--abbrev-ref", "HEAD"]);
     assert_eq!(branch, "agent-test");

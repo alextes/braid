@@ -235,7 +235,12 @@ mod tests {
 
         let result = cmd_commit(&cli, &paths, None);
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("no .braid directory"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("no .braid directory")
+        );
     }
 
     #[test]
@@ -259,7 +264,8 @@ mod tests {
         fs::write(
             dir.path().join(".braid/issues/brd-test.md"),
             "---\ntitle: test\n---\n",
-        ).unwrap();
+        )
+        .unwrap();
 
         let result = cmd_commit(&cli, &paths, None);
         assert!(result.is_ok());
@@ -275,7 +281,8 @@ mod tests {
         fs::write(
             dir.path().join(".braid/issues/brd-custom.md"),
             "---\ntitle: custom\n---\n",
-        ).unwrap();
+        )
+        .unwrap();
 
         let result = cmd_commit(&cli, &paths, Some("custom commit message"));
         assert!(result.is_ok());
@@ -298,7 +305,8 @@ mod tests {
         fs::write(
             dir.path().join(".braid/issues/brd-aaaa.md"),
             "---\ntitle: test\n---\n",
-        ).unwrap();
+        )
+        .unwrap();
         Command::new("git")
             .args(["add", ".braid"])
             .current_dir(dir.path())
@@ -318,11 +326,13 @@ mod tests {
         fs::write(
             dir.path().join(".braid/issues/brd-0001.md"),
             "---\ntitle: one\n---\n",
-        ).unwrap();
+        )
+        .unwrap();
         fs::write(
             dir.path().join(".braid/issues/brd-0002.md"),
             "---\ntitle: two\n---\n",
-        ).unwrap();
+        )
+        .unwrap();
         Command::new("git")
             .args(["add", ".braid"])
             .current_dir(dir.path())
@@ -338,12 +348,14 @@ mod tests {
         fs::write(
             dir.path().join(".braid/issues/brd-0001.md"),
             "---\ntitle: one modified\n---\n",
-        ).unwrap();
+        )
+        .unwrap();
         fs::remove_file(dir.path().join(".braid/issues/brd-0002.md")).unwrap();
         fs::write(
             dir.path().join(".braid/issues/brd-0003.md"),
             "---\ntitle: three\n---\n",
-        ).unwrap();
+        )
+        .unwrap();
 
         Command::new("git")
             .args(["add", ".braid"])

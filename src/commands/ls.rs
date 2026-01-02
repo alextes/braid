@@ -188,7 +188,6 @@ pub fn cmd_ls(
                 )
             };
 
-
             // show owner for doing issues (max 12 chars)
             let owner_info = if issue.status() == Status::Doing {
                 issue

@@ -966,7 +966,10 @@ mod tests {
         let cli = make_cli();
         let paths = make_paths(&dir);
 
-        setup_braid_config(&dir, "schema_version = 6\nid_prefix = \"tst\"\nid_len = 4\n");
+        setup_braid_config(
+            &dir,
+            "schema_version = 6\nid_prefix = \"tst\"\nid_len = 4\n",
+        );
 
         let result = cmd_mode_show(&cli, &paths);
         assert!(result.is_ok());
@@ -1016,7 +1019,12 @@ mod tests {
 
         let result = cmd_mode_local_sync(&cli, &paths, "new-branch", true);
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("already in sync mode"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("already in sync mode")
+        );
     }
 
     #[test]
@@ -1025,14 +1033,22 @@ mod tests {
         let cli = make_cli();
         let paths = make_paths(&dir);
 
-        setup_braid_config(&dir, "schema_version = 6\nid_prefix = \"tst\"\nid_len = 4\n");
+        setup_braid_config(
+            &dir,
+            "schema_version = 6\nid_prefix = \"tst\"\nid_len = 4\n",
+        );
 
         // create uncommitted changes
         fs::write(dir.path().join("uncommitted.txt"), "content").unwrap();
 
         let result = cmd_mode_local_sync(&cli, &paths, "braid-issues", true);
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("uncommitted changes"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("uncommitted changes")
+        );
     }
 
     #[test]
@@ -1042,7 +1058,10 @@ mod tests {
         let paths = make_paths(&dir);
 
         fs::create_dir_all(&paths.brd_common_dir).unwrap();
-        setup_braid_config(&dir, "schema_version = 6\nid_prefix = \"tst\"\nid_len = 4\n");
+        setup_braid_config(
+            &dir,
+            "schema_version = 6\nid_prefix = \"tst\"\nid_len = 4\n",
+        );
 
         // commit the .braid directory
         Command::new("git")
@@ -1071,11 +1090,19 @@ mod tests {
         let cli = make_cli();
         let paths = make_paths(&dir);
 
-        setup_braid_config(&dir, "schema_version = 6\nid_prefix = \"tst\"\nid_len = 4\n");
+        setup_braid_config(
+            &dir,
+            "schema_version = 6\nid_prefix = \"tst\"\nid_len = 4\n",
+        );
 
         let result = cmd_mode_git_native(&cli, &paths, true);
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("already in git-native mode"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("already in git-native mode")
+        );
     }
 
     #[test]
@@ -1123,7 +1150,12 @@ mod tests {
 
         let result = cmd_mode_external_repo(&cli, &paths, "../external", true);
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("currently in local-sync mode"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("currently in local-sync mode")
+        );
     }
 
     #[test]
@@ -1139,7 +1171,12 @@ mod tests {
 
         let result = cmd_mode_external_repo(&cli, &paths, "../new-external", true);
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("already in external-repo mode"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("already in external-repo mode")
+        );
     }
 
     #[test]
@@ -1148,7 +1185,10 @@ mod tests {
         let cli = make_cli();
         let paths = make_paths(&dir);
 
-        setup_braid_config(&dir, "schema_version = 6\nid_prefix = \"tst\"\nid_len = 4\n");
+        setup_braid_config(
+            &dir,
+            "schema_version = 6\nid_prefix = \"tst\"\nid_len = 4\n",
+        );
 
         let result = cmd_mode_external_repo(&cli, &paths, "/nonexistent/path", true);
         assert!(result.is_err());
