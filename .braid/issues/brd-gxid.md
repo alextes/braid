@@ -1,5 +1,5 @@
 ---
-schema_version: 4
+schema_version: 6
 id: brd-gxid
 title: add unit tests for error module
 priority: P3

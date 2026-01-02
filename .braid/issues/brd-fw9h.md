@@ -1,5 +1,5 @@
 ---
-schema_version: 5
+schema_version: 6
 id: brd-fw9h
 title: add tests for TUI app and ui modules
 priority: P3

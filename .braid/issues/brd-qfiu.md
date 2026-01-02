@@ -1,5 +1,5 @@
 ---
-schema_version: 4
+schema_version: 6
 id: brd-qfiu
 title: add README section comparing braid with beads
 priority: P2

@@ -1,5 +1,5 @@
 ---
-schema_version: 4
+schema_version: 6
 id: brd-ozah
 title: add brd mode command (show only)
 priority: P2

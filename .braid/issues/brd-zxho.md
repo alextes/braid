@@ -1,5 +1,5 @@
 ---
-schema_version: 4
+schema_version: 6
 id: brd-zxho
 title: display meta-type issues with visual distinction in brd ls
 priority: P2

@@ -1,5 +1,5 @@
 ---
-schema_version: 4
+schema_version: 6
 id: brd-cb1g
 title: add dual-write support to brd add command
 priority: P2

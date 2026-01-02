@@ -1,5 +1,5 @@
 ---
-schema_version: 4
+schema_version: 6
 id: brd-km9t
 title: 'doctor: detect AGENTS.md block mode mismatch'
 priority: P2

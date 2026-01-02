@@ -1,5 +1,5 @@
 ---
-schema_version: 4
+schema_version: 6
 id: brd-l5ac
 title: 'TUI: allow setting type when creating issues'
 priority: P3

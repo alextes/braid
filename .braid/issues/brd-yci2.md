@@ -1,5 +1,5 @@
 ---
-schema_version: 4
+schema_version: 6
 id: brd-yci2
 title: design better PR-based workflow support
 priority: P2

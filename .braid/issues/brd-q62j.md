@@ -1,5 +1,5 @@
 ---
-schema_version: 4
+schema_version: 6
 id: brd-q62j
 title: rename 'time:' to 'took:' in command output
 priority: P3

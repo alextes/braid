@@ -1,5 +1,5 @@
 ---
-schema_version: 4
+schema_version: 6
 id: brd-rijv
 title: gh repo create integration for external-repo setup
 priority: P3

@@ -1,5 +1,5 @@
 ---
-schema_version: 4
+schema_version: 6
 id: brd-tvue
 title: mode-aware AGENTS.md injection
 priority: P3

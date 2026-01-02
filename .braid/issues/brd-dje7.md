@@ -1,5 +1,5 @@
 ---
-schema_version: 4
+schema_version: 6
 id: brd-dje7
 title: 'brd mode: add sync-local and default subcommands'
 priority: P2

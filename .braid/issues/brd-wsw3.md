@@ -1,5 +1,5 @@
 ---
-schema_version: 4
+schema_version: 6
 id: brd-wsw3
 title: human review of new workflows
 priority: P2

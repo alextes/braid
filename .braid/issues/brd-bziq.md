@@ -1,5 +1,5 @@
 ---
-schema_version: 4
+schema_version: 6
 id: brd-bziq
 title: git_rev_parse passes multi-word args as single argument
 priority: P1

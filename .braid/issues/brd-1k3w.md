@@ -1,5 +1,5 @@
 ---
-schema_version: 4
+schema_version: 6
 id: brd-1k3w
 title: design workflow preference signaling for agents
 priority: P2

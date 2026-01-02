@@ -1,5 +1,5 @@
 ---
-schema_version: 4
+schema_version: 6
 id: brd-zjo3
 title: add unit tests for show command
 priority: P3

@@ -1,5 +1,5 @@
 ---
-schema_version: 5
+schema_version: 6
 id: brd-6zmi
 title: update issues_dir to resolve external repo path
 priority: P2

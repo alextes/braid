@@ -1,5 +1,5 @@
 ---
-schema_version: 4
+schema_version: 6
 id: brd-fzk1
 title: design workflow-aware command hints and warnings
 priority: P3

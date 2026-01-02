@@ -1,5 +1,5 @@
 ---
-schema_version: 4
+schema_version: 6
 id: brd-48y6
 title: add unit tests for TUI state management
 priority: P1

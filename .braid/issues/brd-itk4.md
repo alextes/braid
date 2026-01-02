@@ -1,5 +1,5 @@
 ---
-schema_version: 4
+schema_version: 6
 id: brd-itk4
 title: add tests for ship command
 priority: P3

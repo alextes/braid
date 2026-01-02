@@ -1,5 +1,5 @@
 ---
-schema_version: 4
+schema_version: 6
 id: brd-k0sy
 title: show tags in brd ls output
 priority: P2

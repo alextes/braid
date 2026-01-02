@@ -1,5 +1,5 @@
 ---
-schema_version: 4
+schema_version: 6
 id: brd-fav1
 title: 'TUI: add issue editing'
 priority: P2

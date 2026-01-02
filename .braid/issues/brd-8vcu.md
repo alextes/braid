@@ -1,5 +1,5 @@
 ---
-schema_version: 4
+schema_version: 6
 id: brd-8vcu
 title: add branch switching helpers for writing to issues branch
 priority: P2

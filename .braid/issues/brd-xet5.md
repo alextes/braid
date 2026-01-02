@@ -1,5 +1,5 @@
 ---
-schema_version: 4
+schema_version: 6
 id: brd-xet5
 title: design smoother workflow mode management and onboarding
 priority: P2

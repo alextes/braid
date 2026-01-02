@@ -1,5 +1,5 @@
 ---
-schema_version: 4
+schema_version: 6
 id: brd-q5i0
 title: document PR-based agent workflow
 priority: P3

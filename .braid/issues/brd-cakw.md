@@ -1,5 +1,5 @@
 ---
-schema_version: 4
+schema_version: 6
 id: brd-cakw
 title: show issue type more clearly in brd show output
 priority: P3

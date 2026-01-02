@@ -1,5 +1,5 @@
 ---
-schema_version: 4
+schema_version: 6
 id: brd-heid
 title: implement issue schema migration system
 priority: P2

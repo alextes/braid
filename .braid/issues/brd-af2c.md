@@ -1,5 +1,5 @@
 ---
-schema_version: 4
+schema_version: 6
 id: brd-af2c
 title: add unit tests for add command
 priority: P2

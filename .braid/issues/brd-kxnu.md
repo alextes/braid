@@ -1,5 +1,5 @@
 ---
-schema_version: 4
+schema_version: 6
 id: brd-kxnu
 title: make tags visually distinct in brd ls
 priority: P2

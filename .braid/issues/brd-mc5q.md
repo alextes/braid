@@ -1,5 +1,5 @@
 ---
-schema_version: 4
+schema_version: 6
 id: brd-mc5q
 title: update outdated dependencies
 priority: P2

@@ -1,5 +1,5 @@
 ---
-schema_version: 4
+schema_version: 6
 id: brd-gl5o
 title: fix TUI list scrolling beyond visible screen
 priority: P2
