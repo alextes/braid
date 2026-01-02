@@ -11,11 +11,11 @@ takes inspiration from [beads](https://github.com/steveyegge/beads).
 
 ## why braid?
 
-- **issues as files** — markdown files with yaml frontmatter, versioned in git
-- **dependency graph** — issues can depend on other issues; `brd ready` shows what's unblocked
-- **deterministic selection** — `brd next` picks the highest priority ready issue, no ambiguity
-- **multi-agent coordination** — multiple agents work in parallel using git worktrees
-- **human-friendly** — simple CLI, partial ID matching, works like you'd expect
+- **issues in git** — markdown files versioned alongside code, no external service
+- **dependency tracking** — issues can block other issues; `brd ready` shows what's unblocked
+- **agent coordination** — `brd start` atomically claims issues, preventing duplicate work
+- **auto-selection** — `brd start` picks the highest priority ready issue when no ID given
+- **simple cli** — partial ID matching, intuitive commands, works like you'd expect
 
 ## braid vs beads
 
@@ -87,7 +87,7 @@ brd start
 ### multi-agent
 
 - `brd agent init <name>` — set up a new agent worktree
-- `brd agent ship` — push changes to main (rebase + fast-forward)
+- `brd agent merge` — merge to main (rebase + fast-forward)
 
 ### utilities
 
@@ -148,7 +148,7 @@ git add . && git commit -m "feat: implement the thing"
 
 # agent marks done and ships
 brd done <id>
-brd agent ship         # rebase + fast-forward merge to main
+brd agent merge        # rebase + fast-forward merge to main
 ```
 
 see [docs/agent-workflow.md](docs/agent-workflow.md) for the full guide.

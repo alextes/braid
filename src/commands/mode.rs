@@ -223,7 +223,7 @@ pub fn cmd_mode_local_sync(cli: &Cli, paths: &RepoPaths, branch: &str, yes: bool
     // check if already in sync mode
     if config.issues_branch.is_some() {
         return Err(BrdError::Other(format!(
-            "already in sync mode (branch: {}). run `brd mode default` first to switch.",
+            "already in sync mode (branch: {}). run `brd mode git-native` first to switch.",
             config.issues_branch.as_ref().unwrap()
         )));
     }
@@ -601,12 +601,12 @@ pub fn cmd_mode_external_repo(
     // check if already in a non-default mode
     if config.issues_branch.is_some() {
         return Err(BrdError::Other(
-            "currently in local-sync mode. run `brd mode default` first to switch.".to_string(),
+            "currently in local-sync mode. run `brd mode git-native` first to switch.".to_string(),
         ));
     }
     if config.issues_repo.is_some() {
         return Err(BrdError::Other(format!(
-            "already in external-repo mode (path: {}). run `brd mode default` first to switch.",
+            "already in external-repo mode (path: {}). run `brd mode git-native` first to switch.",
             config.issues_repo.as_ref().unwrap()
         )));
     }

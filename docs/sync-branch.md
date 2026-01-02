@@ -41,7 +41,7 @@ brd init --sync-branch braid-issues
 ### switching back to git-native
 
 ```bash
-brd mode default
+brd mode git-native
 ```
 
 this copies issues back to main and removes the sync branch config.
@@ -101,7 +101,7 @@ code and issues sync separately:
 
 ```bash
 # ship code to main
-brd agent ship
+brd agent merge
 
 # sync issues to remote (optional)
 brd sync
@@ -162,7 +162,7 @@ brd mode
 switch to default first, then back to local-sync:
 
 ```bash
-brd mode default
+brd mode git-native
 brd mode local-sync
 ```
 

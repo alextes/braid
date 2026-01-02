@@ -76,21 +76,21 @@ when finished:
 brd done <issue-id>
 git add .braid
 git commit -m "done: <issue-id>"
-brd agent ship         # rebase + push to main
+brd agent merge        # rebase + push to main
 ```
 
 now you're ready to pick up the next issue.
 
-## brd agent ship
+## brd agent merge
 
-the `brd agent ship` command handles the rebase+push workflow:
+the `brd agent merge` command handles the rebase+push workflow:
 
 1. fetches `origin main`
 2. rebases your branch onto `origin/main`
 3. pushes to main (fast-forward only)
 4. resets your branch to `origin/main`
 
-if main has moved and the push fails, just run `brd agent ship` again.
+if main has moved and the push fails, just run `brd agent merge` again.
 
 ## how race conditions are handled
 
@@ -127,7 +127,7 @@ with sync branch mode enabled:
 
 1. issue commands (`brd start`, `brd done`, etc.) write to a shared issues worktree
 2. use `brd sync` to push issue changes to the sync branch
-3. use `brd agent ship` for code changes (goes to main)
+3. use `brd agent merge` for code changes (goes to main)
 
 ```bash
 # claim and complete an issue
@@ -139,14 +139,14 @@ brd done <issue-id>
 brd sync
 
 # ship code separately
-brd agent ship
+brd agent merge
 ```
 
 see [sync-branch.md](sync-branch.md) for full details.
 
 ## PR-based workflow
 
-for teams that want CI gates and human review before merging, braid supports a PR-based workflow as an alternative to `brd agent ship`.
+for teams that want CI gates and human review before merging, braid supports a PR-based workflow as an alternative to `brd agent merge`.
 
 ### new commands
 
@@ -191,4 +191,4 @@ brd sync                   # push done status to remote
 | conflicts | resolved at ship time | resolved before merge |
 | CI | optional | gates merge |
 
-use `brd agent ship` for trusted agents working autonomously. use `brd agent pr` when you want human review or CI gates before code reaches main.
+use `brd agent merge` for trusted agents working autonomously. use `brd agent pr` when you want human review or CI gates before code reaches main.

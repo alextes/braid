@@ -63,7 +63,7 @@ git commit -m "release: v0.4.0"
 ## 6. ship to main (if in agent worktree)
 
 ```bash
-brd agent ship
+brd agent merge
 ```
 
 ## 7. push and verify CI
