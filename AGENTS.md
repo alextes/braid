@@ -40,16 +40,18 @@ before cutting a release, read [docs/release-workflow.md](docs/release-workflow.
 - [docs/design-issues.md](docs/design-issues.md) — design issue workflow
 - [docs/release-workflow.md](docs/release-workflow.md) — how to cut releases
 
-<!-- braid:agents:start v4 -->
+<!-- braid:agents:start v5 -->
 ## braid workflow
 
 this repo uses braid (`brd`) for issue tracking. issues live in `.braid/issues/` as markdown files.
 
 basic flow:
-1. `brd start` — claim the next ready issue (auto-syncs, commits, and pushes)
+1. `brd start` — claim the next ready issue
 2. do the work, commit as usual
 3. `brd done <id>` — mark the issue complete
-4. `brd agent ship` — push your work to main
+4. ship your work:
+   - in a worktree: `brd agent merge` (rebase + ff-merge to main)
+   - on main: just `git push` (you're already there)
 
 useful commands:
 - `brd ls` — list all issues
@@ -57,7 +59,7 @@ useful commands:
 - `brd show <id>` — view issue details
 - `brd mode` — show current workflow mode
 
-## working in agent worktrees
+## working on main vs in a worktree
 
 **quick check — am i in a worktree?**
 
@@ -65,19 +67,15 @@ useful commands:
 cat .braid/agent.toml 2>/dev/null && echo "yes, worktree" || echo "no, main"
 ```
 
-if you're in a worktree:
+**if you're in a worktree (feature branch):**
 - `brd start` handles syncing automatically
-- use `brd agent ship` to merge your work to main (rebase + fast-forward push)
+- use `brd agent merge` to ship (rebase + ff-merge to main)
+- if you see schema mismatch errors, rebase onto latest main
 
-### schema mismatch errors
-
-if you see an error like "this repo uses schema vX, but this brd only supports up to vY":
-
-1. **rebase first**: `git fetch origin main && git rebase origin/main`
-2. **rebuild**: `cargo build --release`
-3. **if still failing**: stop and ask the human - there may be an unreleased schema change
-
-**NEVER manually edit `schema_version` in config files.** this causes data inconsistency between agents and can corrupt the issues branch.
+**if you're on main:**
+- `brd start` syncs and claims
+- after `brd done`, just `git push` your code commits
+- no `brd agent merge` needed — you're already on main
 
 ## design and meta issues
 
