@@ -1,5 +1,5 @@
 ---
-schema_version: 4
+schema_version: 6
 id: brd-c48z
 title: rename brd frontmatter key to schema_version
 priority: P2

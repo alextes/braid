@@ -1,5 +1,5 @@
 ---
-schema_version: 5
+schema_version: 6
 id: brd-vwel
 title: add issues_branch config field and schema v5 migration
 priority: P2

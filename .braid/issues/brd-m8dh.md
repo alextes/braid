@@ -1,5 +1,5 @@
 ---
-schema_version: 5
+schema_version: 6
 id: brd-m8dh
 title: add tests for sync command
 priority: P3

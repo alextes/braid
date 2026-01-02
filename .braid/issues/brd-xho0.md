@@ -1,5 +1,5 @@
 ---
-schema_version: 4
+schema_version: 6
 id: brd-xho0
 title: manage growing brd ls output
 priority: P1

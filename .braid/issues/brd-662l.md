@@ -1,5 +1,5 @@
 ---
-schema_version: 4
+schema_version: 6
 id: brd-662l
 title: add timing output to doctor command
 priority: P3

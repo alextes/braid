@@ -1,5 +1,5 @@
 ---
-schema_version: 4
+schema_version: 6
 id: brd-y2dn
 title: graceful fallback when gh CLI is not installed
 priority: P2

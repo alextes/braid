@@ -1,5 +1,5 @@
 ---
-schema_version: 4
+schema_version: 6
 id: brd-aod4
 title: implement brd agent pr command
 priority: P2

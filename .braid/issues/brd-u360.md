@@ -1,5 +1,5 @@
 ---
-schema_version: 5
+schema_version: 6
 id: brd-u360
 title: 'brd ls: limit visible todo issues with indicator for more'
 priority: P2

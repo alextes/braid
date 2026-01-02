@@ -1,5 +1,5 @@
 ---
-schema_version: 4
+schema_version: 6
 id: brd-vo6f
 title: add tests for completions command
 priority: P3

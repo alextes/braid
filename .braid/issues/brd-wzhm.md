@@ -1,5 +1,5 @@
 ---
-schema_version: 4
+schema_version: 6
 id: brd-wzhm
 title: add unit tests for lock module
 priority: P2

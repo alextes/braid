@@ -1,5 +1,5 @@
 ---
-schema_version: 4
+schema_version: 6
 id: brd-34d4
 title: separate priority emphasis from meta styling in brd ls/ready
 priority: P1

@@ -1,5 +1,5 @@
 ---
-schema_version: 4
+schema_version: 6
 id: brd-72xm
 title: update write commands to use branch switching in issues-branch mode
 priority: P2

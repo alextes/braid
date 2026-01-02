@@ -1,5 +1,5 @@
 ---
-schema_version: 4
+schema_version: 6
 id: brd-ucso
 title: 'design: external-repo mode for tracking issues in a separate repository'
 priority: P2

@@ -1,5 +1,5 @@
 ---
-schema_version: 4
+schema_version: 6
 id: brd-zife
 title: update outdated dependencies (crossterm, ratatui)
 priority: P3

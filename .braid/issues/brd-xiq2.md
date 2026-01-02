@@ -1,5 +1,5 @@
 ---
-schema_version: 5
+schema_version: 6
 id: brd-xiq2
 title: rename 'default' to 'git-native' in brd mode command
 priority: P3

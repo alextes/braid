@@ -1,5 +1,5 @@
 ---
-schema_version: 4
+schema_version: 6
 id: brd-t2o8
 title: smarter brd start with auto-sync
 priority: P1

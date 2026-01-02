@@ -1,5 +1,5 @@
 ---
-schema_version: 4
+schema_version: 6
 id: brd-ztwj
 title: design PR-based multi-agent workflow
 priority: P2

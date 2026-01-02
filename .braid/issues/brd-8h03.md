@@ -1,5 +1,5 @@
 ---
-schema_version: 4
+schema_version: 6
 id: brd-8h03
 title: add brd status command
 priority: P2

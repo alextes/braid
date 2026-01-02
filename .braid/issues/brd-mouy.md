@@ -1,5 +1,5 @@
 ---
-schema_version: 4
+schema_version: 6
 id: brd-mouy
 title: prevent dependency cycles and handle design issue closure transfer
 priority: P1

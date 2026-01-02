@@ -1,5 +1,5 @@
 ---
-schema_version: 4
+schema_version: 6
 id: brd-u5am
 title: add unit tests for ready command
 priority: P3

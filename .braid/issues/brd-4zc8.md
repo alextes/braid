@@ -1,5 +1,5 @@
 ---
-schema_version: 4
+schema_version: 6
 id: brd-4zc8
 title: add integration tests for dual-write behavior
 priority: P2

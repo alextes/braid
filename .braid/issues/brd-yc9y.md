@@ -1,5 +1,5 @@
 ---
-schema_version: 5
+schema_version: 6
 id: brd-yc9y
 title: interactive brd init with workflow choice
 priority: P2

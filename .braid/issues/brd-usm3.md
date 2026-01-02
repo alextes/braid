@@ -1,5 +1,5 @@
 ---
-schema_version: 4
+schema_version: 6
 id: brd-usm3
 title: add braid vs beads section to readme
 priority: P2

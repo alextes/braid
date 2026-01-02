@@ -1,5 +1,5 @@
 ---
-schema_version: 4
+schema_version: 6
 id: brd-q0p8
 title: 'Design: design/stub issues - issues that need fleshing out before coding'
 priority: P2

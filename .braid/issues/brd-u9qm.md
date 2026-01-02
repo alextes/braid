@@ -1,5 +1,5 @@
 ---
-schema_version: 4
+schema_version: 6
 id: brd-u9qm
 title: add unit tests for dep command
 priority: P2

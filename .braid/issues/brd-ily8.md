@@ -1,5 +1,5 @@
 ---
-schema_version: 4
+schema_version: 6
 id: brd-ily8
 title: brd mode external-repo --init to create and initialize external repo
 priority: P3

@@ -1,5 +1,5 @@
 ---
-schema_version: 4
+schema_version: 6
 id: brd-fsqm
 title: 'TUI: workers view for multi-agent management'
 priority: P3

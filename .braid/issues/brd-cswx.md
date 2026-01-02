@@ -1,5 +1,5 @@
 ---
-schema_version: 4
+schema_version: 6
 id: brd-cswx
 title: show owner for doing issues in brd ls
 priority: P3

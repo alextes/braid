@@ -1,5 +1,5 @@
 ---
-schema_version: 4
+schema_version: 6
 id: brd-l66t
 title: rename agents command to avoid confusion with agent
 priority: P2

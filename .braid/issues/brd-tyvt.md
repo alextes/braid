@@ -1,5 +1,5 @@
 ---
-schema_version: 4
+schema_version: 6
 id: brd-tyvt
 title: add unit tests for migrate command
 priority: P3

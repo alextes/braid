@@ -1,5 +1,5 @@
 ---
-schema_version: 4
+schema_version: 6
 id: brd-jmk5
 title: add issue creation to TUI
 priority: P2

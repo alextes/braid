@@ -1,5 +1,5 @@
 ---
-schema_version: 4
+schema_version: 6
 id: brd-az94
 title: show issue age in brd ls output
 priority: P3
