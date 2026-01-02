@@ -619,14 +619,13 @@ impl App {
             cursor,
             ..
         } = &mut self.input_mode
+            && *cursor < self.all_issues.len()
         {
-            if *cursor < self.all_issues.len() {
-                let issue_id = self.all_issues[*cursor].clone();
-                if let Some(pos) = selected_deps.iter().position(|d| d == &issue_id) {
-                    selected_deps.remove(pos);
-                } else {
-                    selected_deps.push(issue_id);
-                }
+            let issue_id = self.all_issues[*cursor].clone();
+            if let Some(pos) = selected_deps.iter().position(|d| d == &issue_id) {
+                selected_deps.remove(pos);
+            } else {
+                selected_deps.push(issue_id);
             }
         }
     }

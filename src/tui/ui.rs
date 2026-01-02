@@ -659,10 +659,10 @@ fn age_color(duration: TimeDuration) -> Color {
 fn draw_input_dialog(f: &mut Frame, app: &App) {
     // determine dialog height based on mode
     let height = match &app.input_mode {
-        InputMode::Title(_) => 3,                                            // slim: just input
-        InputMode::Priority { .. } => 7,                                     // title + 4 options
-        InputMode::Type { .. } => 7,                                         // title + pri + 3 options
-        InputMode::Deps { .. } => 12.min(app.all_issues.len() as u16 + 5),   // title + pri + type + scrollable list
+        InputMode::Title(_) => 3,        // slim: just input
+        InputMode::Priority { .. } => 7, // title + 4 options
+        InputMode::Type { .. } => 7,     // title + pri + 3 options
+        InputMode::Deps { .. } => 12.min(app.all_issues.len() as u16 + 5), // title + pri + type + scrollable list
         InputMode::EditSelect { .. } => 7,
         InputMode::EditTitle { .. } => 5,
         InputMode::EditPriority { .. } => 7,
@@ -760,7 +760,11 @@ fn draw_input_dialog(f: &mut Frame, app: &App) {
 
             let chunks = Layout::default()
                 .direction(Direction::Vertical)
-                .constraints([Constraint::Length(1), Constraint::Length(1), Constraint::Min(0)])
+                .constraints([
+                    Constraint::Length(1),
+                    Constraint::Length(1),
+                    Constraint::Min(0),
+                ])
                 .split(inner);
 
             let title_line =

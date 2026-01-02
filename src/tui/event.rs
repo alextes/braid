@@ -543,8 +543,11 @@ mod tests {
         assert!(matches!(app.input_mode, InputMode::Priority { selected, .. } if selected == 3));
 
         // confirm priority → type selection
-        handle_key_event(&mut app, &env.paths, key(KeyCode::Enter)).expect("confirm priority failed");
-        assert!(matches!(app.input_mode, InputMode::Type { priority, selected, .. } if priority == 3 && selected == 0));
+        handle_key_event(&mut app, &env.paths, key(KeyCode::Enter))
+            .expect("confirm priority failed");
+        assert!(
+            matches!(app.input_mode, InputMode::Type { priority, selected, .. } if priority == 3 && selected == 0)
+        );
 
         // navigate type (0=none, 1=design, 2=meta)
         handle_key_event(&mut app, &env.paths, key(KeyCode::Down)).expect("type down failed");
