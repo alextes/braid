@@ -959,9 +959,24 @@ mod tests {
     #[test]
     fn test_apply_filter_matches_title() {
         let env = TestEnv::new();
-        env.add_issue("brd-aaaa", "fix authentication bug", Priority::P1, Status::Todo);
-        env.add_issue("brd-bbbb", "add logging feature", Priority::P2, Status::Todo);
-        env.add_issue("brd-cccc", "authentication refactor", Priority::P3, Status::Todo);
+        env.add_issue(
+            "brd-aaaa",
+            "fix authentication bug",
+            Priority::P1,
+            Status::Todo,
+        );
+        env.add_issue(
+            "brd-bbbb",
+            "add logging feature",
+            Priority::P2,
+            Status::Todo,
+        );
+        env.add_issue(
+            "brd-cccc",
+            "authentication refactor",
+            Priority::P3,
+            Status::Todo,
+        );
 
         let mut app = env.app();
         app.all_filter_query = "auth".to_string();
