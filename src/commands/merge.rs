@@ -121,3 +121,131 @@ pub fn cmd_merge(cli: &Cli, paths: &RepoPaths) -> Result<()> {
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::process::Command;
+    use tempfile::tempdir;
+
+    fn git_ok(path: &std::path::Path, args: &[&str]) {
+        let output = Command::new("git")
+            .args(args)
+            .current_dir(path)
+            .output()
+            .expect("git command failed");
+        assert!(
+            output.status.success(),
+            "git {:?} failed: {}",
+            args,
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+
+    fn create_repo() -> (tempfile::TempDir, RepoPaths) {
+        let dir = tempdir().unwrap();
+        let repo_path = dir.path();
+
+        git_ok(repo_path, &["init"]);
+        git_ok(repo_path, &["config", "user.email", "test@test.com"]);
+        git_ok(repo_path, &["config", "user.name", "test user"]);
+        git_ok(repo_path, &["config", "commit.gpgsign", "false"]);
+        git_ok(repo_path, &["checkout", "-b", "main"]);
+
+        std::fs::write(repo_path.join("README.md"), "test\n").unwrap();
+        git_ok(repo_path, &["add", "."]);
+        git_ok(repo_path, &["commit", "-m", "init"]);
+
+        // Create .braid directory
+        let braid_dir = repo_path.join(".braid");
+        std::fs::create_dir_all(&braid_dir).unwrap();
+        std::fs::write(
+            braid_dir.join("config.toml"),
+            "schema_version = 6\nid_prefix = \"tst\"\nid_len = 4\n",
+        )
+        .unwrap();
+
+        let paths = RepoPaths {
+            worktree_root: repo_path.to_path_buf(),
+            git_common_dir: repo_path.join(".git"),
+            brd_common_dir: repo_path.join(".git/brd"),
+        };
+        std::fs::create_dir_all(&paths.brd_common_dir).unwrap();
+
+        (dir, paths)
+    }
+
+    fn make_cli() -> Cli {
+        Cli {
+            json: false,
+            repo: None,
+            no_color: true,
+            verbose: false,
+            command: crate::cli::Command::Doctor,
+        }
+    }
+
+    #[test]
+    fn test_is_agent_worktree_true() {
+        let (dir, paths) = create_repo();
+        let braid_dir = dir.path().join(".braid");
+        std::fs::write(braid_dir.join("agent.toml"), "agent_id = \"test\"\n").unwrap();
+
+        assert!(is_agent_worktree(&paths));
+    }
+
+    #[test]
+    fn test_is_agent_worktree_false() {
+        let (_dir, paths) = create_repo();
+        // No agent.toml created
+        assert!(!is_agent_worktree(&paths));
+    }
+
+    #[test]
+    fn test_merge_rejects_non_agent_worktree() {
+        let (_dir, paths) = create_repo();
+        let cli = make_cli();
+
+        // No agent.toml, should reject
+        let err = cmd_merge(&cli, &paths).unwrap_err();
+        assert!(err.to_string().contains("not in an agent worktree"));
+    }
+
+    #[test]
+    fn test_merge_rejects_dirty_worktree() {
+        let (dir, paths) = create_repo();
+        let cli = make_cli();
+
+        // Create agent.toml
+        std::fs::write(
+            dir.path().join(".braid/agent.toml"),
+            "agent_id = \"test\"\n",
+        )
+        .unwrap();
+
+        // Create uncommitted changes
+        std::fs::write(dir.path().join("dirty.txt"), "dirty\n").unwrap();
+
+        let err = cmd_merge(&cli, &paths).unwrap_err();
+        assert!(err.to_string().contains("working tree is dirty"));
+    }
+
+    #[test]
+    fn test_merge_on_main_branch() {
+        let (dir, paths) = create_repo();
+        let cli = make_cli();
+
+        // Create agent.toml and commit it
+        std::fs::write(
+            dir.path().join(".braid/agent.toml"),
+            "agent_id = \"test\"\n",
+        )
+        .unwrap();
+        git_ok(dir.path(), &["add", "."]);
+        git_ok(dir.path(), &["commit", "-m", "add agent.toml"]);
+
+        // We're on main branch, should return Ok but print message
+        let result = cmd_merge(&cli, &paths);
+        assert!(result.is_ok(), "expected Ok, got: {:?}", result);
+    }
+}
