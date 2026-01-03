@@ -3,11 +3,11 @@ schema_version: 6
 id: brd-e27d
 title: testing checklist for workflow modes
 priority: P2
-status: todo
+status: doing
 deps: []
-owner: null
+owner: alextes
 created_at: 2026-01-02T13:27:04.113387Z
-updated_at: 2026-01-02T13:27:04.113387Z
+updated_at: 2026-01-03T10:29:44.59383Z
 ---
 
 ## Purpose
