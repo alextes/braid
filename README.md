@@ -71,7 +71,7 @@ brd start
 - `brd init` — initialize braid in current repo
 - `brd add "<title>" [-p P0-P3] [-b "<body>"] [--dep <id>]` — create a new issue
 - `brd ls [--status todo|doing|done] [-p P0-P3] [--ready] [--blocked]` — list issues
-- `brd show <id>` — show issue details
+- `brd show <id> [--context]` — show issue details (with `--context`: include deps and dependents)
 
 ### workflow
 
@@ -150,8 +150,6 @@ git add . && git commit -m "feat: implement the thing"
 brd done <id>
 brd agent merge        # rebase + fast-forward merge to main
 ```
-
-see [docs/agent-workflow.md](docs/agent-workflow.md) for the full guide.
 
 ## workflow modes
 

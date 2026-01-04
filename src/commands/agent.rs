@@ -408,7 +408,7 @@ pub fn cmd_agent_pr(cli: &Cli, paths: &RepoPaths) -> Result<()> {
 // ============================================================================
 
 /// current version of the agents block
-pub const AGENTS_BLOCK_VERSION: u32 = 5;
+pub const AGENTS_BLOCK_VERSION: u32 = 6;
 
 const BLOCK_START: &str = "<!-- braid:agents:start";
 const BLOCK_END: &str = "<!-- braid:agents:end -->";
@@ -430,8 +430,11 @@ basic flow:
 useful commands:
 - `brd ls` — list all issues
 - `brd ready` — show issues with no unresolved dependencies
-- `brd show <id>` — view issue details
+- `brd show <id>` — view issue details (shows deps and dependents)
+- `brd show <id> --context` — view issue with full content of related issues
 - `brd mode` — show current workflow mode
+
+**tip:** before starting work, use `brd show <id> --context` to see the issue plus all its dependencies and dependents in one view.
 
 ## working on main vs in a worktree
 

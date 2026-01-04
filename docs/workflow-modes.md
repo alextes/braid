@@ -186,5 +186,4 @@ auto_push = true                 # commit+push on brd done
 
 ## see also
 
-- [agent-workflow.md](agent-workflow.md) — agent worktree guide
 - [configuration.md](configuration.md) — full config reference

@@ -35,7 +35,6 @@ before cutting a release, read [docs/release-workflow.md](docs/release-workflow.
 
 ## braid-specific docs
 
-- [docs/agent-workflow.md](docs/agent-workflow.md) — full agent worktree workflow
 - [docs/sync-branch.md](docs/sync-branch.md) — sync branch mode (issues on dedicated branch)
 - [docs/design-issues.md](docs/design-issues.md) — design issue workflow
 - [docs/release-workflow.md](docs/release-workflow.md) — how to cut releases

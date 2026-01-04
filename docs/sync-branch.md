@@ -190,4 +190,3 @@ git rebase --continue
 ## see also
 
 - [workflow-modes.md](workflow-modes.md) — overview of all modes
-- [agent-workflow.md](agent-workflow.md) — full agent worktree guide
