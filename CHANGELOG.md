@@ -7,6 +7,71 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-01-04
+
+### Added
+- comprehensive changelog entries for v0.5.0 and v0.6.0 releases
+
+## [0.6.0] - 2026-01-04
+
+### Added
+- `brd show --context` flag to display dependents alongside dependencies
+- `brd init` now errors with helpful message when braid is already initialized
+- integration tests for workflow mode switching and init behavior
+- unit tests for search, completions, merge, agent, and TUI modules
+
+### Fixed
+- design issue closure now prevents cycles when multiple result deps exist
+- test repos now ensure branch is named "main" for CI compatibility
+
+## [0.5.0] - 2026-01-02
+
+### Added
+- **workflow modes**: three ways to store issues
+  - `git-native`: issues in `.braid/issues/` on your branch (default for solo/remote)
+  - `local-sync`: issues on separate branch with shared worktree (instant local visibility)
+  - `external-repo`: issues in a completely separate repository
+- `brd mode` command to view and switch between workflow modes
+- `brd mode local-sync [branch]` to enable local-sync mode
+- `brd mode external-repo <path>` to use external repository for issues
+- `brd mode git-native` to switch back to git-native mode
+- `brd status` command to show repo status summary
+- `brd sync` command for syncing issues in local-sync mode
+- `brd agent branch <issue-id>` to create feature branch for PR workflow
+- `brd agent pr` to create pull request from agent branch
+- `brd agent merge` command (renamed from `ship`) with main-branch detection
+- `brd start` now auto-syncs: fetch, rebase, claim, commit, push
+- `brd start` warns when agent has uncompleted issues
+- `brd init` interactive prompts for workflow configuration
+- `brd init -y` for non-interactive setup with local-sync defaults
+- design issues now require `--result <id>` when closing to link implementation
+- TUI: live view mode that auto-refreshes issue list
+- TUI: inline filter mode (`/` to search, status filters)
+- TUI: navigate to dependency issues with enter key
+- TUI: improved issue creation dialog with type selection
+- schema v5: `issues_branch` field for local-sync mode
+- schema v6: `auto_pull` and `auto_push` config fields
+- mode-aware AGENTS.md block injection
+- `#bug` tag renders in red in ls/ready output
+- stats footer in ls/ready showing open/done counts
+
+### Changed
+- **BREAKING**: `brd agent ship` renamed to `brd agent merge`
+- **BREAKING**: `brd dep` uses `blocker/blocked` terminology instead of `parent/child`
+- init flow simplified to 2 orthogonal questions (storage + auto-sync)
+- agent worktrees now created at `~/.braid/worktrees/<repo>/<agent>`
+- conventional commit style for start/done issue state changes
+- `brd mode` terminology: "default" renamed to "git-native"
+- ls output limited to 15 todo issues with "+N more" indicator
+
+### Fixed
+- doctor prints error details inline after each failing check
+- doctor includes `rm` in symlink hint for existing directories
+- handle untracked changes in `brd sync`
+- TUI keeps list selection visible when navigating
+- priority styling separated correctly in ls/ready output
+- PR branches prefixed with `pr/` to avoid git ref conflicts
+
 ## [0.4.1] - 2025-12-28
 
 ### Added
@@ -95,7 +160,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - TUI for browsing issues
 - JSON output support
 
-[Unreleased]: https://github.com/alextes/braid/compare/v0.4.1...HEAD
+[Unreleased]: https://github.com/alextes/braid/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/alextes/braid/compare/v0.6.0...v0.7.0
+[0.6.0]: https://github.com/alextes/braid/compare/v0.5.0...v0.6.0
+[0.5.0]: https://github.com/alextes/braid/compare/v0.4.1...v0.5.0
 [0.4.1]: https://github.com/alextes/braid/compare/v0.3.0...v0.4.1
 [0.3.0]: https://github.com/alextes/braid/compare/v0.2.2...v0.3.0
 [0.2.2]: https://github.com/alextes/braid/compare/v0.2.0...v0.2.2
