@@ -192,41 +192,57 @@ pub enum Command {
         push: bool,
     },
 
-    /// manage workflow mode
-    Mode {
+    /// view or change braid configuration
+    Config {
         #[command(subcommand)]
-        action: Option<ModeAction>,
+        action: Option<ConfigAction>,
     },
 }
 
+/// Parse "on"/"off" to bool for auto-sync setting.
+fn parse_on_off(s: &str) -> Result<bool, String> {
+    match s.to_lowercase().as_str() {
+        "on" | "true" | "1" => Ok(true),
+        "off" | "false" | "0" => Ok(false),
+        _ => Err(format!("expected 'on' or 'off', got '{}'", s)),
+    }
+}
+
 #[derive(Subcommand)]
-pub enum ModeAction {
-    /// switch to local-sync mode (issues on a sync branch)
-    LocalSync {
-        /// name of the sync branch (default: braid-issues)
-        #[arg(default_value = "braid-issues")]
-        branch: String,
+pub enum ConfigAction {
+    /// set or clear the issues branch (for shared worktree storage)
+    IssuesBranch {
+        /// branch name to use (omit with --clear to disable)
+        name: Option<String>,
+
+        /// clear the issues branch setting
+        #[arg(long)]
+        clear: bool,
 
         /// skip confirmation prompt
         #[arg(short = 'y', long)]
         yes: bool,
     },
 
-    /// switch to external-repo mode (issues in a separate repository)
+    /// set or clear the external issues repository
     ExternalRepo {
-        /// path to the external issues repository
-        path: String,
+        /// path to external issues repo (omit with --clear to disable)
+        path: Option<String>,
+
+        /// clear the external repo setting
+        #[arg(long)]
+        clear: bool,
 
         /// skip confirmation prompt
         #[arg(short = 'y', long)]
         yes: bool,
     },
 
-    /// switch to git-native mode (issues on main branch)
-    GitNative {
-        /// skip confirmation prompt
-        #[arg(short = 'y', long)]
-        yes: bool,
+    /// enable or disable auto-sync (pull on start, push on done)
+    AutoSync {
+        /// "on" or "off"
+        #[arg(value_parser = parse_on_off, action = clap::ArgAction::Set)]
+        enabled: bool,
     },
 }
 

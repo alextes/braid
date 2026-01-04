@@ -1,6 +1,6 @@
 # workflow configuration
 
-braid's workflow is controlled by two independent config dimensions. run `brd mode` to see your current configuration.
+braid's workflow is controlled by two independent config dimensions. run `brd config` to see your current configuration.
 
 ## two dimensions
 
@@ -28,12 +28,12 @@ these are **independent** — you can combine any storage with any sync setting.
 
 ## common configurations
 
-| storage | auto-sync | called | use case |
-|---------|-----------|--------|----------|
-| with code | on | git-native | remote agents, small teams |
-| separate branch | on | local-sync | multiple local agents |
-| with code | off | manual | full control, offline work |
-| external repo | varies | external-repo | multi-repo, privacy |
+| storage | auto-sync | use case |
+|---------|-----------|----------|
+| with code | on | remote agents, small teams |
+| separate branch | on | multiple local agents |
+| with code | off | full control, offline work |
+| external repo | varies | multi-repo, privacy |
 
 ## brd init
 
@@ -53,11 +53,11 @@ Q2: Auto-sync with git remote?
 - `brd init` (interactive): asks both questions
 - `brd init -y` (non-interactive): `issues_branch = "braid-issues"`, auto-sync enabled
 
-to get issues-with-code (git-native): answer "No" to Q1 during interactive init.
+to get issues-with-code: answer "No" to Q1 during interactive init.
 
 ## storage configurations
 
-### issues with code (git-native)
+### issues with code
 
 issues live in `.braid/issues/` alongside your code.
 
@@ -80,7 +80,7 @@ brd start              # claim issue (syncs with remote)
 brd done <id>          # mark done (pushes to remote)
 ```
 
-### separate branch (local-sync)
+### separate branch
 
 issues live on a dedicated branch in a shared worktree.
 
@@ -127,25 +127,26 @@ git add -A && git commit -m "init braid"
 
 # point code repo to it
 cd ../my-code-repo
-brd mode external-repo ../my-issues-repo
+brd config external-repo ../my-issues-repo
 ```
 
-## switching configurations
+## changing configuration
 
-use `brd mode` to change your configuration:
+use `brd config` to view and change settings:
 
 ```bash
-brd mode                           # show current config
-brd mode local-sync                # enable issues_branch
-brd mode local-sync my-branch      # custom branch name
-brd mode external-repo ../path     # point to external repo
-brd mode git-native                # clear issues_branch/issues_repo
+brd config                              # show current settings
+brd config issues-branch <name>         # enable issues branch
+brd config issues-branch --clear        # disable issues branch
+brd config external-repo <path>         # point to external repo
+brd config external-repo --clear        # disable external repo
+brd config auto-sync on|off             # enable/disable auto-sync
 ```
 
 **constraints:**
-- switching to local-sync or external-repo requires being in git-native first
-- to switch between local-sync and external-repo: go through git-native
-- `brd mode git-native` copies issues back to `.braid/issues/` if needed
+- cannot have both `issues-branch` and `external-repo` set
+- clear one before setting the other
+- clearing `issues-branch` copies issues back to `.braid/issues/`
 
 ## auto-sync details
 
@@ -156,13 +157,10 @@ auto-sync works with **any** storage configuration:
 | `brd start` | fetch + rebase issues | — |
 | `brd done` | — | commit + push issues |
 
-you can disable auto-sync for any storage mode:
+you can disable auto-sync for any storage:
 
-```toml
-# local-sync with manual remote sync
-issues_branch = "braid-issues"
-auto_pull = false
-auto_push = false
+```bash
+brd config auto-sync off
 ```
 
 then use `brd sync` when you want to share with remote.

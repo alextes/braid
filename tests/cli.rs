@@ -562,10 +562,10 @@ fn test_init_json_uses_local_sync_by_default() {
 }
 
 #[test]
-fn test_mode_switching_preserves_issues() {
+fn test_config_switching_preserves_issues() {
     let env = TestEnv::new();
 
-    // add issues in local-sync mode (default)
+    // add issues with issues-branch set (default)
     let output = env.brd_json(&["add", "issue one"]);
     let id1 = TestEnv::json(&output)["id"].as_str().unwrap().to_string();
     let output = env.brd_json(&["add", "issue two"]);
@@ -585,11 +585,11 @@ fn test_mode_switching_preserves_issues() {
         .current_dir(env.path())
         .output();
 
-    // switch to git-native
-    let output = env.brd(&["mode", "git-native", "-y"]);
+    // clear issues-branch (switch to git-native storage)
+    let output = env.brd(&["config", "issues-branch", "--clear", "-y"]);
     assert!(
         output.status.success(),
-        "mode git-native failed: {}",
+        "config issues-branch --clear failed: {}",
         TestEnv::stderr(&output)
     );
     assert!(TestEnv::stdout(&output).contains("copied 2 issue"));
@@ -611,11 +611,11 @@ fn test_mode_switching_preserves_issues() {
         .output()
         .expect("failed to git commit");
 
-    // switch back to local-sync
-    let output = env.brd(&["mode", "local-sync", "-y"]);
+    // set issues-branch again
+    let output = env.brd(&["config", "issues-branch", "braid-issues", "-y"]);
     assert!(
         output.status.success(),
-        "mode local-sync failed: {}",
+        "config issues-branch set failed: {}",
         TestEnv::stderr(&output)
     );
     assert!(TestEnv::stdout(&output).contains("moved 2 issue"));
@@ -627,13 +627,13 @@ fn test_mode_switching_preserves_issues() {
 }
 
 #[test]
-fn test_mode_shows_current_mode() {
+fn test_config_shows_current_settings() {
     let env = TestEnv::new();
 
-    // default is local-sync
-    let output = env.brd(&["mode"]);
+    // default has issues-branch set
+    let output = env.brd(&["config"]);
     assert!(output.status.success());
-    assert!(TestEnv::stdout(&output).contains("local-sync"));
+    assert!(TestEnv::stdout(&output).contains("issues-branch: braid-issues"));
 
     // sync and commit before switching
     env.brd(&["sync"]);
@@ -647,17 +647,17 @@ fn test_mode_shows_current_mode() {
         .current_dir(env.path())
         .output();
 
-    // switch to git-native
-    let output = env.brd(&["mode", "git-native", "-y"]);
+    // clear issues-branch
+    let output = env.brd(&["config", "issues-branch", "--clear", "-y"]);
     assert!(
         output.status.success(),
-        "mode git-native failed: {}",
+        "config issues-branch --clear failed: {}",
         TestEnv::stderr(&output)
     );
 
-    let output = env.brd(&["mode"]);
+    let output = env.brd(&["config"]);
     assert!(output.status.success());
-    assert!(TestEnv::stdout(&output).contains("git-native"));
+    assert!(TestEnv::stdout(&output).contains("issues-branch: (not set)"));
 }
 
 #[test]

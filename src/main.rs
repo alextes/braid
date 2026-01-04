@@ -1,10 +1,10 @@
-use braid::cli::{AgentAction, Cli, Command, DepAction, ModeAction};
+use braid::cli::{AgentAction, Cli, Command, ConfigAction, DepAction};
 use braid::commands::{
     cmd_add, cmd_agent_branch, cmd_agent_init, cmd_agent_pr, cmd_agents_inject, cmd_agents_show,
-    cmd_commit, cmd_completions, cmd_dep_add, cmd_dep_rm, cmd_doctor, cmd_done, cmd_edit, cmd_init,
-    cmd_ls, cmd_merge, cmd_migrate, cmd_mode_external_repo, cmd_mode_git_native,
-    cmd_mode_local_sync, cmd_mode_show, cmd_ready, cmd_rm, cmd_search, cmd_show, cmd_skip,
-    cmd_start, cmd_status, cmd_sync, cmd_tui,
+    cmd_commit, cmd_completions, cmd_config_auto_sync, cmd_config_external_repo,
+    cmd_config_issues_branch, cmd_config_show, cmd_dep_add, cmd_dep_rm, cmd_doctor, cmd_done,
+    cmd_edit, cmd_init, cmd_ls, cmd_merge, cmd_migrate, cmd_ready, cmd_rm, cmd_search, cmd_show,
+    cmd_skip, cmd_start, cmd_status, cmd_sync, cmd_tui,
 };
 use braid::config::Config;
 use braid::error::{BrdError, Result};
@@ -124,15 +124,15 @@ fn run(cli: &Cli) -> Result<()> {
         Command::Search => cmd_search(cli, &paths),
         Command::Commit { message } => cmd_commit(cli, &paths, message.as_deref()),
         Command::Sync { push } => cmd_sync(cli, &paths, *push),
-        Command::Mode { action } => match action {
-            None => cmd_mode_show(cli, &paths),
-            Some(ModeAction::LocalSync { branch, yes }) => {
-                cmd_mode_local_sync(cli, &paths, branch, *yes)
+        Command::Config { action } => match action {
+            None => cmd_config_show(cli, &paths),
+            Some(ConfigAction::IssuesBranch { name, clear, yes }) => {
+                cmd_config_issues_branch(cli, &paths, name.as_deref(), *clear, *yes)
             }
-            Some(ModeAction::ExternalRepo { path, yes }) => {
-                cmd_mode_external_repo(cli, &paths, path, *yes)
+            Some(ConfigAction::ExternalRepo { path, clear, yes }) => {
+                cmd_config_external_repo(cli, &paths, path.as_deref(), *clear, *yes)
             }
-            Some(ModeAction::GitNative { yes }) => cmd_mode_git_native(cli, &paths, *yes),
+            Some(ConfigAction::AutoSync { enabled }) => cmd_config_auto_sync(cli, &paths, *enabled),
         },
     }
 }

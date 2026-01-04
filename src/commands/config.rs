@@ -1,4 +1,4 @@
-//! brd mode command - show and switch workflow modes.
+//! brd config command - view and change braid configuration.
 
 use std::io::{self, BufRead, Write};
 use std::path::Path;
@@ -144,87 +144,112 @@ fn warn_agent_worktrees(worktrees: &[AgentWorktree]) {
     println!("Run `git rebase main` in each worktree to pick up the new config.");
 }
 
-/// Show current workflow mode.
-pub fn cmd_mode_show(cli: &Cli, paths: &RepoPaths) -> Result<()> {
+/// Show current configuration.
+pub fn cmd_config_show(cli: &Cli, paths: &RepoPaths) -> Result<()> {
     let config = Config::load(&paths.config_path())?;
 
+    let auto_sync = config.auto_pull && config.auto_push;
+
     if cli.json {
-        let json = if let Some(ref external_path) = config.issues_repo {
-            serde_json::json!({
-                "mode": "external-repo",
-                "path": external_path,
-            })
-        } else if let Some(ref branch) = config.issues_branch {
-            let upstream = get_upstream(branch, &paths.worktree_root);
-            serde_json::json!({
-                "mode": "local-sync",
-                "branch": branch,
-                "upstream": upstream,
-            })
-        } else {
-            serde_json::json!({
-                "mode": "git-native",
-            })
-        };
+        let json = serde_json::json!({
+            "issues_branch": config.issues_branch,
+            "external_repo": config.issues_repo,
+            "auto_sync": auto_sync,
+            "auto_pull": config.auto_pull,
+            "auto_push": config.auto_push,
+        });
         println!("{}", serde_json::to_string_pretty(&json).unwrap());
         return Ok(());
     }
 
-    if let Some(ref external_path) = config.issues_repo {
-        println!("Mode: external-repo");
-        println!("Path: {}", external_path);
+    // issues-branch setting
+    if let Some(ref branch) = config.issues_branch {
+        print!("issues-branch: {}", branch);
+        if has_upstream(branch, &paths.worktree_root) {
+            let upstream = get_upstream(branch, &paths.worktree_root).unwrap_or_default();
+            println!(" (tracking {})", upstream);
+        } else {
+            println!(" (local only)");
+        }
+    } else {
+        println!("issues-branch: (not set)");
+    }
 
-        // resolve and show actual issues location
+    // external-repo setting
+    if let Some(ref external_path) = config.issues_repo {
+        print!("external-repo: {}", external_path);
         let resolved = if std::path::Path::new(external_path).is_absolute() {
             std::path::PathBuf::from(external_path)
         } else {
             paths.worktree_root.join(external_path)
         };
-
         if let Ok(canonical) = resolved.canonicalize() {
-            println!("Resolved: {}", canonical.display());
-        }
-
-        println!();
-        println!("Issues are tracked in a separate repository.");
-        println!("Good for: separation of concerns, privacy, multi-repo coordination.");
-    } else if let Some(ref branch) = config.issues_branch {
-        println!("Mode: local-sync");
-        println!("Branch: {}", branch);
-
-        if has_upstream(branch, &paths.worktree_root) {
-            let upstream = get_upstream(branch, &paths.worktree_root).unwrap_or_default();
-            println!("Remote: {} (tracking)", upstream);
+            if canonical.to_string_lossy() != *external_path {
+                println!(" ({})", canonical.display());
+            } else {
+                println!();
+            }
         } else {
-            println!("Remote: (none - local only)");
-        }
-
-        println!();
-        println!("Issues sync via shared worktree. All local agents see changes instantly.");
-        if has_upstream(branch, &paths.worktree_root) {
-            println!("Remote sync: run `brd sync` to push/pull.");
-        } else {
-            println!("To enable remote sync: `brd sync --push`");
+            println!(" (path not found)");
         }
     } else {
-        println!("Mode: git-native");
-        println!();
-        println!("Issues sync via git - merge to main, rebase to get updates.");
-        println!("Good for: solo work, small teams, remote agents.");
+        println!("external-repo: (not set)");
+    }
+
+    // auto-sync setting
+    if auto_sync {
+        println!("auto-sync:     enabled");
+    } else if !config.auto_pull && !config.auto_push {
+        println!("auto-sync:     disabled");
+    } else {
+        // partial - show individual settings
+        println!(
+            "auto-sync:     partial (pull={}, push={})",
+            config.auto_pull, config.auto_push
+        );
     }
 
     Ok(())
 }
 
-/// Switch to local-sync mode.
-pub fn cmd_mode_local_sync(cli: &Cli, paths: &RepoPaths, branch: &str, yes: bool) -> Result<()> {
+/// Set or clear the issues-branch setting.
+pub fn cmd_config_issues_branch(
+    cli: &Cli,
+    paths: &RepoPaths,
+    name: Option<&str>,
+    clear: bool,
+    yes: bool,
+) -> Result<()> {
+    // Handle clear case
+    if clear {
+        return clear_issues_branch(cli, paths, yes);
+    }
+
+    // Handle set case
+    let branch = match name {
+        Some(b) => b,
+        None => {
+            return Err(BrdError::Other(
+                "must provide branch name or use --clear".to_string(),
+            ));
+        }
+    };
+
     let mut config = Config::load(&paths.config_path())?;
 
-    // check if already in sync mode
-    if config.issues_branch.is_some() {
+    // check if already set to this branch
+    if config.issues_branch.as_deref() == Some(branch) {
+        if !cli.json {
+            println!("issues-branch already set to '{}'", branch);
+        }
+        return Ok(());
+    }
+
+    // check if already set to a different branch
+    if let Some(existing) = &config.issues_branch {
         return Err(BrdError::Other(format!(
-            "already in sync mode (branch: {}). run `brd mode git-native` first to switch.",
-            config.issues_branch.as_ref().unwrap()
+            "issues-branch already set to '{}'. run `brd config issues-branch --clear` first.",
+            existing
         )));
     }
 
@@ -240,7 +265,7 @@ pub fn cmd_mode_local_sync(cli: &Cli, paths: &RepoPaths, branch: &str, yes: bool
         let local_issues = paths.worktree_root.join(".braid/issues");
         let issue_count = count_issues(&local_issues);
 
-        println!("Switching to local-sync mode...");
+        println!("Setting issues-branch to '{}'...", branch);
         println!();
         println!("This will:");
         println!("  • Create branch '{}' for issue storage", branch);
@@ -265,7 +290,7 @@ pub fn cmd_mode_local_sync(cli: &Cli, paths: &RepoPaths, branch: &str, yes: bool
     }
 
     if !cli.json {
-        println!("Switching to local-sync mode...");
+        println!("Setting issues-branch...");
     }
 
     // 1. create sync branch if it doesn't exist
@@ -323,7 +348,7 @@ pub fn cmd_mode_local_sync(cli: &Cli, paths: &RepoPaths, branch: &str, yes: bool
         ));
     }
 
-    let commit_msg = format!("chore(braid): switch to local-sync mode ({})", branch);
+    let commit_msg = format!("chore(braid): set issues-branch to '{}'", branch);
     // commit might fail if nothing changed, that's ok
     let _ = git::run(&["commit", "-m", &commit_msg], &paths.worktree_root);
 
@@ -354,8 +379,7 @@ pub fn cmd_mode_local_sync(cli: &Cli, paths: &RepoPaths, branch: &str, yes: bool
 
         let json = serde_json::json!({
             "ok": true,
-            "mode": "local-sync",
-            "branch": branch,
+            "issues_branch": branch,
             "issues_worktree": issues_wt.to_string_lossy(),
             "moved_issues": moved_count,
             "agent_worktrees_needing_rebase": worktrees_json,
@@ -363,8 +387,8 @@ pub fn cmd_mode_local_sync(cli: &Cli, paths: &RepoPaths, branch: &str, yes: bool
         println!("{}", serde_json::to_string_pretty(&json).unwrap());
     } else {
         println!();
-        println!("Switched to local-sync mode.");
-        println!("Issues now live on '{}' branch.", branch);
+        println!("issues-branch set to '{}'", branch);
+        println!("Issues now live on shared worktree.");
 
         warn_agent_worktrees(&agent_worktrees);
     }
@@ -372,78 +396,18 @@ pub fn cmd_mode_local_sync(cli: &Cli, paths: &RepoPaths, branch: &str, yes: bool
     Ok(())
 }
 
-/// Switch to git-native mode.
-pub fn cmd_mode_git_native(cli: &Cli, paths: &RepoPaths, yes: bool) -> Result<()> {
+/// Clear the issues-branch setting (move issues back to .braid/issues/).
+fn clear_issues_branch(cli: &Cli, paths: &RepoPaths, yes: bool) -> Result<()> {
     let mut config = Config::load(&paths.config_path())?;
 
-    // handle external-repo mode first (simpler - just clear the config)
-    if let Some(ref external_path) = config.issues_repo {
-        let path = external_path.clone();
-
-        // confirmation prompt (unless -y or --json)
-        if !yes && !cli.json {
-            println!("Switching from external-repo to git-native mode...");
-            println!();
-            println!("This will:");
-            println!("  • Remove external repo reference from config");
-            println!("  • Issues will remain in external repo at {}", path);
-            println!("  • You'll need to manually copy issues if you want them locally");
-            println!("  • Commit the config change");
-            println!();
-
-            if !confirm("Continue?")? {
-                println!("Aborted.");
-                return Ok(());
-            }
-            println!();
-        }
-
-        if !cli.json {
-            println!("Switching from external-repo to git-native mode...");
-        }
-
-        config.issues_repo = None;
-        config.save(&paths.config_path())?;
-
-        // commit the config change
-        if git::run(&["add", ".braid/config.toml"], &paths.worktree_root)? {
-            let commit_msg = format!(
-                "chore(braid): switch to git-native mode (from external {})",
-                path
-            );
-            let _ = git::run(&["commit", "-m", &commit_msg], &paths.worktree_root);
-        }
-
-        let agent_worktrees = find_agent_worktrees_needing_rebase(&paths.worktree_root);
-
-        if cli.json {
-            let worktrees_json: Vec<_> = agent_worktrees
-                .iter()
-                .map(|wt| serde_json::json!({"branch": wt.branch, "path": wt.path.to_string_lossy()}))
-                .collect();
-            let json = serde_json::json!({
-                "ok": true,
-                "mode": "git-native",
-                "from_external": path,
-                "agent_worktrees_needing_rebase": worktrees_json,
-            });
-            println!("{}", serde_json::to_string_pretty(&json).unwrap());
-        } else {
-            println!();
-            println!("Switched to git-native mode.");
-            println!("Note: issues remain in external repo at {}", path);
-            println!("You'll need to manually copy issues if you want them locally.");
-            warn_agent_worktrees(&agent_worktrees);
-        }
-
-        return Ok(());
-    }
-
-    // check if in sync mode
+    // check if issues_branch is set
     let branch = match &config.issues_branch {
         Some(b) => b.clone(),
         None => {
-            return Err(BrdError::Other("already in git-native mode".to_string()));
+            if !cli.json {
+                println!("issues-branch is not set");
+            }
+            return Ok(());
         }
     };
 
@@ -454,7 +418,7 @@ pub fn cmd_mode_git_native(cli: &Cli, paths: &RepoPaths, yes: bool) -> Result<()
         ));
     }
 
-    // 1. get issues from sync worktree
+    // get issues from sync worktree
     let issues_wt = paths.issues_worktree_dir();
     let wt_issues = issues_wt.join(".braid/issues");
     let local_issues = paths.worktree_root.join(".braid/issues");
@@ -471,7 +435,7 @@ pub fn cmd_mode_git_native(cli: &Cli, paths: &RepoPaths, yes: bool) -> Result<()
     if !yes && !cli.json {
         let issue_count = count_issues(&wt_issues);
 
-        println!("Switching from local-sync to git-native mode...");
+        println!("Clearing issues-branch setting...");
         println!();
         println!("This will:");
         if issue_count > 0 {
@@ -480,7 +444,7 @@ pub fn cmd_mode_git_native(cli: &Cli, paths: &RepoPaths, yes: bool) -> Result<()
                 issue_count
             );
         }
-        println!("  • Update config to remove issues_branch setting");
+        println!("  • Remove issues-branch from config");
         println!("  • Commit the changes");
         println!(
             "  • Leave worktree at {} (you can remove it manually)",
@@ -496,10 +460,10 @@ pub fn cmd_mode_git_native(cli: &Cli, paths: &RepoPaths, yes: bool) -> Result<()
     }
 
     if !cli.json {
-        println!("Switching to git-native mode...");
+        println!("Clearing issues-branch...");
     }
 
-    // 1. remove symlink if it exists (so we can create a real directory)
+    // remove symlink if it exists
     if let Err(e) = remove_issues_symlink(paths)
         && !cli.json
     {
@@ -508,7 +472,7 @@ pub fn cmd_mode_git_native(cli: &Cli, paths: &RepoPaths, yes: bool) -> Result<()
 
     std::fs::create_dir_all(&local_issues)?;
 
-    // 2. copy issues back from sync worktree
+    // copy issues back from sync worktree
     let mut moved_count = 0;
     if wt_issues.exists() {
         for entry in std::fs::read_dir(&wt_issues)? {
@@ -523,37 +487,33 @@ pub fn cmd_mode_git_native(cli: &Cli, paths: &RepoPaths, yes: bool) -> Result<()
     }
 
     if moved_count > 0 && !cli.json {
-        println!("  copied {} issue(s) from sync branch", moved_count);
+        println!("  copied {} issue(s) from worktree", moved_count);
     }
 
-    // 3. update config (remove issues_branch)
+    // update config (remove issues_branch)
     config.issues_branch = None;
     config.save(&paths.config_path())?;
 
-    // 4. commit the changes
+    // commit the changes
     if !git::run(&["add", ".braid"], &paths.worktree_root)? {
         return Err(BrdError::Other(
             "failed to stage .braid changes".to_string(),
         ));
     }
 
-    let commit_msg = format!("chore(braid): switch to git-native mode (from {})", branch);
+    let commit_msg = format!("chore(braid): clear issues-branch (was '{}')", branch);
     let _ = git::run(&["commit", "-m", &commit_msg], &paths.worktree_root);
 
-    // 5. check for agent worktrees needing rebase
+    // check for agent worktrees needing rebase
     let agent_worktrees = find_agent_worktrees_needing_rebase(&paths.worktree_root);
 
-    // 6. output results
     if !cli.json {
         println!();
-        println!("Switched to git-native mode.");
-        println!("Issues now live on main branch.");
+        println!("issues-branch cleared");
+        println!("Issues now live in .braid/issues/");
         if issues_wt.exists() {
             println!();
-            println!(
-                "Note: issues worktree still exists at {}",
-                issues_wt.display()
-            );
+            println!("Note: worktree still exists at {}", issues_wt.display());
             println!(
                 "You can remove it with: git worktree remove {}",
                 issues_wt.display()
@@ -576,7 +536,7 @@ pub fn cmd_mode_git_native(cli: &Cli, paths: &RepoPaths, yes: bool) -> Result<()
 
         let json = serde_json::json!({
             "ok": true,
-            "mode": "git-native",
+            "issues_branch": serde_json::Value::Null,
             "from_branch": branch,
             "moved_issues": moved_count,
             "agent_worktrees_needing_rebase": worktrees_json,
@@ -587,28 +547,54 @@ pub fn cmd_mode_git_native(cli: &Cli, paths: &RepoPaths, yes: bool) -> Result<()
     Ok(())
 }
 
-/// Switch to external-repo mode.
-pub fn cmd_mode_external_repo(
+/// Set or clear the external-repo setting.
+pub fn cmd_config_external_repo(
     cli: &Cli,
     paths: &RepoPaths,
-    external_path: &str,
+    path: Option<&str>,
+    clear: bool,
     yes: bool,
 ) -> Result<()> {
+    // Handle clear case
+    if clear {
+        return clear_external_repo(cli, paths, yes);
+    }
+
+    // Handle set case
+    let external_path = match path {
+        Some(p) => p,
+        None => {
+            return Err(BrdError::Other(
+                "must provide path or use --clear".to_string(),
+            ));
+        }
+    };
+
     use crate::repo::discover;
 
     let mut config = Config::load(&paths.config_path())?;
 
-    // check if already in a non-default mode
+    // check if already set to this path
+    if config.issues_repo.as_deref() == Some(external_path) {
+        if !cli.json {
+            println!("external-repo already set to '{}'", external_path);
+        }
+        return Ok(());
+    }
+
+    // check if already set to a different path
+    if let Some(existing) = &config.issues_repo {
+        return Err(BrdError::Other(format!(
+            "external-repo already set to '{}'. run `brd config external-repo --clear` first.",
+            existing
+        )));
+    }
+
+    // check if issues_branch is set
     if config.issues_branch.is_some() {
         return Err(BrdError::Other(
-            "currently in local-sync mode. run `brd mode git-native` first to switch.".to_string(),
+            "issues-branch is set. run `brd config issues-branch --clear` first.".to_string(),
         ));
-    }
-    if config.issues_repo.is_some() {
-        return Err(BrdError::Other(format!(
-            "already in external-repo mode (path: {}). run `brd mode git-native` first to switch.",
-            config.issues_repo.as_ref().unwrap()
-        )));
     }
 
     // resolve the external path
@@ -651,7 +637,7 @@ pub fn cmd_mode_external_repo(
         let external_issues_dir = external_paths.issues_dir(&external_config);
         let issue_count = count_issues(&external_issues_dir);
 
-        println!("Switching to external-repo mode...");
+        println!("Setting external-repo to '{}'...", external_path);
         println!();
         println!("This will:");
         println!(
@@ -673,7 +659,7 @@ pub fn cmd_mode_external_repo(
     }
 
     if !cli.json {
-        println!("Switching to external-repo mode...");
+        println!("Setting external-repo...");
     }
 
     // update config
@@ -685,10 +671,7 @@ pub fn cmd_mode_external_repo(
         return Err(BrdError::Other("failed to stage config change".to_string()));
     }
 
-    let commit_msg = format!(
-        "chore(braid): switch to external-repo mode ({})",
-        external_path
-    );
+    let commit_msg = format!("chore(braid): set external-repo to '{}'", external_path);
     let _ = git::run(&["commit", "-m", &commit_msg], &paths.worktree_root);
 
     // check for agent worktrees needing rebase
@@ -707,18 +690,142 @@ pub fn cmd_mode_external_repo(
 
         let json = serde_json::json!({
             "ok": true,
-            "mode": "external-repo",
-            "path": external_path,
+            "external_repo": external_path,
             "resolved": canonical.to_string_lossy(),
             "agent_worktrees_needing_rebase": worktrees_json,
         });
         println!("{}", serde_json::to_string_pretty(&json).unwrap());
     } else {
         println!();
-        println!("Switched to external-repo mode.");
+        println!("external-repo set to '{}'", external_path);
         println!("Issues now tracked in: {}", canonical.display());
 
         warn_agent_worktrees(&agent_worktrees);
+    }
+
+    Ok(())
+}
+
+/// Clear the external-repo setting.
+fn clear_external_repo(cli: &Cli, paths: &RepoPaths, yes: bool) -> Result<()> {
+    let mut config = Config::load(&paths.config_path())?;
+
+    // check if external_repo is set
+    let external_path = match &config.issues_repo {
+        Some(p) => p.clone(),
+        None => {
+            if !cli.json {
+                println!("external-repo is not set");
+            }
+            return Ok(());
+        }
+    };
+
+    // confirmation prompt (unless -y or --json)
+    if !yes && !cli.json {
+        println!("Clearing external-repo setting...");
+        println!();
+        println!("This will:");
+        println!("  • Remove external repo reference from config");
+        println!(
+            "  • Issues will remain in external repo at {}",
+            external_path
+        );
+        println!("  • You'll need to manually copy issues if you want them locally");
+        println!("  • Commit the config change");
+        println!();
+
+        if !confirm("Continue?")? {
+            println!("Aborted.");
+            return Ok(());
+        }
+        println!();
+    }
+
+    if !cli.json {
+        println!("Clearing external-repo...");
+    }
+
+    // update config
+    config.issues_repo = None;
+    config.save(&paths.config_path())?;
+
+    // commit the config change
+    if git::run(&["add", ".braid/config.toml"], &paths.worktree_root)? {
+        let commit_msg = format!(
+            "chore(braid): clear external-repo (was '{}')",
+            external_path
+        );
+        let _ = git::run(&["commit", "-m", &commit_msg], &paths.worktree_root);
+    }
+
+    let agent_worktrees = find_agent_worktrees_needing_rebase(&paths.worktree_root);
+
+    if cli.json {
+        let worktrees_json: Vec<_> = agent_worktrees
+            .iter()
+            .map(|wt| {
+                serde_json::json!({
+                    "branch": wt.branch,
+                    "path": wt.path.to_string_lossy(),
+                })
+            })
+            .collect();
+
+        let json = serde_json::json!({
+            "ok": true,
+            "external_repo": serde_json::Value::Null,
+            "from_path": external_path,
+            "agent_worktrees_needing_rebase": worktrees_json,
+        });
+        println!("{}", serde_json::to_string_pretty(&json).unwrap());
+    } else {
+        println!();
+        println!("external-repo cleared");
+        println!("Note: issues remain in external repo at {}", external_path);
+        println!("You'll need to manually copy issues if you want them locally.");
+
+        warn_agent_worktrees(&agent_worktrees);
+    }
+
+    Ok(())
+}
+
+/// Set auto-sync (auto_pull and auto_push) on or off.
+pub fn cmd_config_auto_sync(cli: &Cli, paths: &RepoPaths, enabled: bool) -> Result<()> {
+    let mut config = Config::load(&paths.config_path())?;
+
+    let already_set = config.auto_pull == enabled && config.auto_push == enabled;
+    if already_set {
+        if !cli.json {
+            let status = if enabled { "enabled" } else { "disabled" };
+            println!("auto-sync already {}", status);
+        }
+        return Ok(());
+    }
+
+    config.auto_pull = enabled;
+    config.auto_push = enabled;
+    config.save(&paths.config_path())?;
+
+    // commit the config change
+    if git::run(&["add", ".braid/config.toml"], &paths.worktree_root)? {
+        let status = if enabled { "enabled" } else { "disabled" };
+        let commit_msg = format!("chore(braid): set auto-sync to {}", status);
+        let _ = git::run(&["commit", "-m", &commit_msg], &paths.worktree_root);
+    }
+
+    if cli.json {
+        let json = serde_json::json!({
+            "ok": true,
+            "auto_sync": enabled,
+            "auto_pull": enabled,
+            "auto_push": enabled,
+        });
+        println!("{}", serde_json::to_string_pretty(&json).unwrap());
+    } else {
+        let status = if enabled { "enabled" } else { "disabled" };
+        println!("auto-sync {}", status);
     }
 
     Ok(())
@@ -959,9 +1066,9 @@ mod tests {
         assert!(is_behind_main(dir.path()));
     }
 
-    // cmd_mode_show tests
+    // cmd_config_show tests
     #[test]
-    fn test_mode_show_git_native() {
+    fn test_config_show_git_native() {
         let dir = setup_git_repo();
         let cli = make_cli();
         let paths = make_paths(&dir);
@@ -971,12 +1078,12 @@ mod tests {
             "schema_version = 6\nid_prefix = \"tst\"\nid_len = 4\n",
         );
 
-        let result = cmd_mode_show(&cli, &paths);
+        let result = cmd_config_show(&cli, &paths);
         assert!(result.is_ok());
     }
 
     #[test]
-    fn test_mode_show_local_sync() {
+    fn test_config_show_with_issues_branch() {
         let dir = setup_git_repo();
         let cli = make_cli();
         let paths = make_paths(&dir);
@@ -986,12 +1093,12 @@ mod tests {
             "schema_version = 6\nid_prefix = \"tst\"\nid_len = 4\nissues_branch = \"braid-issues\"\n",
         );
 
-        let result = cmd_mode_show(&cli, &paths);
+        let result = cmd_config_show(&cli, &paths);
         assert!(result.is_ok());
     }
 
     #[test]
-    fn test_mode_show_external_repo() {
+    fn test_config_show_with_external_repo() {
         let dir = setup_git_repo();
         let cli = make_cli();
         let paths = make_paths(&dir);
@@ -1001,13 +1108,13 @@ mod tests {
             "schema_version = 6\nid_prefix = \"tst\"\nid_len = 4\nissues_repo = \"../external\"\n",
         );
 
-        let result = cmd_mode_show(&cli, &paths);
+        let result = cmd_config_show(&cli, &paths);
         assert!(result.is_ok());
     }
 
-    // cmd_mode_local_sync tests
+    // cmd_config_issues_branch tests
     #[test]
-    fn test_mode_local_sync_already_in_sync_mode() {
+    fn test_config_issues_branch_already_set() {
         let dir = setup_git_repo();
         let cli = make_cli();
         let paths = make_paths(&dir);
@@ -1017,18 +1124,18 @@ mod tests {
             "schema_version = 6\nid_prefix = \"tst\"\nid_len = 4\nissues_branch = \"existing-branch\"\n",
         );
 
-        let result = cmd_mode_local_sync(&cli, &paths, "new-branch", true);
+        let result = cmd_config_issues_branch(&cli, &paths, Some("new-branch"), false, true);
         assert!(result.is_err());
         assert!(
             result
                 .unwrap_err()
                 .to_string()
-                .contains("already in sync mode")
+                .contains("issues-branch already set")
         );
     }
 
     #[test]
-    fn test_mode_local_sync_uncommitted_changes() {
+    fn test_config_issues_branch_uncommitted_changes() {
         let dir = setup_git_repo();
         let cli = make_cli();
         let paths = make_paths(&dir);
@@ -1041,7 +1148,7 @@ mod tests {
         // create uncommitted changes
         fs::write(dir.path().join("uncommitted.txt"), "content").unwrap();
 
-        let result = cmd_mode_local_sync(&cli, &paths, "braid-issues", true);
+        let result = cmd_config_issues_branch(&cli, &paths, Some("braid-issues"), false, true);
         assert!(result.is_err());
         assert!(
             result
@@ -1052,7 +1159,7 @@ mod tests {
     }
 
     #[test]
-    fn test_mode_local_sync_success() {
+    fn test_config_issues_branch_success() {
         let dir = setup_git_repo();
         let cli = make_cli();
         let paths = make_paths(&dir);
@@ -1075,7 +1182,7 @@ mod tests {
             .output()
             .unwrap();
 
-        let result = cmd_mode_local_sync(&cli, &paths, "braid-issues", true);
+        let result = cmd_config_issues_branch(&cli, &paths, Some("braid-issues"), false, true);
         assert!(result.is_ok());
 
         // verify config was updated
@@ -1083,9 +1190,8 @@ mod tests {
         assert_eq!(config.issues_branch, Some("braid-issues".to_string()));
     }
 
-    // cmd_mode_git_native tests
     #[test]
-    fn test_mode_git_native_already_in_git_native() {
+    fn test_config_issues_branch_clear_when_not_set() {
         let dir = setup_git_repo();
         let cli = make_cli();
         let paths = make_paths(&dir);
@@ -1095,28 +1201,99 @@ mod tests {
             "schema_version = 6\nid_prefix = \"tst\"\nid_len = 4\n",
         );
 
-        let result = cmd_mode_git_native(&cli, &paths, true);
-        assert!(result.is_err());
-        assert!(
-            result
-                .unwrap_err()
-                .to_string()
-                .contains("already in git-native mode")
-        );
+        // clearing when not set should succeed (no-op)
+        let result = cmd_config_issues_branch(&cli, &paths, None, true, true);
+        assert!(result.is_ok());
     }
 
+    // cmd_config_external_repo tests
     #[test]
-    fn test_mode_git_native_from_external() {
+    fn test_config_external_repo_issues_branch_set() {
         let dir = setup_git_repo();
         let cli = make_cli();
         let paths = make_paths(&dir);
 
         setup_braid_config(
             &dir,
-            "schema_version = 6\nid_prefix = \"tst\"\nid_len = 4\nissues_repo = \"../external\"\n",
+            "schema_version = 6\nid_prefix = \"tst\"\nid_len = 4\nissues_branch = \"issues\"\n",
         );
 
-        // commit the config
+        let result = cmd_config_external_repo(&cli, &paths, Some("../external"), false, true);
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("issues-branch is set")
+        );
+    }
+
+    #[test]
+    fn test_config_external_repo_already_set() {
+        let dir = setup_git_repo();
+        let cli = make_cli();
+        let paths = make_paths(&dir);
+
+        setup_braid_config(
+            &dir,
+            "schema_version = 6\nid_prefix = \"tst\"\nid_len = 4\nissues_repo = \"../existing\"\n",
+        );
+
+        let result = cmd_config_external_repo(&cli, &paths, Some("../new-external"), false, true);
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("external-repo already set")
+        );
+    }
+
+    #[test]
+    fn test_config_external_repo_nonexistent_path() {
+        let dir = setup_git_repo();
+        let cli = make_cli();
+        let paths = make_paths(&dir);
+
+        setup_braid_config(
+            &dir,
+            "schema_version = 6\nid_prefix = \"tst\"\nid_len = 4\n",
+        );
+
+        let result = cmd_config_external_repo(&cli, &paths, Some("/nonexistent/path"), false, true);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("does not exist"));
+    }
+
+    #[test]
+    fn test_config_external_repo_clear_when_not_set() {
+        let dir = setup_git_repo();
+        let cli = make_cli();
+        let paths = make_paths(&dir);
+
+        setup_braid_config(
+            &dir,
+            "schema_version = 6\nid_prefix = \"tst\"\nid_len = 4\n",
+        );
+
+        // clearing when not set should succeed (no-op)
+        let result = cmd_config_external_repo(&cli, &paths, None, true, true);
+        assert!(result.is_ok());
+    }
+
+    // cmd_config_auto_sync tests
+    #[test]
+    fn test_config_auto_sync_enable() {
+        let dir = setup_git_repo();
+        let cli = make_cli();
+        let paths = make_paths(&dir);
+
+        setup_braid_config(
+            &dir,
+            "schema_version = 6\nid_prefix = \"tst\"\nid_len = 4\nauto_pull = false\nauto_push = false\n",
+        );
+
+        // commit the .braid directory
         Command::new("git")
             .args(["add", ".braid"])
             .current_dir(dir.path())
@@ -1128,70 +1305,44 @@ mod tests {
             .output()
             .unwrap();
 
-        let result = cmd_mode_git_native(&cli, &paths, true);
+        let result = cmd_config_auto_sync(&cli, &paths, true);
         assert!(result.is_ok());
 
         // verify config was updated
         let config = Config::load(&paths.config_path()).unwrap();
-        assert!(config.issues_repo.is_none());
+        assert!(config.auto_pull);
+        assert!(config.auto_push);
     }
 
-    // cmd_mode_external_repo tests
     #[test]
-    fn test_mode_external_repo_already_in_sync_mode() {
+    fn test_config_auto_sync_disable() {
         let dir = setup_git_repo();
         let cli = make_cli();
         let paths = make_paths(&dir);
 
         setup_braid_config(
             &dir,
-            "schema_version = 6\nid_prefix = \"tst\"\nid_len = 4\nissues_branch = \"issues\"\n",
+            "schema_version = 6\nid_prefix = \"tst\"\nid_len = 4\nauto_pull = true\nauto_push = true\n",
         );
 
-        let result = cmd_mode_external_repo(&cli, &paths, "../external", true);
-        assert!(result.is_err());
-        assert!(
-            result
-                .unwrap_err()
-                .to_string()
-                .contains("currently in local-sync mode")
-        );
-    }
+        // commit the .braid directory
+        Command::new("git")
+            .args(["add", ".braid"])
+            .current_dir(dir.path())
+            .output()
+            .unwrap();
+        Command::new("git")
+            .args(["commit", "-m", "add braid config"])
+            .current_dir(dir.path())
+            .output()
+            .unwrap();
 
-    #[test]
-    fn test_mode_external_repo_already_in_external_mode() {
-        let dir = setup_git_repo();
-        let cli = make_cli();
-        let paths = make_paths(&dir);
+        let result = cmd_config_auto_sync(&cli, &paths, false);
+        assert!(result.is_ok());
 
-        setup_braid_config(
-            &dir,
-            "schema_version = 6\nid_prefix = \"tst\"\nid_len = 4\nissues_repo = \"../existing\"\n",
-        );
-
-        let result = cmd_mode_external_repo(&cli, &paths, "../new-external", true);
-        assert!(result.is_err());
-        assert!(
-            result
-                .unwrap_err()
-                .to_string()
-                .contains("already in external-repo mode")
-        );
-    }
-
-    #[test]
-    fn test_mode_external_repo_nonexistent_path() {
-        let dir = setup_git_repo();
-        let cli = make_cli();
-        let paths = make_paths(&dir);
-
-        setup_braid_config(
-            &dir,
-            "schema_version = 6\nid_prefix = \"tst\"\nid_len = 4\n",
-        );
-
-        let result = cmd_mode_external_repo(&cli, &paths, "/nonexistent/path", true);
-        assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("does not exist"));
+        // verify config was updated
+        let config = Config::load(&paths.config_path()).unwrap();
+        assert!(!config.auto_pull);
+        assert!(!config.auto_push);
     }
 }

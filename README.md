@@ -113,8 +113,8 @@ braid enables multiple AI agents to work on the same codebase in parallel withou
 ### try it now
 
 ```bash
-# switch to local-sync mode (instant visibility between agents)
-brd mode local-sync
+# enable issues-branch for instant visibility between agents
+brd config issues-branch braid-issues
 
 # create two tasks
 brd add "implement feature A"
@@ -152,31 +152,35 @@ brd done <id>
 brd agent merge        # rebase + fast-forward merge to main
 ```
 
-## workflow modes
+## workflow configuration
 
-braid's workflow is controlled by two independent settings: **issue storage** and **auto-sync**. check your current config with `brd mode`.
+braid's workflow is controlled by two independent settings: **issue storage** and **auto-sync**. check your current config with `brd config`.
 
-| storage         | auto-sync | called        | use case              |
-| --------------- | --------- | ------------- | --------------------- |
-| with code       | on        | git-native    | solo, remote agents   |
-| separate branch | on        | local-sync    | multiple local agents |
-| external repo   | varies    | external-repo | privacy, multi-repo   |
+| storage         | auto-sync | use case              |
+| --------------- | --------- | --------------------- |
+| with code       | on        | solo, remote agents   |
+| separate branch | on        | multiple local agents |
+| external repo   | varies    | privacy, multi-repo   |
 
-**git-native**: issues live in `.braid/issues/` and sync via git push/pull.
+**issues with code**: issues live in `.braid/issues/` and sync via git push/pull.
 
-**local-sync**: issues live on a separate branch in a shared worktree — all local agents see changes instantly.
+**separate branch**: issues live on a dedicated branch in a shared worktree — all local agents see changes instantly.
 
-**external-repo**: issues live in a separate repository entirely.
+**external repo**: issues live in a separate repository entirely.
 
 ```bash
-# switch to local-sync mode
-brd mode local-sync
+# enable issues-branch (separate branch)
+brd config issues-branch braid-issues
 
-# switch to external-repo mode (external repo must exist and be initialized with brd init)
-brd mode external-repo ../my-issues-repo
+# point to external repo (external repo must exist and be initialized with brd init)
+brd config external-repo ../my-issues-repo
 
-# switch back to git-native
-brd mode git-native
+# disable issues-branch (issues with code)
+brd config issues-branch --clear
+
+# enable/disable auto-sync
+brd config auto-sync on
+brd config auto-sync off
 ```
 
 see [docs/workflow-modes.md](docs/workflow-modes.md) for details.

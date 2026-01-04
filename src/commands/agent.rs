@@ -408,7 +408,7 @@ pub fn cmd_agent_pr(cli: &Cli, paths: &RepoPaths) -> Result<()> {
 // ============================================================================
 
 /// current version of the agents block
-pub const AGENTS_BLOCK_VERSION: u32 = 6;
+pub const AGENTS_BLOCK_VERSION: u32 = 7;
 
 const BLOCK_START: &str = "<!-- braid:agents:start";
 const BLOCK_END: &str = "<!-- braid:agents:end -->";
@@ -432,7 +432,7 @@ useful commands:
 - `brd ready` — show issues with no unresolved dependencies
 - `brd show <id>` — view issue details (shows deps and dependents)
 - `brd show <id> --context` — view issue with full content of related issues
-- `brd mode` — show current workflow mode
+- `brd config` — show current workflow configuration
 
 **tip:** before starting work, use `brd show <id> --context` to see the issue plus all its dependencies and dependents in one view.
 
@@ -469,13 +469,13 @@ cat .braid/agent.toml 2>/dev/null && echo "yes, worktree" || echo "no, main"
         .to_string()
 }
 
-/// generate the dynamic sync section based on mode
+/// generate the dynamic sync section based on config
 fn generate_sync_section(config: &Config) -> String {
     if let Some(ref branch) = config.issues_branch {
         format!(
-            r#"## syncing issues (local-sync mode)
+            r#"## syncing issues (issues-branch mode)
 
-this repo uses **local-sync mode** — issues live on the `{branch}` branch in a shared worktree.
+this repo uses **issues-branch** — issues live on the `{branch}` branch in a shared worktree.
 
 **how it works:**
 - all local agents see issue changes instantly (shared filesystem)
@@ -486,14 +486,14 @@ this repo uses **local-sync mode** — issues live on the `{branch}` branch in a
 - run `brd sync` to push issue changes to the remote
 - run `brd sync` to pull others' issue changes
 
-**switching modes:**
-- `brd mode` — show current mode
-- `brd mode git-native` — switch to git-native mode"#
+**changing settings:**
+- `brd config` — show current config
+- `brd config issues-branch --clear` — disable issues-branch"#
         )
     } else {
-        r#"## syncing issues (git-native mode)
+        r#"## syncing issues (issues with code)
 
-this repo uses **git-native mode** — issues live alongside code and sync via git.
+this repo stores issues **with code** — issues live in `.braid/issues/` and sync via git.
 
 **how it works:**
 - `brd start` auto-syncs: fetches, rebases, claims, commits, and pushes
@@ -512,9 +512,9 @@ brd done <id>        # marks done, auto-pushes issue state
 git push             # push your code commits
 ```
 
-**switching modes:**
-- `brd mode` — show current mode
-- `brd mode local-sync` — switch to local-sync mode for multi-agent setups"#
+**changing settings:**
+- `brd config` — show current config
+- `brd config issues-branch <name>` — enable issues-branch for multi-agent setups"#
             .to_string()
     }
 }
@@ -561,9 +561,14 @@ impl std::fmt::Display for AgentsBlockMode {
 /// extract mode from an existing agents block by checking for mode-specific headers
 pub fn extract_mode(content: &str) -> Option<AgentsBlockMode> {
     // check for mode-specific section headers within the block
-    if content.contains("## syncing issues (local-sync mode)") {
+    // support both new and old header formats for compatibility
+    if content.contains("## syncing issues (issues-branch mode)")
+        || content.contains("## syncing issues (local-sync mode)")
+    {
         Some(AgentsBlockMode::LocalSync)
-    } else if content.contains("## syncing issues (git-native mode)") {
+    } else if content.contains("## syncing issues (issues with code)")
+        || content.contains("## syncing issues (git-native mode)")
+    {
         Some(AgentsBlockMode::GitNative)
     } else {
         None
@@ -813,9 +818,9 @@ mod tests {
     fn test_generate_block_git_native() {
         let config = Config::default();
         let block = generate_block(&config);
-        assert!(block.contains("## syncing issues (git-native mode)"));
+        assert!(block.contains("## syncing issues (issues with code)"));
         assert!(block.contains("brd agent merge"));
-        assert!(!block.contains("## syncing issues (local-sync mode)"));
+        assert!(!block.contains("## syncing issues (issues-branch mode)"));
     }
 
     #[test]
@@ -825,10 +830,10 @@ mod tests {
             ..Default::default()
         };
         let block = generate_block(&config);
-        assert!(block.contains("## syncing issues (local-sync mode)"));
+        assert!(block.contains("## syncing issues (issues-branch mode)"));
         assert!(block.contains("braid-issues"));
         assert!(block.contains("brd sync"));
-        assert!(!block.contains("## syncing issues (git-native mode)"));
+        assert!(!block.contains("## syncing issues (issues with code)"));
     }
 
     #[test]

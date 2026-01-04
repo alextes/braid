@@ -4,6 +4,7 @@ mod add;
 mod agent;
 mod commit;
 mod completions;
+mod config;
 mod dep;
 mod doctor;
 mod done;
@@ -12,7 +13,6 @@ mod init;
 mod ls;
 mod merge;
 mod migrate;
-mod mode;
 mod ready;
 mod rm;
 mod search;
@@ -39,6 +39,9 @@ pub use agent::{
 };
 pub use commit::cmd_commit;
 pub use completions::cmd_completions;
+pub use config::{
+    cmd_config_auto_sync, cmd_config_external_repo, cmd_config_issues_branch, cmd_config_show,
+};
 pub use dep::{cmd_dep_add, cmd_dep_rm};
 pub use doctor::cmd_doctor;
 pub use done::cmd_done;
@@ -47,7 +50,6 @@ pub use init::cmd_init;
 pub use ls::cmd_ls;
 pub use merge::cmd_merge;
 pub use migrate::cmd_migrate;
-pub use mode::{cmd_mode_external_repo, cmd_mode_git_native, cmd_mode_local_sync, cmd_mode_show};
 pub use ready::cmd_ready;
 pub use rm::cmd_rm;
 pub use search::cmd_search;

@@ -39,7 +39,7 @@ before cutting a release, read [docs/release-workflow.md](docs/release-workflow.
 - [docs/design-issues.md](docs/design-issues.md) — design issue workflow
 - [docs/release-workflow.md](docs/release-workflow.md) — how to cut releases
 
-<!-- braid:agents:start v6 -->
+<!-- braid:agents:start v7 -->
 ## braid workflow
 
 this repo uses braid (`brd`) for issue tracking. issues live in `.braid/issues/` as markdown files.
@@ -57,7 +57,7 @@ useful commands:
 - `brd ready` — show issues with no unresolved dependencies
 - `brd show <id>` — view issue details (shows deps and dependents)
 - `brd show <id> --context` — view issue with full content of related issues
-- `brd mode` — show current workflow mode
+- `brd config` — show current workflow configuration
 
 **tip:** before starting work, use `brd show <id> --context` to see the issue plus all its dependencies and dependents in one view.
 
@@ -92,9 +92,9 @@ cat .braid/agent.toml 2>/dev/null && echo "yes, worktree" || echo "no, main"
 - show progress as "done/total" in `brd ls`
 - typically not picked up directly — work on the child issues instead
 
-## syncing issues (local-sync mode)
+## syncing issues (issues-branch mode)
 
-this repo uses **local-sync mode** — issues live on the `braid-issues` branch in a shared worktree.
+this repo uses **issues-branch** — issues live on the `braid-issues` branch in a shared worktree.
 
 **how it works:**
 - all local agents see issue changes instantly (shared filesystem)
@@ -105,7 +105,7 @@ this repo uses **local-sync mode** — issues live on the `braid-issues` branch 
 - run `brd sync` to push issue changes to the remote
 - run `brd sync` to pull others' issue changes
 
-**switching modes:**
-- `brd mode` — show current mode
-- `brd mode git-native` — switch to git-native mode
+**changing settings:**
+- `brd config` — show current config
+- `brd config issues-branch --clear` — disable issues-branch
 <!-- braid:agents:end -->
