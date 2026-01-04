@@ -345,7 +345,7 @@ pub fn cmd_ls(
             parts.push(format!("skip: {}", total_skip));
         }
 
-        println!("{} | time: {}ms", parts.join(" | "), elapsed_ms);
+        println!("{} | took: {}ms", parts.join(" | "), elapsed_ms);
     }
 
     Ok(())

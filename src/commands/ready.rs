@@ -114,7 +114,7 @@ fn format_ready_output(
         let _ = writeln!(output);
     }
 
-    let _ = writeln!(output, "open: {} | time: {}ms", open_count, elapsed_ms);
+    let _ = writeln!(output, "open: {} | took: {}ms", open_count, elapsed_ms);
 
     output
 }
@@ -168,7 +168,7 @@ mod tests {
         assert!(output.contains("brd-ready"));
         assert!(!output.contains("brd-blocked"));
         assert!(!output.contains("brd-done"));
-        assert!(output.contains("open: 1 | time: 7ms"));
+        assert!(output.contains("open: 1 | took: 7ms"));
     }
 
     #[test]
@@ -205,6 +205,6 @@ mod tests {
         let output = format_ready_output(&ready, &issues, false, false, 0);
 
         assert!(output.contains("No ready issues."));
-        assert!(output.contains("open: 0 | time: 0ms"));
+        assert!(output.contains("open: 0 | took: 0ms"));
     }
 }
