@@ -135,8 +135,8 @@ each agent automatically claims a different issue — no conflicts, no coordinat
 
 1. each agent gets their own git worktree via `brd agent init <name>`
 2. when an agent runs `brd start`, the issue is marked as "doing" with their agent ID
-3. in local-sync mode, all agents see claims instantly (shared filesystem)
-4. in git-native mode, claims sync via git push/pull (optimistic locking)
+3. with `issues-branch` set, all agents see claims instantly (shared filesystem)
+4. with issues stored with code, claims sync via git push/pull (optimistic locking)
 
 ### the workflow
 
