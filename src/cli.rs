@@ -86,6 +86,18 @@ pub enum Command {
         id: Option<String>,
     },
 
+    /// quickly update issue fields
+    Set {
+        /// issue ID (full or partial)
+        id: String,
+
+        /// field to update (priority, tag)
+        field: String,
+
+        /// new value
+        value: String,
+    },
+
     /// list ready issues
     Ready,
 

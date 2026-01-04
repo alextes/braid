@@ -16,6 +16,7 @@ mod migrate;
 mod ready;
 mod rm;
 mod search;
+mod set;
 mod show;
 mod skip;
 mod start;
@@ -53,6 +54,7 @@ pub use migrate::cmd_migrate;
 pub use ready::cmd_ready;
 pub use rm::cmd_rm;
 pub use search::cmd_search;
+pub use set::cmd_set;
 pub use show::cmd_show;
 pub use skip::cmd_skip;
 pub use start::{
