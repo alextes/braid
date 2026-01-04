@@ -25,6 +25,7 @@ takes inspiration from [beads](https://github.com/steveyegge/beads).
 | storage | markdown files in `.braid/issues/` | jsonl in `.beads/`                  |
 | sync    | git-native, no daemon required      | auto-sync daemon, sqlite cache      |
 | focus   | minimal cli, multi-agent workflows  | rich ecosystem, hierarchical issues |
+| size    | ~15k lines of Rust                  | ~71k lines of Go                    |
 
 ## installation
 
