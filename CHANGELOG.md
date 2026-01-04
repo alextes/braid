@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-01-04
+
+### Changed
+- **BREAKING**: `brd mode` renamed to `brd config` for clearer semantics
+  - `brd config` shows current settings
+  - `brd config local-sync` / `brd config git-native` / `brd config external-repo` to switch modes
+  - `brd config auto-sync on|off` to toggle auto-sync
+
+### Added
+- unit tests for `brd config` edge cases (clear_issues_branch, external-repo validation)
+
 ## [0.6.0] - 2026-01-04
 
 ### Added
@@ -155,7 +166,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - TUI for browsing issues
 - JSON output support
 
-[Unreleased]: https://github.com/alextes/braid/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/alextes/braid/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/alextes/braid/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/alextes/braid/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/alextes/braid/compare/v0.4.1...v0.5.0
 [0.4.1]: https://github.com/alextes/braid/compare/v0.3.0...v0.4.1
