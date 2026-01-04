@@ -1345,4 +1345,276 @@ mod tests {
         assert!(!config.auto_pull);
         assert!(!config.auto_push);
     }
+
+    // clear_issues_branch tests (via cmd_config_issues_branch --clear)
+    #[test]
+    fn test_clear_issues_branch_success() {
+        let dir = setup_git_repo();
+        let cli = make_cli();
+        let paths = make_paths(&dir);
+
+        // ensure main branch exists
+        let _ = Command::new("git")
+            .args(["branch", "-M", "main"])
+            .current_dir(dir.path())
+            .output();
+
+        fs::create_dir_all(&paths.brd_common_dir).unwrap();
+        setup_braid_config(
+            &dir,
+            "schema_version = 6\nid_prefix = \"tst\"\nid_len = 4\n",
+        );
+
+        // commit .braid
+        Command::new("git")
+            .args(["add", ".braid"])
+            .current_dir(dir.path())
+            .output()
+            .unwrap();
+        Command::new("git")
+            .args(["commit", "-m", "add braid config"])
+            .current_dir(dir.path())
+            .output()
+            .unwrap();
+
+        // set issues-branch (creates worktree)
+        let result = cmd_config_issues_branch(&cli, &paths, Some("braid-issues"), false, true);
+        assert!(result.is_ok());
+
+        // verify issues_branch is set
+        let config = Config::load(&paths.config_path()).unwrap();
+        assert_eq!(config.issues_branch, Some("braid-issues".to_string()));
+
+        // create an issue in the worktree
+        let issues_wt = paths.issues_worktree_dir();
+        let wt_issues = issues_wt.join(".braid/issues");
+        fs::create_dir_all(&wt_issues).unwrap();
+        fs::write(
+            wt_issues.join("tst-abc1.md"),
+            "---\nid: tst-abc1\ntitle: test issue\npriority: P2\nstatus: todo\ncreated_at: 2024-01-01T00:00:00Z\nupdated_at: 2024-01-01T00:00:00Z\n---\n",
+        )
+        .unwrap();
+
+        // commit the issue in the worktree
+        Command::new("git")
+            .args(["add", "."])
+            .current_dir(&issues_wt)
+            .output()
+            .unwrap();
+        Command::new("git")
+            .args(["commit", "-m", "add issue"])
+            .current_dir(&issues_wt)
+            .output()
+            .unwrap();
+
+        // now clear issues-branch
+        let result = cmd_config_issues_branch(&cli, &paths, None, true, true);
+        assert!(result.is_ok());
+
+        // verify issues_branch is cleared
+        let config = Config::load(&paths.config_path()).unwrap();
+        assert!(config.issues_branch.is_none());
+
+        // verify issue was copied back to local .braid/issues/
+        let local_issues = dir.path().join(".braid/issues");
+        assert!(local_issues.join("tst-abc1.md").exists());
+    }
+
+    #[test]
+    fn test_clear_issues_branch_dirty_issues_worktree() {
+        let dir = setup_git_repo();
+        let cli = make_cli();
+        let paths = make_paths(&dir);
+
+        // ensure main branch exists
+        let _ = Command::new("git")
+            .args(["branch", "-M", "main"])
+            .current_dir(dir.path())
+            .output();
+
+        fs::create_dir_all(&paths.brd_common_dir).unwrap();
+        setup_braid_config(
+            &dir,
+            "schema_version = 6\nid_prefix = \"tst\"\nid_len = 4\n",
+        );
+
+        // commit .braid
+        Command::new("git")
+            .args(["add", ".braid"])
+            .current_dir(dir.path())
+            .output()
+            .unwrap();
+        Command::new("git")
+            .args(["commit", "-m", "add braid config"])
+            .current_dir(dir.path())
+            .output()
+            .unwrap();
+
+        // set issues-branch (creates worktree)
+        let result = cmd_config_issues_branch(&cli, &paths, Some("braid-issues"), false, true);
+        assert!(result.is_ok());
+
+        // create uncommitted changes in the issues worktree
+        let issues_wt = paths.issues_worktree_dir();
+        fs::write(issues_wt.join("uncommitted.txt"), "dirty").unwrap();
+
+        // try to clear - should fail
+        let result = cmd_config_issues_branch(&cli, &paths, None, true, true);
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("issues worktree has uncommitted changes")
+        );
+    }
+
+    #[test]
+    fn test_clear_issues_branch_no_issues() {
+        let dir = setup_git_repo();
+        let cli = make_cli();
+        let paths = make_paths(&dir);
+
+        // ensure main branch exists
+        let _ = Command::new("git")
+            .args(["branch", "-M", "main"])
+            .current_dir(dir.path())
+            .output();
+
+        fs::create_dir_all(&paths.brd_common_dir).unwrap();
+        setup_braid_config(
+            &dir,
+            "schema_version = 6\nid_prefix = \"tst\"\nid_len = 4\n",
+        );
+
+        // commit .braid
+        Command::new("git")
+            .args(["add", ".braid"])
+            .current_dir(dir.path())
+            .output()
+            .unwrap();
+        Command::new("git")
+            .args(["commit", "-m", "add braid config"])
+            .current_dir(dir.path())
+            .output()
+            .unwrap();
+
+        // set issues-branch (creates worktree)
+        let result = cmd_config_issues_branch(&cli, &paths, Some("braid-issues"), false, true);
+        assert!(result.is_ok());
+
+        // don't create any issues - just clear immediately
+        let result = cmd_config_issues_branch(&cli, &paths, None, true, true);
+        assert!(result.is_ok());
+
+        // verify issues_branch is cleared
+        let config = Config::load(&paths.config_path()).unwrap();
+        assert!(config.issues_branch.is_none());
+    }
+
+    // cmd_config_external_repo success test
+    #[test]
+    fn test_config_external_repo_success() {
+        let dir = setup_git_repo();
+        let cli = make_cli();
+        let paths = make_paths(&dir);
+
+        // create external repo
+        let external_dir = tempdir().unwrap();
+        Command::new("git")
+            .args(["init"])
+            .current_dir(external_dir.path())
+            .output()
+            .unwrap();
+        Command::new("git")
+            .args(["config", "user.email", "test@test.com"])
+            .current_dir(external_dir.path())
+            .output()
+            .unwrap();
+        Command::new("git")
+            .args(["config", "user.name", "Test"])
+            .current_dir(external_dir.path())
+            .output()
+            .unwrap();
+        Command::new("git")
+            .args(["config", "commit.gpgsign", "false"])
+            .current_dir(external_dir.path())
+            .output()
+            .unwrap();
+
+        // initialize braid in external repo
+        fs::create_dir_all(external_dir.path().join(".braid/issues")).unwrap();
+        fs::write(
+            external_dir.path().join(".braid/config.toml"),
+            "schema_version = 6\nid_prefix = \"ext\"\nid_len = 4\n",
+        )
+        .unwrap();
+        Command::new("git")
+            .args(["add", "."])
+            .current_dir(external_dir.path())
+            .output()
+            .unwrap();
+        Command::new("git")
+            .args(["commit", "-m", "init braid"])
+            .current_dir(external_dir.path())
+            .output()
+            .unwrap();
+
+        // set up main repo
+        setup_braid_config(
+            &dir,
+            "schema_version = 6\nid_prefix = \"tst\"\nid_len = 4\n",
+        );
+        Command::new("git")
+            .args(["add", ".braid"])
+            .current_dir(dir.path())
+            .output()
+            .unwrap();
+        Command::new("git")
+            .args(["commit", "-m", "add braid config"])
+            .current_dir(dir.path())
+            .output()
+            .unwrap();
+
+        // set external-repo
+        let external_path = external_dir.path().to_string_lossy().to_string();
+        let result = cmd_config_external_repo(&cli, &paths, Some(&external_path), false, true);
+        assert!(result.is_ok());
+
+        // verify config was updated
+        let config = Config::load(&paths.config_path()).unwrap();
+        assert!(config.issues_repo.is_some());
+    }
+
+    // clear_external_repo tests (via cmd_config_external_repo --clear)
+    #[test]
+    fn test_clear_external_repo_success() {
+        let dir = setup_git_repo();
+        let cli = make_cli();
+        let paths = make_paths(&dir);
+
+        // set up config with external_repo set
+        setup_braid_config(
+            &dir,
+            "schema_version = 6\nid_prefix = \"tst\"\nid_len = 4\nissues_repo = \"../external\"\n",
+        );
+        Command::new("git")
+            .args(["add", ".braid"])
+            .current_dir(dir.path())
+            .output()
+            .unwrap();
+        Command::new("git")
+            .args(["commit", "-m", "add braid config"])
+            .current_dir(dir.path())
+            .output()
+            .unwrap();
+
+        // clear external-repo
+        let result = cmd_config_external_repo(&cli, &paths, None, true, true);
+        assert!(result.is_ok());
+
+        // verify config was updated
+        let config = Config::load(&paths.config_path()).unwrap();
+        assert!(config.issues_repo.is_none());
+    }
 }
