@@ -486,3 +486,217 @@ fn test_error_start_already_doing() {
     assert!(!output.status.success());
     assert!(TestEnv::stderr(&output).contains("already being worked on"));
 }
+
+// =============================================================================
+// workflow mode tests
+// =============================================================================
+
+#[test]
+fn test_init_already_initialized_errors() {
+    let env = TestEnv::new();
+
+    // try to init again
+    let output = env.brd(&["init"]);
+    assert!(!output.status.success());
+    let stderr = TestEnv::stderr(&output);
+    assert!(stderr.contains("already initialized"));
+    assert!(stderr.contains("brd mode")); // hint about brd mode
+}
+
+#[test]
+fn test_init_json_uses_local_sync_by_default() {
+    let dir = tempfile::tempdir().expect("failed to create temp dir");
+
+    // initialize git repo with initial commit
+    Command::new("git")
+        .args(["init"])
+        .current_dir(dir.path())
+        .output()
+        .expect("failed to init git");
+    Command::new("git")
+        .args(["config", "user.email", "test@test.com"])
+        .current_dir(dir.path())
+        .output()
+        .expect("failed to config git email");
+    Command::new("git")
+        .args(["config", "user.name", "Test User"])
+        .current_dir(dir.path())
+        .output()
+        .expect("failed to config git name");
+    Command::new("git")
+        .args(["config", "commit.gpgsign", "false"])
+        .current_dir(dir.path())
+        .output()
+        .expect("failed to disable gpg signing");
+    std::fs::write(dir.path().join("README.md"), "# Test\n").expect("failed to write README");
+    Command::new("git")
+        .args(["add", "."])
+        .current_dir(dir.path())
+        .output()
+        .expect("failed to git add");
+    Command::new("git")
+        .args(["commit", "-m", "initial"])
+        .current_dir(dir.path())
+        .output()
+        .expect("failed to git commit");
+
+    // init with --json (non-interactive, uses defaults)
+    let output = Command::new(env!("CARGO_BIN_EXE_brd"))
+        .args(["--json", "init"])
+        .current_dir(dir.path())
+        .output()
+        .expect("failed to run brd");
+
+    assert!(
+        output.status.success(),
+        "init failed: {}",
+        TestEnv::stderr(&output)
+    );
+
+    let json = TestEnv::json(&output);
+    assert!(json["ok"].as_bool().unwrap());
+    // default should be local-sync mode with issues_branch
+    assert_eq!(json["issues_branch"].as_str().unwrap(), "braid-issues");
+    assert!(json["auto_pull"].as_bool().unwrap());
+    assert!(json["auto_push"].as_bool().unwrap());
+}
+
+#[test]
+fn test_mode_switching_preserves_issues() {
+    let env = TestEnv::new();
+
+    // add issues in local-sync mode (default)
+    let output = env.brd_json(&["add", "issue one"]);
+    let id1 = TestEnv::json(&output)["id"].as_str().unwrap().to_string();
+    let output = env.brd_json(&["add", "issue two"]);
+    let id2 = TestEnv::json(&output)["id"].as_str().unwrap().to_string();
+
+    // commit issue changes in the issues worktree
+    env.brd(&["sync"]);
+
+    // commit any changes to main worktree (config changes)
+    Command::new("git")
+        .args(["add", "."])
+        .current_dir(env.path())
+        .output()
+        .expect("failed to git add");
+    let _ = Command::new("git")
+        .args(["commit", "-m", "config"])
+        .current_dir(env.path())
+        .output();
+
+    // switch to git-native
+    let output = env.brd(&["mode", "git-native", "-y"]);
+    assert!(
+        output.status.success(),
+        "mode git-native failed: {}",
+        TestEnv::stderr(&output)
+    );
+    assert!(TestEnv::stdout(&output).contains("copied 2 issue"));
+
+    // verify issues still exist
+    let output = env.brd(&["ls"]);
+    assert!(TestEnv::stdout(&output).contains(&id1));
+    assert!(TestEnv::stdout(&output).contains(&id2));
+
+    // commit the changes (issues now in .braid/issues/)
+    Command::new("git")
+        .args(["add", "."])
+        .current_dir(env.path())
+        .output()
+        .expect("failed to git add");
+    Command::new("git")
+        .args(["commit", "-m", "issues"])
+        .current_dir(env.path())
+        .output()
+        .expect("failed to git commit");
+
+    // switch back to local-sync
+    let output = env.brd(&["mode", "local-sync", "-y"]);
+    assert!(
+        output.status.success(),
+        "mode local-sync failed: {}",
+        TestEnv::stderr(&output)
+    );
+    assert!(TestEnv::stdout(&output).contains("moved 2 issue"));
+
+    // verify issues still exist
+    let output = env.brd(&["ls"]);
+    assert!(TestEnv::stdout(&output).contains(&id1));
+    assert!(TestEnv::stdout(&output).contains(&id2));
+}
+
+#[test]
+fn test_mode_shows_current_mode() {
+    let env = TestEnv::new();
+
+    // default is local-sync
+    let output = env.brd(&["mode"]);
+    assert!(output.status.success());
+    assert!(TestEnv::stdout(&output).contains("local-sync"));
+
+    // sync and commit before switching
+    env.brd(&["sync"]);
+    Command::new("git")
+        .args(["add", "."])
+        .current_dir(env.path())
+        .output()
+        .expect("failed to git add");
+    let _ = Command::new("git")
+        .args(["commit", "-m", "config"])
+        .current_dir(env.path())
+        .output();
+
+    // switch to git-native
+    let output = env.brd(&["mode", "git-native", "-y"]);
+    assert!(
+        output.status.success(),
+        "mode git-native failed: {}",
+        TestEnv::stderr(&output)
+    );
+
+    let output = env.brd(&["mode"]);
+    assert!(output.status.success());
+    assert!(TestEnv::stdout(&output).contains("git-native"));
+}
+
+#[test]
+fn test_claim_sets_owner_and_status() {
+    let env = TestEnv::new();
+
+    let output = env.brd_json(&["add", "test issue"]);
+    let id = TestEnv::json(&output)["id"].as_str().unwrap().to_string();
+
+    // verify initial state
+    let output = env.brd_json(&["show", &id]);
+    let json = TestEnv::json(&output);
+    assert_eq!(json["status"], "todo");
+    assert!(json["owner"].is_null());
+
+    // start the issue
+    env.brd(&["start", &id]);
+
+    // verify claimed state
+    let output = env.brd_json(&["show", &id]);
+    let json = TestEnv::json(&output);
+    assert_eq!(json["status"], "doing");
+    assert!(!json["owner"].is_null());
+}
+
+#[test]
+fn test_done_clears_owner() {
+    let env = TestEnv::new();
+
+    let output = env.brd_json(&["add", "test issue"]);
+    let id = TestEnv::json(&output)["id"].as_str().unwrap().to_string();
+
+    // start and done
+    env.brd(&["start", &id]);
+    env.brd(&["done", &id]);
+
+    // verify done state
+    let output = env.brd_json(&["show", &id]);
+    let json = TestEnv::json(&output);
+    assert_eq!(json["status"], "done");
+    assert!(json["owner"].is_null());
+}
