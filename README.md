@@ -7,6 +7,8 @@
 
 a lightweight, repo-local, multi-agent capable issue tracker.
 
+**status:** ready for early users — feedback welcome! [open an issue](https://github.com/alextes/braid/issues) or reach out.
+
 takes inspiration from [beads](https://github.com/steveyegge/beads).
 
 ## why braid?
@@ -18,12 +20,11 @@ takes inspiration from [beads](https://github.com/steveyegge/beads).
 
 ## braid vs beads
 
-|          | braid                                 | beads                                     |
-| -------- | ------------------------------------- | ----------------------------------------- |
-| storage  | markdown issues in `.braid/issues/`   | jsonl issues in `.beads/`                 |
-| workflow | repo-local, explicit git pull/push    | distributed with auto-sync + daemon       |
-| ids      | human-readable prefix + random suffix | hash-based ids + hierarchy                |
-| extras   | minimal cli, no background services   | sqlite cache, compaction, community tools |
+|         | braid                               | beads                               |
+| ------- | ----------------------------------- | ----------------------------------- |
+| storage | markdown files in `.braid/issues/` | jsonl in `.beads/`                  |
+| sync    | git-native, no daemon required      | auto-sync daemon, sqlite cache      |
+| focus   | minimal cli, multi-agent workflows  | rich ecosystem, hierarchical issues |
 
 ## installation
 
