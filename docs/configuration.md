@@ -46,12 +46,12 @@ id_len = 6    # brd-a1b2c3
 
 ### issues_branch
 
-enables local-sync mode. when set, issues live on this branch in a shared worktree.
+when set, issues live on this branch in a shared worktree instead of alongside code.
 
 - **type:** string (optional)
-- **default:** not set (git-native mode)
+- **default:** not set (issues live in `.braid/issues/`)
 
-set via `brd mode local-sync [branch]`. see [workflow-modes.md](workflow-modes.md) for details.
+set via `brd config issues-branch <name>`, clear via `brd config issues-branch --clear`. see [workflow-modes.md](workflow-modes.md) for details.
 
 ```toml
 issues_branch = "braid-issues"
@@ -59,16 +59,30 @@ issues_branch = "braid-issues"
 
 ### issues_repo
 
-enables external-repo mode. when set, issues are read from and written to this external repository.
+when set, issues are read from and written to this external repository.
 
 - **type:** string (optional)
 - **default:** not set
 - **value:** path to external repo (relative or absolute)
 
-set via `brd mode external-repo <path>`. see [workflow-modes.md](workflow-modes.md) for details.
+set via `brd config external-repo <path>`, clear via `brd config external-repo --clear`. see [workflow-modes.md](workflow-modes.md) for details.
 
 ```toml
 issues_repo = "../my-issues-repo"
+```
+
+### auto_pull / auto_push
+
+control automatic git sync on `brd start` and `brd done`.
+
+- **type:** boolean
+- **default:** true
+
+set via `brd config auto-sync on|off` (sets both together).
+
+```toml
+auto_pull = true   # fetch + rebase before brd start
+auto_push = true   # commit + push after brd done
 ```
 
 ### schema_version
