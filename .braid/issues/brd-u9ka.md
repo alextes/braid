@@ -3,11 +3,11 @@ schema_version: 6
 id: brd-u9ka
 title: integration tests for workflow mode switching and init
 priority: P2
-status: doing
+status: done
 deps: []
-owner: alextes
+owner: null
 created_at: 2026-01-02T13:35:13.813972Z
-updated_at: 2026-01-03T10:29:44.608126Z
+updated_at: 2026-01-04T15:22:38.390019Z
 ---
 
 ## Goal

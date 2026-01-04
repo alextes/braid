@@ -2,7 +2,7 @@
 schema_version: 6
 id: brd-lrtx
 title: lowercase brd dep output messages
-priority: P3
+priority: P2
 status: todo
 deps: []
 owner: null
