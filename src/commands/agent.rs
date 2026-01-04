@@ -1125,6 +1125,12 @@ mod tests {
         git_ok(&repo_path, &["add", "."]);
         git_ok(&repo_path, &["commit", "-m", "init"]);
 
+        // Ensure branch is named "main" (some systems default to "master")
+        let current = git_output(&repo_path, &["rev-parse", "--abbrev-ref", "HEAD"]);
+        if current != "main" {
+            git_ok(&repo_path, &["branch", "-m", &current, "main"]);
+        }
+
         let paths = RepoPaths {
             worktree_root: repo_path.clone(),
             git_common_dir: repo_path.join(".git"),
