@@ -26,6 +26,10 @@ fn format_show_output(issue: &Issue, issues: &HashMap<String, Issue>, json: bool
     let _ = writeln!(output, "Priority: {}", issue.priority());
     let _ = writeln!(output, "Status:   {}", issue.status());
 
+    if let Some(issue_type) = &issue.frontmatter.issue_type {
+        let _ = writeln!(output, "Type:     {}", issue_type);
+    }
+
     if !issue.deps().is_empty() {
         let _ = writeln!(output, "Deps:     {}", issue.deps().join(", "));
     }
@@ -212,6 +216,7 @@ mod tests {
         assert!(output.contains("Title:    test issue"));
         assert!(output.contains("Priority: P1"));
         assert!(output.contains("Status:   todo"));
+        assert!(output.contains("Type:     meta"));
         assert!(output.contains("Deps:     brd-aaaa, brd-missing"));
         assert!(output.contains("Tags:     visual, urgent"));
         assert!(output.contains("Owner:    agent-one"));

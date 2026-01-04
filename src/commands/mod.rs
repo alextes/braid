@@ -123,6 +123,7 @@ pub(crate) fn issue_to_json(
         "title": issue.title(),
         "priority": issue.priority().to_string(),
         "status": issue.status().to_string(),
+        "type": issue.frontmatter.issue_type.as_ref().map(|t| t.to_string()),
         "deps": issue.deps(),
         "dependents": dependents,
         "tags": issue.tags(),
