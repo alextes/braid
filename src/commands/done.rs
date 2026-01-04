@@ -498,7 +498,12 @@ mod tests {
         write_design_issue(&paths, &config, "brd-design");
         write_issue_with_deps(&paths, &config, "brd-impl1", vec!["brd-design".to_string()]);
         write_issue_with_deps(&paths, &config, "brd-impl2", vec!["brd-design".to_string()]);
-        write_issue_with_deps(&paths, &config, "brd-external", vec!["brd-design".to_string()]);
+        write_issue_with_deps(
+            &paths,
+            &config,
+            "brd-external",
+            vec!["brd-design".to_string()],
+        );
 
         let cli = make_cli();
         cmd_done(

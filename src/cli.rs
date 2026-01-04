@@ -75,6 +75,9 @@ pub enum Command {
     Show {
         /// issue ID (full or partial)
         id: String,
+        /// include full content of dependencies and dependents
+        #[arg(long)]
+        context: bool,
     },
 
     /// open an issue in $EDITOR

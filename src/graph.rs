@@ -171,6 +171,17 @@ pub fn get_ready_issues(issues: &HashMap<String, Issue>) -> Vec<&Issue> {
     ready
 }
 
+/// get all issues that depend on the given issue (reverse deps).
+pub fn get_dependents(issue_id: &str, all_issues: &HashMap<String, Issue>) -> Vec<String> {
+    let mut dependents: Vec<String> = all_issues
+        .iter()
+        .filter(|(_, issue)| issue.deps().contains(&issue_id.to_string()))
+        .map(|(id, _)| id.clone())
+        .collect();
+    dependents.sort();
+    dependents
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -252,5 +263,24 @@ mod tests {
 
         let result = would_create_cycle("c", "a", &issues);
         assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_get_dependents() {
+        // a depends on nothing, b and c depend on a
+        let mut issues = HashMap::new();
+        issues.insert("a".to_string(), make_issue("a", Status::Todo, vec![]));
+        issues.insert("b".to_string(), make_issue("b", Status::Todo, vec!["a"]));
+        issues.insert("c".to_string(), make_issue("c", Status::Todo, vec!["a"]));
+        issues.insert("d".to_string(), make_issue("d", Status::Todo, vec!["b"]));
+
+        let dependents = get_dependents("a", &issues);
+        assert_eq!(dependents, vec!["b", "c"]);
+
+        let dependents_b = get_dependents("b", &issues);
+        assert_eq!(dependents_b, vec!["d"]);
+
+        let dependents_d = get_dependents("d", &issues);
+        assert!(dependents_d.is_empty());
     }
 }

@@ -64,7 +64,7 @@ use std::collections::HashMap;
 
 use crate::config::Config;
 use crate::error::Result;
-use crate::graph::compute_derived;
+use crate::graph::{compute_derived, get_dependents};
 use crate::issue::Issue;
 use crate::repo::RepoPaths;
 
@@ -114,6 +114,7 @@ pub(crate) fn issue_to_json(
     all_issues: &HashMap<String, Issue>,
 ) -> serde_json::Value {
     let derived = compute_derived(issue, all_issues);
+    let dependents = get_dependents(issue.id(), all_issues);
 
     serde_json::json!({
         "id": issue.id(),
@@ -121,6 +122,7 @@ pub(crate) fn issue_to_json(
         "priority": issue.priority().to_string(),
         "status": issue.status().to_string(),
         "deps": issue.deps(),
+        "dependents": dependents,
         "tags": issue.tags(),
         "owner": issue.frontmatter.owner,
         "created_at": issue.frontmatter.created_at.format(&time::format_description::well_known::Rfc3339).unwrap(),

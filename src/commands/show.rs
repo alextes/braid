@@ -6,7 +6,7 @@ use std::fmt::Write as _;
 use crate::cli::Cli;
 use crate::config::Config;
 use crate::error::{BrdError, Result};
-use crate::graph::compute_derived;
+use crate::graph::{compute_derived, get_dependents};
 use crate::issue::Issue;
 use crate::repo::RepoPaths;
 
@@ -28,6 +28,11 @@ fn format_show_output(issue: &Issue, issues: &HashMap<String, Issue>, json: bool
 
     if !issue.deps().is_empty() {
         let _ = writeln!(output, "Deps:     {}", issue.deps().join(", "));
+    }
+
+    let dependents = get_dependents(issue.id(), issues);
+    if !dependents.is_empty() {
+        let _ = writeln!(output, "Dependents: {}", dependents.join(", "));
     }
 
     if !issue.tags().is_empty() {
@@ -67,7 +72,7 @@ fn format_show_output(issue: &Issue, issues: &HashMap<String, Issue>, json: bool
     output
 }
 
-pub fn cmd_show(cli: &Cli, paths: &RepoPaths, id: &str) -> Result<()> {
+pub fn cmd_show(cli: &Cli, paths: &RepoPaths, id: &str, context: bool) -> Result<()> {
     let config = Config::load(&paths.config_path())?;
     let issues = load_all_issues(paths, &config)?;
     let full_id = resolve_issue_id(id, &issues)?;
@@ -75,10 +80,68 @@ pub fn cmd_show(cli: &Cli, paths: &RepoPaths, id: &str) -> Result<()> {
         .get(&full_id)
         .ok_or_else(|| BrdError::IssueNotFound(id.to_string()))?;
 
-    let output = format_show_output(issue, &issues, cli.json);
-    print!("{output}");
+    if context && !cli.json {
+        let output = format_context_output(issue, &issues);
+        print!("{output}");
+    } else {
+        let output = format_show_output(issue, &issues, cli.json);
+        print!("{output}");
+    }
 
     Ok(())
+}
+
+/// format output with full context: the issue plus all deps and dependents content.
+fn format_context_output(issue: &Issue, issues: &HashMap<String, Issue>) -> String {
+    let mut output = String::new();
+
+    // main issue
+    let _ = writeln!(output, "=== {}: {} ===", issue.id(), issue.title());
+    let _ = writeln!(output);
+    let _ = write!(output, "{}", format_show_output(issue, issues, false));
+
+    // dependencies
+    let deps = issue.deps();
+    if !deps.is_empty() {
+        let _ = writeln!(output);
+        let _ = writeln!(output, "=== Dependencies ===");
+        for dep_id in deps {
+            if let Some(dep_issue) = issues.get(dep_id) {
+                let _ = writeln!(output);
+                let _ = writeln!(output, "--- {} ({}) ---", dep_id, dep_issue.status());
+                let _ = writeln!(output);
+                if !dep_issue.body.is_empty() {
+                    let _ = writeln!(output, "{}", dep_issue.body);
+                } else {
+                    let _ = writeln!(output, "(no description)");
+                }
+            } else {
+                let _ = writeln!(output);
+                let _ = writeln!(output, "--- {} (missing) ---", dep_id);
+            }
+        }
+    }
+
+    // dependents
+    let dependents = get_dependents(issue.id(), issues);
+    if !dependents.is_empty() {
+        let _ = writeln!(output);
+        let _ = writeln!(output, "=== Dependents ===");
+        for dep_id in &dependents {
+            if let Some(dep_issue) = issues.get(dep_id) {
+                let _ = writeln!(output);
+                let _ = writeln!(output, "--- {} ({}) ---", dep_id, dep_issue.status());
+                let _ = writeln!(output);
+                if !dep_issue.body.is_empty() {
+                    let _ = writeln!(output, "{}", dep_issue.body);
+                } else {
+                    let _ = writeln!(output, "(no description)");
+                }
+            }
+        }
+    }
+
+    output
 }
 
 #[cfg(test)]
@@ -211,7 +274,7 @@ mod tests {
         write_issue(&paths, &config, &issue_b);
 
         let cli = make_cli(false);
-        let err = cmd_show(&cli, &paths, "aaa").unwrap_err();
+        let err = cmd_show(&cli, &paths, "aaa", false).unwrap_err();
         assert!(matches!(err, BrdError::AmbiguousId(_, _)));
     }
 
@@ -220,7 +283,7 @@ mod tests {
         let (_dir, paths, _config) = create_test_repo();
 
         let cli = make_cli(false);
-        let err = cmd_show(&cli, &paths, "brd-missing").unwrap_err();
+        let err = cmd_show(&cli, &paths, "brd-missing", false).unwrap_err();
         assert!(matches!(err, BrdError::IssueNotFound(_)));
     }
 }

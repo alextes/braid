@@ -87,7 +87,7 @@ fn run(cli: &Cli) -> Result<()> {
             tag,
             *all,
         ),
-        Command::Show { id } => cmd_show(cli, &paths, id),
+        Command::Show { id, context } => cmd_show(cli, &paths, id, *context),
         Command::Edit { id } => cmd_edit(cli, &paths, id.as_deref()),
         Command::Ready => cmd_ready(cli, &paths),
         Command::Status => cmd_status(cli, &paths),
