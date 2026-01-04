@@ -1,6 +1,6 @@
 [package]
 name = "braid"
-version = "0.7.0"
+version = "0.6.0"
 edition = "2024"
 license = "MIT"
 description = "a lightweight, repo-local, multi-agent capable issue tracker"

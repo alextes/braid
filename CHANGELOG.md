@@ -7,11 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.7.0] - 2026-01-04
-
-### Added
-- comprehensive changelog entries for v0.5.0 and v0.6.0 releases
-
 ## [0.6.0] - 2026-01-04
 
 ### Added
@@ -160,8 +155,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - TUI for browsing issues
 - JSON output support
 
-[Unreleased]: https://github.com/alextes/braid/compare/v0.7.0...HEAD
-[0.7.0]: https://github.com/alextes/braid/compare/v0.6.0...v0.7.0
+[Unreleased]: https://github.com/alextes/braid/compare/v0.6.0...HEAD
 [0.6.0]: https://github.com/alextes/braid/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/alextes/braid/compare/v0.4.1...v0.5.0
 [0.4.1]: https://github.com/alextes/braid/compare/v0.3.0...v0.4.1
