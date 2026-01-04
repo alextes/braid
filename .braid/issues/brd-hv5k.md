@@ -2,13 +2,13 @@
 schema_version: 6
 id: brd-hv5k
 title: 'design: rename status ''todo'' to ''open'' to pair with reopen'
-priority: P3
-status: todo
+priority: P2
+status: doing
 type: design
 deps: []
-owner: null
+owner: agent-three
 created_at: 2025-12-29T23:15:06.206602Z
-updated_at: 2026-01-01T15:15:50.921015Z
+updated_at: 2026-01-04T20:37:55.348762Z
 ---
 
 if we're adding `brd reopen`, having `status: todo` feels odd. "reopen" suggests "open".
