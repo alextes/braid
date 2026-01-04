@@ -39,7 +39,7 @@ before cutting a release, read [docs/release-workflow.md](docs/release-workflow.
 - [docs/design-issues.md](docs/design-issues.md) — design issue workflow
 - [docs/release-workflow.md](docs/release-workflow.md) — how to cut releases
 
-<!-- braid:agents:start v5 -->
+<!-- braid:agents:start v6 -->
 ## braid workflow
 
 this repo uses braid (`brd`) for issue tracking. issues live in `.braid/issues/` as markdown files.
@@ -55,8 +55,11 @@ basic flow:
 useful commands:
 - `brd ls` — list all issues
 - `brd ready` — show issues with no unresolved dependencies
-- `brd show <id>` — view issue details
+- `brd show <id>` — view issue details (shows deps and dependents)
+- `brd show <id> --context` — view issue with full content of related issues
 - `brd mode` — show current workflow mode
+
+**tip:** before starting work, use `brd show <id> --context` to see the issue plus all its dependencies and dependents in one view.
 
 ## working on main vs in a worktree
 
