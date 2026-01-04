@@ -10,7 +10,8 @@ pub fn cmd_completions(shell: clap_complete::Shell) -> Result<()> {
 }
 
 /// Generate completions to a writer (for testing).
-pub fn generate_completions_to<W: std::io::Write>(
+#[cfg(test)]
+fn generate_completions_to<W: std::io::Write>(
     shell: clap_complete::Shell,
     writer: &mut W,
 ) -> Result<()> {
