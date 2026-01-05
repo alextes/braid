@@ -98,24 +98,25 @@ pub fn cmd_merge(cli: &Cli, paths: &RepoPaths) -> Result<()> {
     git::run(&["fetch", "origin", "main"], &paths.worktree_root)?;
     git::run(&["reset", "--hard", "origin/main"], &paths.worktree_root)?;
 
-    // check if sync branch mode is active
+    // check if manual sync mode (issues_branch + auto_push disabled)
     let config = Config::load(&paths.config_path()).ok();
-    let issues_branch = config.as_ref().and_then(|c| c.issues_branch.as_ref());
+    let manual_sync = config
+        .as_ref()
+        .map(|c| c.issues_branch.is_some() && !c.auto_push)
+        .unwrap_or(false);
 
     if cli.json {
         let json = serde_json::json!({
             "ok": true,
             "branch": branch,
             "action": "merged",
-            "issues_branch": issues_branch,
         });
         println!("{}", serde_json::to_string_pretty(&json).unwrap());
     } else {
         println!("merged {} to main", branch);
-        if let Some(sb) = issues_branch {
+        if manual_sync {
             println!();
-            println!("note: sync branch mode is active ({})", sb);
-            println!("  if you have issue changes, run `brd sync` to push them");
+            println!("hint: run `brd sync` to push any pending issue changes");
         }
     }
 
