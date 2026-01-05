@@ -72,12 +72,7 @@ mod tests {
     }
 
     fn write_issue(paths: &RepoPaths, config: &Config, id: &str, priority: Priority) {
-        let mut issue = Issue::new(
-            id.to_string(),
-            format!("issue {}", id),
-            priority,
-            vec![],
-        );
+        let mut issue = Issue::new(id.to_string(), format!("issue {}", id), priority, vec![]);
         issue.frontmatter.status = Status::Todo;
         let issue_path = paths.issues_dir(config).join(format!("{}.md", id));
         issue.save(&issue_path).unwrap();
