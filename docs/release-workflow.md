@@ -24,16 +24,17 @@ git log --oneline $(git describe --tags --abbrev=0)..HEAD
 ## 2. update changelog
 
 edit `CHANGELOG.md`:
+
 - move items from `[Unreleased]` to a new version section
-- add the release date
 - update the comparison links at the bottom
 
 ```markdown
 ## [Unreleased]
 
-## [0.4.0] - 2025-12-28
+## [0.4.0]
 
 ### Added
+
 - ...
 ```
 
