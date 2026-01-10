@@ -129,7 +129,8 @@ pub fn sync_issues_branch(paths: &RepoPaths, config: &Config, cli: &Cli) -> Resu
 }
 
 /// Fetch and rebase onto origin/main.
-pub fn sync_with_main(paths: &RepoPaths, cli: &Cli) -> Result<()> {
+/// If `stash` is true, stash uncommitted changes before rebase and restore after.
+pub fn sync_with_main(paths: &RepoPaths, cli: &Cli, stash: bool) -> Result<()> {
     // Skip if no origin remote
     if !git::has_remote(&paths.worktree_root, "origin") {
         if !cli.json {
@@ -142,14 +143,29 @@ pub fn sync_with_main(paths: &RepoPaths, cli: &Cli) -> Result<()> {
         eprintln!("syncing with origin/main...");
     }
 
-    // Check for clean working tree (outside .braid)
-    if !git::is_clean(&paths.worktree_root)? {
-        // Check if only .braid changes
+    // Check for uncommitted changes outside .braid
+    let has_non_braid_changes = if !git::is_clean(&paths.worktree_root)? {
         let status = git::output(&["status", "--porcelain"], &paths.worktree_root)?;
-        let non_braid_changes = status.lines().any(|line| !line.contains(".braid/"));
-        if non_braid_changes {
+        status.lines().any(|line| !line.contains(".braid/"))
+    } else {
+        false
+    };
+
+    let mut stashed = false;
+
+    if has_non_braid_changes {
+        if stash {
+            if !cli.json {
+                eprintln!("  stashing uncommitted changes...");
+            }
+            stashed = git::stash_push(&paths.worktree_root, "brd start: stashing changes")?;
+        } else {
             return Err(BrdError::Other(
-                "working tree has uncommitted changes outside .braid - commit or stash first"
+                "working tree has uncommitted changes outside .braid\n\n\
+                 options:\n  \
+                 - commit or stash manually first\n  \
+                 - use --stash to auto-stash and restore after sync\n  \
+                 - use --no-sync to skip sync (trust local state)"
                     .to_string(),
             ));
         }
@@ -157,6 +173,13 @@ pub fn sync_with_main(paths: &RepoPaths, cli: &Cli) -> Result<()> {
 
     // Fetch
     if !git::run(&["fetch", "origin", "main"], &paths.worktree_root)? {
+        // Restore stash if fetch fails
+        if stashed {
+            if !cli.json {
+                eprintln!("  restoring stashed changes...");
+            }
+            let _ = git::stash_pop(&paths.worktree_root);
+        }
         // origin exists but main branch doesn't - skip sync
         if !cli.json {
             eprintln!("  (origin/main not found, skipping rebase)");
@@ -170,9 +193,30 @@ pub fn sync_with_main(paths: &RepoPaths, cli: &Cli) -> Result<()> {
     {
         // Abort rebase on failure
         let _ = git::run(&["rebase", "--abort"], &paths.worktree_root);
+        // Restore stash even on failure
+        if stashed {
+            if !cli.json {
+                eprintln!("  restoring stashed changes...");
+            }
+            let _ = git::stash_pop(&paths.worktree_root);
+        }
         return Err(BrdError::Other(
             "rebase failed - resolve conflicts manually or use --no-sync".to_string(),
         ));
+    }
+
+    // Restore stashed changes after successful sync
+    if stashed {
+        if !cli.json {
+            eprintln!("  restoring stashed changes...");
+        }
+        if !git::stash_pop(&paths.worktree_root)? {
+            return Err(BrdError::Other(
+                "sync succeeded but failed to restore stashed changes\n\
+                 your changes are in `git stash` - run `git stash pop` to restore"
+                    .to_string(),
+            ));
+        }
     }
 
     Ok(())
@@ -327,6 +371,7 @@ pub fn cmd_start(
     force: bool,
     no_sync: bool,
     no_push: bool,
+    stash: bool,
 ) -> Result<()> {
     let config = Config::load(&paths.config_path())?;
 
@@ -341,7 +386,7 @@ pub fn cmd_start(
         if config.is_issues_branch_mode() {
             sync_issues_branch(paths, &config, cli)?;
         } else {
-            sync_with_main(paths, cli)?;
+            sync_with_main(paths, cli, stash)?;
         }
     }
 
@@ -485,7 +530,7 @@ mod tests {
         );
 
         let cli = make_cli();
-        cmd_start(&cli, &paths, Some("brd-aaaa"), false, true, true).unwrap();
+        cmd_start(&cli, &paths, Some("brd-aaaa"), false, true, true, false).unwrap();
 
         let issues = load_all_issues(&paths, &config).unwrap();
         let issue = issues.get("brd-aaaa").unwrap();
@@ -516,7 +561,7 @@ mod tests {
         );
 
         let cli = make_cli();
-        cmd_start(&cli, &paths, None, false, true, true).unwrap();
+        cmd_start(&cli, &paths, None, false, true, true, false).unwrap();
 
         let issues = load_all_issues(&paths, &config).unwrap();
         let work = issues.get("brd-work").unwrap();
@@ -540,7 +585,7 @@ mod tests {
         );
 
         let cli = make_cli();
-        let err = cmd_start(&cli, &paths, Some("brd-aaaa"), false, true, true).unwrap_err();
+        let err = cmd_start(&cli, &paths, Some("brd-aaaa"), false, true, true, false).unwrap_err();
         assert!(err.to_string().contains("already being worked on"));
 
         let issues = load_all_issues(&paths, &config).unwrap();
@@ -562,7 +607,7 @@ mod tests {
         );
 
         let cli = make_cli();
-        cmd_start(&cli, &paths, Some("brd-aaaa"), true, true, true).unwrap();
+        cmd_start(&cli, &paths, Some("brd-aaaa"), true, true, true, false).unwrap();
 
         let issues = load_all_issues(&paths, &config).unwrap();
         let issue = issues.get("brd-aaaa").unwrap();
@@ -592,7 +637,7 @@ mod tests {
         );
 
         let cli = make_cli();
-        let err = cmd_start(&cli, &paths, Some("aaa"), false, true, true).unwrap_err();
+        let err = cmd_start(&cli, &paths, Some("aaa"), false, true, true, false).unwrap_err();
         assert!(matches!(err, BrdError::AmbiguousId(_, _)));
     }
 
@@ -600,7 +645,90 @@ mod tests {
     fn test_start_issue_not_found() {
         let (_dir, paths, _config) = create_test_repo();
         let cli = make_cli();
-        let err = cmd_start(&cli, &paths, Some("brd-missing"), false, true, true).unwrap_err();
+        let err = cmd_start(&cli, &paths, Some("brd-missing"), false, true, true, false).unwrap_err();
         assert!(matches!(err, BrdError::IssueNotFound(_)));
+    }
+
+    fn create_git_repo() -> (tempfile::TempDir, RepoPaths) {
+        let dir = tempdir().unwrap();
+        git::test::run_ok(dir.path(), &["init"]);
+        git::test::run_ok(dir.path(), &["config", "user.email", "test@test.com"]);
+        git::test::run_ok(dir.path(), &["config", "user.name", "test"]);
+        git::test::run_ok(dir.path(), &["config", "commit.gpgsign", "false"]);
+        fs::write(dir.path().join("README.md"), "test\n").unwrap();
+        git::test::run_ok(dir.path(), &["add", "."]);
+        git::test::run_ok(dir.path(), &["commit", "-m", "init"]);
+
+        let paths = RepoPaths {
+            worktree_root: dir.path().to_path_buf(),
+            git_common_dir: dir.path().join(".git"),
+            brd_common_dir: dir.path().join(".git/brd"),
+        };
+        (dir, paths)
+    }
+
+    #[test]
+    fn test_sync_with_main_no_origin_skips() {
+        let (_dir, paths) = create_git_repo();
+        let cli = make_cli();
+
+        // No origin remote - should skip sync without error
+        let result = sync_with_main(&paths, &cli, false);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_sync_with_main_dirty_without_stash_shows_options() {
+        let (_dir, paths) = create_git_repo();
+        let cli = make_cli();
+
+        // Add an origin remote
+        git::test::run_ok(&paths.worktree_root, &["remote", "add", "origin", "https://example.com/repo.git"]);
+
+        // Create uncommitted changes outside .braid
+        fs::write(paths.worktree_root.join("dirty.txt"), "uncommitted").unwrap();
+
+        // Without --stash, should error with helpful message
+        let err = sync_with_main(&paths, &cli, false).unwrap_err();
+        let msg = err.to_string();
+        assert!(msg.contains("uncommitted changes"));
+        assert!(msg.contains("--stash"));
+        assert!(msg.contains("--no-sync"));
+    }
+
+    #[test]
+    fn test_sync_with_main_braid_changes_allowed() {
+        let (_dir, paths) = create_git_repo();
+        let cli = make_cli();
+
+        // Create .braid directory with uncommitted changes
+        fs::create_dir_all(paths.worktree_root.join(".braid")).unwrap();
+        fs::write(paths.worktree_root.join(".braid/test.md"), "braid change").unwrap();
+
+        // No origin - should skip but not error on .braid changes
+        let result = sync_with_main(&paths, &cli, false);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_sync_with_main_stash_flag_preserves_changes() {
+        let (_dir, paths) = create_git_repo();
+        let cli = make_cli();
+
+        // Add origin remote (fetch will fail but stash should still work)
+        git::test::run_ok(&paths.worktree_root, &["remote", "add", "origin", "https://example.com/repo.git"]);
+
+        // Create uncommitted changes
+        let dirty_file = paths.worktree_root.join("dirty.txt");
+        fs::write(&dirty_file, "uncommitted content").unwrap();
+
+        // With --stash, should stash, attempt sync, then restore
+        // (fetch will fail since origin doesn't exist, but changes should be preserved)
+        let result = sync_with_main(&paths, &cli, true);
+        assert!(result.is_ok());
+
+        // Changes should still be there after sync attempt
+        assert!(dirty_file.exists());
+        assert_eq!(fs::read_to_string(&dirty_file).unwrap(), "uncommitted content");
     }
 }

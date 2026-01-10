@@ -126,6 +126,10 @@ pub enum Command {
         /// claim locally but don't commit/push
         #[arg(long)]
         no_push: bool,
+
+        /// stash uncommitted changes before sync, restore after
+        #[arg(long)]
+        stash: bool,
     },
 
     /// mark an issue as done

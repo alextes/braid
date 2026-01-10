@@ -6,15 +6,6 @@ use crate::error::{BrdError, Result};
 use crate::git;
 use crate::repo::RepoPaths;
 
-fn stash_count(cwd: &std::path::Path) -> Result<usize> {
-    let output = git::output(&["stash", "list"], cwd)?;
-    if output.is_empty() {
-        Ok(0)
-    } else {
-        Ok(output.lines().count())
-    }
-}
-
 fn has_upstream(branch: &str, cwd: &std::path::Path) -> Result<bool> {
     git::run(
         &["rev-parse", "--abbrev-ref", &format!("{branch}@{{u}}")],
@@ -54,21 +45,7 @@ pub fn cmd_sync(cli: &Cli, paths: &RepoPaths, push: bool) -> Result<()> {
         if !cli.json {
             println!("  stashing local changes...");
         }
-        let stash_before = stash_count(&issues_wt)?;
-        if !git::run(
-            &[
-                "stash",
-                "push",
-                "--include-untracked",
-                "-m",
-                "brd sync: stashing local changes",
-            ],
-            &issues_wt,
-        )? {
-            return Err(BrdError::Other("failed to stash changes".to_string()));
-        }
-        let stash_after = stash_count(&issues_wt)?;
-        stashed = stash_after > stash_before;
+        stashed = git::stash_push(&issues_wt, "brd sync: stashing local changes")?;
     }
 
     // 3. fetch and rebase
@@ -90,7 +67,7 @@ pub fn cmd_sync(cli: &Cli, paths: &RepoPaths, push: bool) -> Result<()> {
             // abort rebase and restore
             let _ = git::run(&["rebase", "--abort"], &issues_wt);
             if stashed {
-                let _ = git::run(&["stash", "pop"], &issues_wt);
+                let _ = git::stash_pop(&issues_wt);
             }
             return Err(BrdError::Other(
                 "rebase failed - there may be conflicts. resolve manually in the issues worktree"
@@ -104,7 +81,7 @@ pub fn cmd_sync(cli: &Cli, paths: &RepoPaths, push: bool) -> Result<()> {
         if !cli.json {
             println!("  restoring local changes...");
         }
-        if !git::run(&["stash", "pop"], &issues_wt)? {
+        if !git::stash_pop(&issues_wt)? {
             return Err(BrdError::Other(
                 "failed to restore local changes from stash".to_string(),
             ));
@@ -224,7 +201,7 @@ mod tests {
     #[test]
     fn test_stash_count_empty() {
         let dir = setup_git_repo();
-        let count = stash_count(dir.path()).unwrap();
+        let count = git::stash_count(dir.path()).unwrap();
         assert_eq!(count, 0);
     }
 
@@ -240,7 +217,7 @@ mod tests {
             .output()
             .unwrap();
 
-        let count = stash_count(dir.path()).unwrap();
+        let count = git::stash_count(dir.path()).unwrap();
         assert_eq!(count, 1);
 
         // add another stash
@@ -251,7 +228,7 @@ mod tests {
             .output()
             .unwrap();
 
-        let count = stash_count(dir.path()).unwrap();
+        let count = git::stash_count(dir.path()).unwrap();
         assert_eq!(count, 2);
     }
 

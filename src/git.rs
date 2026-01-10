@@ -74,6 +74,31 @@ pub fn branch_exists(cwd: &Path, branch: &str) -> bool {
     run(&["rev-parse", "--verify", branch], cwd).unwrap_or(false)
 }
 
+/// Count entries in the git stash.
+pub fn stash_count(cwd: &Path) -> Result<usize> {
+    let out = output(&["stash", "list"], cwd)?;
+    if out.is_empty() {
+        Ok(0)
+    } else {
+        Ok(out.lines().count())
+    }
+}
+
+/// Stash changes with a message. Returns true if a stash was created.
+pub fn stash_push(cwd: &Path, message: &str) -> Result<bool> {
+    let before = stash_count(cwd)?;
+    if !run(&["stash", "push", "--include-untracked", "-m", message], cwd)? {
+        return Err(BrdError::Other("failed to stash changes".to_string()));
+    }
+    let after = stash_count(cwd)?;
+    Ok(after > before)
+}
+
+/// Pop the most recent stash. Returns true if successful.
+pub fn stash_pop(cwd: &Path) -> Result<bool> {
+    run(&["stash", "pop"], cwd)
+}
+
 /// Test helpers that panic on failure (for use in tests only).
 #[cfg(test)]
 pub mod test {
@@ -189,5 +214,74 @@ mod tests {
         let dir = tempdir().unwrap();
         let err = rev_parse(dir.path(), "--show-toplevel").unwrap_err();
         assert!(matches!(err, BrdError::NotGitRepo));
+    }
+
+    #[test]
+    fn test_stash_count_empty() {
+        let dir = create_test_repo();
+        assert_eq!(stash_count(dir.path()).unwrap(), 0);
+    }
+
+    #[test]
+    fn test_stash_push_creates_stash() {
+        let dir = create_test_repo();
+
+        // Create uncommitted changes
+        std::fs::write(dir.path().join("new_file.txt"), "content").unwrap();
+
+        // Stash should succeed and return true (stash created)
+        let created = stash_push(dir.path(), "test stash").unwrap();
+        assert!(created);
+
+        // Working tree should be clean now
+        assert!(is_clean(dir.path()).unwrap());
+
+        // Stash count should be 1
+        assert_eq!(stash_count(dir.path()).unwrap(), 1);
+    }
+
+    #[test]
+    fn test_stash_push_clean_tree_returns_false() {
+        let dir = create_test_repo();
+
+        // No changes to stash - should return false
+        let created = stash_push(dir.path(), "empty stash").unwrap();
+        assert!(!created);
+
+        // Stash count should still be 0
+        assert_eq!(stash_count(dir.path()).unwrap(), 0);
+    }
+
+    #[test]
+    fn test_stash_pop_restores_changes() {
+        let dir = create_test_repo();
+
+        // Create and stash changes
+        let file_path = dir.path().join("new_file.txt");
+        std::fs::write(&file_path, "content").unwrap();
+        stash_push(dir.path(), "test stash").unwrap();
+
+        // File should be gone
+        assert!(!file_path.exists());
+
+        // Pop should succeed
+        let success = stash_pop(dir.path()).unwrap();
+        assert!(success);
+
+        // File should be restored
+        assert!(file_path.exists());
+        assert_eq!(std::fs::read_to_string(&file_path).unwrap(), "content");
+
+        // Stash count should be 0
+        assert_eq!(stash_count(dir.path()).unwrap(), 0);
+    }
+
+    #[test]
+    fn test_stash_pop_empty_stash_returns_false() {
+        let dir = create_test_repo();
+
+        // Pop with no stash should return false
+        let success = stash_pop(dir.path()).unwrap();
+        assert!(!success);
     }
 }
