@@ -413,6 +413,10 @@ pub const AGENTS_BLOCK_VERSION: u32 = 7;
 const BLOCK_START: &str = "<!-- braid:agents:start";
 const BLOCK_END: &str = "<!-- braid:agents:end -->";
 
+/// Files to check for the braid instruction block, in priority order.
+/// The first file found containing the block will be used.
+pub const INSTRUCTION_FILES: &[&str] = &["AGENTS.md", "CLAUDE.md", "CLAUDE.local.md"];
+
 /// generate the static part of the agents block (mode-independent)
 fn generate_static_block() -> String {
     r#"## braid workflow
@@ -575,14 +579,21 @@ pub fn extract_mode(content: &str) -> Option<AgentsBlockMode> {
     }
 }
 
-/// check if AGENTS.md contains a braid block and return its version
-pub fn check_agents_block(paths: &RepoPaths) -> Option<u32> {
-    let agents_path = paths.worktree_root.join("AGENTS.md");
-    if !agents_path.exists() {
-        return None;
+/// Check instruction files for a braid block and return the file name and version.
+/// Checks files in INSTRUCTION_FILES order: AGENTS.md, CLAUDE.md, CLAUDE.local.md.
+pub fn check_agents_block(paths: &RepoPaths) -> Option<(&'static str, u32)> {
+    for &file in INSTRUCTION_FILES {
+        let file_path = paths.worktree_root.join(file);
+        if !file_path.exists() {
+            continue;
+        }
+        if let Ok(content) = fs::read_to_string(&file_path)
+            && let Some(version) = extract_version(&content)
+        {
+            return Some((file, version));
+        }
     }
-    let content = fs::read_to_string(&agents_path).ok()?;
-    extract_version(&content)
+    None
 }
 
 /// print the agents block to stdout
@@ -888,7 +899,67 @@ mod tests {
         let config = Config::default();
         std::fs::write(&agents_path, generate_block(&config)).unwrap();
 
-        assert_eq!(check_agents_block(&paths), Some(AGENTS_BLOCK_VERSION));
+        assert_eq!(
+            check_agents_block(&paths),
+            Some(("AGENTS.md", AGENTS_BLOCK_VERSION))
+        );
+    }
+
+    #[test]
+    fn test_check_agents_block_checks_claude_md() {
+        let (_dir, paths) = create_paths();
+        let claude_path = paths.worktree_root.join("CLAUDE.md");
+        let config = Config::default();
+        std::fs::write(&claude_path, generate_block(&config)).unwrap();
+
+        assert_eq!(
+            check_agents_block(&paths),
+            Some(("CLAUDE.md", AGENTS_BLOCK_VERSION))
+        );
+    }
+
+    #[test]
+    fn test_check_agents_block_checks_claude_local_md() {
+        let (_dir, paths) = create_paths();
+        let claude_local_path = paths.worktree_root.join("CLAUDE.local.md");
+        let config = Config::default();
+        std::fs::write(&claude_local_path, generate_block(&config)).unwrap();
+
+        assert_eq!(
+            check_agents_block(&paths),
+            Some(("CLAUDE.local.md", AGENTS_BLOCK_VERSION))
+        );
+    }
+
+    #[test]
+    fn test_check_agents_block_priority_order() {
+        let (_dir, paths) = create_paths();
+        let config = Config::default();
+        let block = generate_block(&config);
+
+        // Write to both CLAUDE.md and CLAUDE.local.md
+        std::fs::write(paths.worktree_root.join("CLAUDE.md"), &block).unwrap();
+        std::fs::write(paths.worktree_root.join("CLAUDE.local.md"), &block).unwrap();
+
+        // AGENTS.md has highest priority, but doesn't exist, so CLAUDE.md should be found
+        assert_eq!(
+            check_agents_block(&paths),
+            Some(("CLAUDE.md", AGENTS_BLOCK_VERSION))
+        );
+
+        // Now create AGENTS.md - it should take priority
+        std::fs::write(paths.worktree_root.join("AGENTS.md"), &block).unwrap();
+        assert_eq!(
+            check_agents_block(&paths),
+            Some(("AGENTS.md", AGENTS_BLOCK_VERSION))
+        );
+    }
+
+    #[test]
+    fn test_check_agents_block_not_found() {
+        let (_dir, paths) = create_paths();
+        // No instruction files exist
+        assert_eq!(check_agents_block(&paths), None);
     }
 
     #[test]

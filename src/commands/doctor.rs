@@ -6,7 +6,8 @@ use crate::migrate::{self, CURRENT_SCHEMA};
 use crate::repo::RepoPaths;
 
 use super::{
-    AGENTS_BLOCK_VERSION, AgentsBlockMode, check_agents_block, extract_mode, load_all_issues,
+    AGENTS_BLOCK_VERSION, AgentsBlockMode, INSTRUCTION_FILES, check_agents_block, extract_mode,
+    load_all_issues,
 };
 
 /// Parse frontmatter from markdown content.
@@ -255,74 +256,86 @@ pub fn cmd_doctor(cli: &Cli, paths: &RepoPaths) -> Result<()> {
         }
     }
 
-    // check 9: AGENTS.md block version (informational)
-    let agents_block_version = check_agents_block(paths);
-    match agents_block_version {
-        Some(version) if version >= AGENTS_BLOCK_VERSION => {
+    // check 9: instruction file block version (informational)
+    // checks AGENTS.md, CLAUDE.md, and CLAUDE.local.md in order
+    let agents_block_result = check_agents_block(paths);
+    let block_file = agents_block_result.map(|(file, _)| file);
+    match agents_block_result {
+        Some((file, version)) if version >= AGENTS_BLOCK_VERSION => {
             record_check(
                 "agents_block",
-                &format!("AGENTS.md braid block at v{}", AGENTS_BLOCK_VERSION),
+                &format!("{} braid block at v{}", file, AGENTS_BLOCK_VERSION),
                 true,
             );
         }
-        Some(version) => {
+        Some((file, version)) => {
             record_check(
                 "agents_block",
                 &format!(
-                    "AGENTS.md braid block outdated (v{} < v{})",
-                    version, AGENTS_BLOCK_VERSION
+                    "{} braid block outdated (v{} < v{})",
+                    file, version, AGENTS_BLOCK_VERSION
                 ),
                 false,
             );
             if !cli.json {
-                eprintln!("  hint: run `brd agent inject` to update");
+                if file == "AGENTS.md" {
+                    eprintln!("  hint: run `brd agent inject` to update");
+                } else {
+                    eprintln!("  hint: run `brd agent inject --file {}` to update", file);
+                }
             }
         }
         None => {
-            record_check("agents_block", "AGENTS.md braid block not found", false);
+            let files = INSTRUCTION_FILES.join(", ");
+            record_check(
+                "agents_block",
+                &format!("braid block not found in {}", files),
+                false,
+            );
             if !cli.json {
                 eprintln!("  hint: run `brd agent inject` to add");
             }
         }
     }
 
-    // check 10: AGENTS.md block mode matches config mode (informational)
-    let agents_path = paths.worktree_root.join("AGENTS.md");
-    if agents_path.exists()
-        && let Ok(content) = std::fs::read_to_string(&agents_path)
-    {
-        let block_mode = extract_mode(&content);
-        let config_mode = if config.is_issues_branch_mode() {
-            AgentsBlockMode::LocalSync
-        } else {
-            AgentsBlockMode::GitNative
-        };
+    // check 10: instruction file block mode matches config mode (informational)
+    if let Some(file) = block_file {
+        let file_path = paths.worktree_root.join(file);
+        if let Ok(content) = std::fs::read_to_string(&file_path) {
+            let block_mode = extract_mode(&content);
+            let config_mode = if config.is_issues_branch_mode() {
+                AgentsBlockMode::LocalSync
+            } else {
+                AgentsBlockMode::GitNative
+            };
 
-        match block_mode {
-            Some(mode) if mode == config_mode => {
-                record_check(
-                    "agents_block_mode",
-                    &format!("AGENTS.md block mode matches config ({})", config_mode),
-                    true,
-                );
-            }
-            Some(mode) => {
-                record_check(
-                    "agents_block_mode",
-                    &format!(
-                        "AGENTS.md block mode mismatch ({} != {})",
-                        mode, config_mode
-                    ),
-                    false,
-                );
-                if !cli.json {
-                    eprintln!("  current mode: {}", config_mode);
-                    eprintln!("  AGENTS.md block: {}", mode);
-                    eprintln!("  run `brd agent inject` to update");
+            match block_mode {
+                Some(mode) if mode == config_mode => {
+                    record_check(
+                        "agents_block_mode",
+                        &format!("{} block mode matches config ({})", file, config_mode),
+                        true,
+                    );
                 }
-            }
-            None => {
-                // block exists but no mode detected - already handled by version check
+                Some(mode) => {
+                    record_check(
+                        "agents_block_mode",
+                        &format!("{} block mode mismatch ({} != {})", file, mode, config_mode),
+                        false,
+                    );
+                    if !cli.json {
+                        eprintln!("  current mode: {}", config_mode);
+                        eprintln!("  {} block: {}", file, mode);
+                        if file == "AGENTS.md" {
+                            eprintln!("  run `brd agent inject` to update");
+                        } else {
+                            eprintln!("  run `brd agent inject --file {}` to update", file);
+                        }
+                    }
+                }
+                None => {
+                    // block exists but no mode detected - already handled by version check
+                }
             }
         }
     }

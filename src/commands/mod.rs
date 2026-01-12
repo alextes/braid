@@ -29,6 +29,7 @@ pub use agent::{
     // AGENTS.md instructions
     AGENTS_BLOCK_VERSION,
     AgentsBlockMode,
+    INSTRUCTION_FILES,
     check_agents_block,
     cmd_agent_branch,
     cmd_agent_init,
