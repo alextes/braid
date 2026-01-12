@@ -601,10 +601,11 @@ pub fn cmd_agents_show() -> Result<()> {
     Ok(())
 }
 
-/// inject or update the agents block in AGENTS.md
-pub fn cmd_agents_inject(paths: &RepoPaths) -> Result<()> {
+/// inject or update the agents block in AGENTS.md (or custom file)
+pub fn cmd_agents_inject(paths: &RepoPaths, file: Option<&str>) -> Result<()> {
     let config = Config::load(&paths.config_path())?;
-    let agents_path = paths.worktree_root.join("AGENTS.md");
+    let file_name = file.unwrap_or("AGENTS.md");
+    let agents_path = paths.worktree_root.join(file_name);
     let block = generate_block(&config);
 
     let mode_name = if config.issues_branch.is_some() {
@@ -624,13 +625,14 @@ pub fn cmd_agents_inject(paths: &RepoPaths) -> Result<()> {
                     format!("{}{}{}", &content[..start_idx], block, &content[end_idx..]);
                 fs::write(&agents_path, new_content)?;
                 println!(
-                    "updated braid agents block in AGENTS.md (v{}, {})",
-                    AGENTS_BLOCK_VERSION, mode_name
+                    "updated braid agents block in {} (v{}, {})",
+                    file_name, AGENTS_BLOCK_VERSION, mode_name
                 );
             } else {
-                return Err(BrdError::Other(
-                    "found start marker but no end marker in AGENTS.md".into(),
-                ));
+                return Err(BrdError::Other(format!(
+                    "found start marker but no end marker in {}",
+                    file_name
+                )));
             }
         } else {
             // append to existing file
@@ -643,8 +645,8 @@ pub fn cmd_agents_inject(paths: &RepoPaths) -> Result<()> {
             content.push('\n');
             fs::write(&agents_path, content)?;
             println!(
-                "added braid agents block to AGENTS.md (v{}, {})",
-                AGENTS_BLOCK_VERSION, mode_name
+                "added braid agents block to {} (v{}, {})",
+                file_name, AGENTS_BLOCK_VERSION, mode_name
             );
         }
     } else {
@@ -654,8 +656,8 @@ pub fn cmd_agents_inject(paths: &RepoPaths) -> Result<()> {
             format!("# Instructions for AI agents\n\n{}\n", block),
         )?;
         println!(
-            "created AGENTS.md with braid agents block (v{}, {})",
-            AGENTS_BLOCK_VERSION, mode_name
+            "created {} with braid agents block (v{}, {})",
+            file_name, AGENTS_BLOCK_VERSION, mode_name
         );
     }
 
@@ -892,7 +894,7 @@ mod tests {
     #[test]
     fn test_cmd_agents_inject_creates_file() {
         let (_dir, paths) = create_paths();
-        cmd_agents_inject(&paths).unwrap();
+        cmd_agents_inject(&paths, None).unwrap();
 
         let content = std::fs::read_to_string(paths.worktree_root.join("AGENTS.md")).unwrap();
         assert!(content.contains("Instructions for AI agents"));
@@ -907,7 +909,7 @@ mod tests {
         let agents_path = paths.worktree_root.join("AGENTS.md");
         std::fs::write(&agents_path, "custom header\n").unwrap();
 
-        cmd_agents_inject(&paths).unwrap();
+        cmd_agents_inject(&paths, None).unwrap();
 
         let content = std::fs::read_to_string(&agents_path).unwrap();
         assert!(content.starts_with("custom header"));
@@ -922,7 +924,7 @@ mod tests {
         let old_block = format!("{BLOCK_START} v1 -->\nold\n{BLOCK_END}");
         std::fs::write(&agents_path, format!("before\n{old_block}\nafter")).unwrap();
 
-        cmd_agents_inject(&paths).unwrap();
+        cmd_agents_inject(&paths, None).unwrap();
 
         let content = std::fs::read_to_string(&agents_path).unwrap();
         assert!(content.contains("before"));
@@ -937,8 +939,35 @@ mod tests {
         let agents_path = paths.worktree_root.join("AGENTS.md");
         std::fs::write(&agents_path, format!("{BLOCK_START} v1 -->\nno end")).unwrap();
 
-        let err = cmd_agents_inject(&paths).unwrap_err();
+        let err = cmd_agents_inject(&paths, None).unwrap_err();
         assert!(err.to_string().contains("no end marker"));
+    }
+
+    #[test]
+    fn test_cmd_agents_inject_custom_file() {
+        let (_dir, paths) = create_paths();
+        cmd_agents_inject(&paths, Some("CLAUDE.md")).unwrap();
+
+        // Custom file should be created
+        let content = std::fs::read_to_string(paths.worktree_root.join("CLAUDE.md")).unwrap();
+        assert!(content.contains("Instructions for AI agents"));
+        assert!(content.contains(BLOCK_START));
+        assert!(content.contains(BLOCK_END));
+
+        // AGENTS.md should not exist
+        assert!(!paths.worktree_root.join("AGENTS.md").exists());
+    }
+
+    #[test]
+    fn test_cmd_agents_inject_custom_file_in_subdir() {
+        let (_dir, paths) = create_paths();
+        std::fs::create_dir_all(paths.worktree_root.join(".github")).unwrap();
+
+        cmd_agents_inject(&paths, Some(".github/AGENTS.md")).unwrap();
+
+        let content =
+            std::fs::read_to_string(paths.worktree_root.join(".github/AGENTS.md")).unwrap();
+        assert!(content.contains(BLOCK_START));
     }
 
     // ========================================================================

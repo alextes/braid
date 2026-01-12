@@ -116,7 +116,7 @@ fn run(cli: &Cli) -> Result<()> {
             AgentAction::Branch { id } => cmd_agent_branch(cli, &paths, id),
             AgentAction::Pr => cmd_agent_pr(cli, &paths),
             AgentAction::Merge => cmd_merge(cli, &paths),
-            AgentAction::Inject => cmd_agents_inject(&paths),
+            AgentAction::Inject { file } => cmd_agents_inject(&paths, file.as_deref()),
             AgentAction::Instructions => cmd_agents_show(),
         },
         Command::Doctor => cmd_doctor(cli, &paths),

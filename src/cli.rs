@@ -287,7 +287,11 @@ pub enum AgentAction {
     Merge,
 
     /// inject/update the braid instructions block in AGENTS.md
-    Inject,
+    Inject {
+        /// target file path (default: AGENTS.md)
+        #[arg(long, short)]
+        file: Option<String>,
+    },
 
     /// print the AGENTS.md instructions block to stdout
     Instructions,
