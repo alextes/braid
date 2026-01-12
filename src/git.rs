@@ -87,7 +87,10 @@ pub fn stash_count(cwd: &Path) -> Result<usize> {
 /// Stash changes with a message. Returns true if a stash was created.
 pub fn stash_push(cwd: &Path, message: &str) -> Result<bool> {
     let before = stash_count(cwd)?;
-    if !run(&["stash", "push", "--include-untracked", "-m", message], cwd)? {
+    if !run(
+        &["stash", "push", "--include-untracked", "-m", message],
+        cwd,
+    )? {
         return Err(BrdError::Other("failed to stash changes".to_string()));
     }
     let after = stash_count(cwd)?;

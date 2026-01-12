@@ -645,7 +645,8 @@ mod tests {
     fn test_start_issue_not_found() {
         let (_dir, paths, _config) = create_test_repo();
         let cli = make_cli();
-        let err = cmd_start(&cli, &paths, Some("brd-missing"), false, true, true, false).unwrap_err();
+        let err =
+            cmd_start(&cli, &paths, Some("brd-missing"), false, true, true, false).unwrap_err();
         assert!(matches!(err, BrdError::IssueNotFound(_)));
     }
 
@@ -683,7 +684,10 @@ mod tests {
         let cli = make_cli();
 
         // Add an origin remote
-        git::test::run_ok(&paths.worktree_root, &["remote", "add", "origin", "https://example.com/repo.git"]);
+        git::test::run_ok(
+            &paths.worktree_root,
+            &["remote", "add", "origin", "https://example.com/repo.git"],
+        );
 
         // Create uncommitted changes outside .braid
         fs::write(paths.worktree_root.join("dirty.txt"), "uncommitted").unwrap();
@@ -716,7 +720,10 @@ mod tests {
         let cli = make_cli();
 
         // Add origin remote (fetch will fail but stash should still work)
-        git::test::run_ok(&paths.worktree_root, &["remote", "add", "origin", "https://example.com/repo.git"]);
+        git::test::run_ok(
+            &paths.worktree_root,
+            &["remote", "add", "origin", "https://example.com/repo.git"],
+        );
 
         // Create uncommitted changes
         let dirty_file = paths.worktree_root.join("dirty.txt");
@@ -729,6 +736,9 @@ mod tests {
 
         // Changes should still be there after sync attempt
         assert!(dirty_file.exists());
-        assert_eq!(fs::read_to_string(&dirty_file).unwrap(), "uncommitted content");
+        assert_eq!(
+            fs::read_to_string(&dirty_file).unwrap(),
+            "uncommitted content"
+        );
     }
 }

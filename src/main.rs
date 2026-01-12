@@ -102,7 +102,15 @@ fn run(cli: &Cli) -> Result<()> {
             no_sync,
             no_push,
             stash,
-        } => cmd_start(cli, &paths, id.as_deref(), *force, *no_sync, *no_push, *stash),
+        } => cmd_start(
+            cli,
+            &paths,
+            id.as_deref(),
+            *force,
+            *no_sync,
+            *no_push,
+            *stash,
+        ),
         Command::Done {
             id,
             force,
