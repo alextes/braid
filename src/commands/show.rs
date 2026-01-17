@@ -204,7 +204,7 @@ mod tests {
             Priority::P2,
             vec![],
         );
-        dep_issue.frontmatter.status = Status::Todo;
+        dep_issue.frontmatter.status = Status::Open;
 
         let mut issues = HashMap::new();
         issues.insert(issue.id().to_string(), issue.clone());
@@ -215,7 +215,7 @@ mod tests {
         assert!(output.contains("ID:       brd-1234"));
         assert!(output.contains("Title:    test issue"));
         assert!(output.contains("Priority: P1"));
-        assert!(output.contains("Status:   todo"));
+        assert!(output.contains("Status:   open"));
         assert!(output.contains("Type:     meta"));
         assert!(output.contains("Deps:     brd-aaaa, brd-missing"));
         assert!(output.contains("Tags:     visual, urgent"));

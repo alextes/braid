@@ -8,7 +8,7 @@ use serde_yaml::Value;
 use crate::error::{BrdError, Result};
 
 /// The current schema version. All new issues are created with this version.
-pub const CURRENT_SCHEMA: u32 = 6;
+pub const CURRENT_SCHEMA: u32 = 7;
 
 /// Check if a schema version needs migration.
 pub fn needs_migration(schema_version: u32) -> bool {
@@ -61,6 +61,7 @@ fn apply_migration(frontmatter: Value, from_version: u32) -> Result<Value> {
         3 => migrate_v3_to_v4(frontmatter),
         4 => migrate_v4_to_v5(frontmatter),
         5 => migrate_v5_to_v6(frontmatter),
+        6 => migrate_v6_to_v7(frontmatter),
         _ => {
             // No migration needed for this version
             Ok(frontmatter)
@@ -152,6 +153,26 @@ fn migrate_v5_to_v6(mut frontmatter: Value) -> Result<Value> {
     Ok(frontmatter)
 }
 
+/// Migration from v6 to v7.
+/// - Renames status 'todo' to 'open'
+fn migrate_v6_to_v7(mut frontmatter: Value) -> Result<Value> {
+    if let Value::Mapping(ref mut map) = frontmatter {
+        let status_key = Value::String("status".to_string());
+        let schema_key = Value::String("schema_version".to_string());
+
+        // Rename status: todo -> open
+        if let Some(Value::String(status)) = map.get(&status_key)
+            && status == "todo"
+        {
+            map.insert(status_key, Value::String("open".to_string()));
+        }
+
+        // Update schema version
+        map.insert(schema_key, Value::Number(7.into()));
+    }
+    Ok(frontmatter)
+}
+
 /// Summary of what migrations would be applied to get from one version to another.
 pub fn migration_summary(from_version: u32, to_version: u32) -> Vec<String> {
     let mut summaries = Vec::new();
@@ -164,6 +185,7 @@ pub fn migration_summary(from_version: u32, to_version: u32) -> Vec<String> {
             3 => summaries.push("v3→v4: rename 'labels' to 'tags'".to_string()),
             4 => summaries.push("v4→v5: external-repo config support".to_string()),
             5 => summaries.push("v5→v6: auto_pull/auto_push config support".to_string()),
+            6 => summaries.push("v6→v7: rename status 'todo' to 'open'".to_string()),
             _ => {}
         }
     }

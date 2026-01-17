@@ -134,7 +134,7 @@ schema_version: {}
 id: {}
 title: Test Issue {}
 priority: P2
-status: todo
+status: open
 {}
 tags: []
 owner: ~

@@ -190,7 +190,7 @@ mod tests {
             Priority::P2,
             vec![],
         );
-        issue.frontmatter.status = Status::Todo;
+        issue.frontmatter.status = Status::Open;
         issue.frontmatter.schema_version = CURRENT_SCHEMA - 1;
         let issue_path = write_issue(&paths, &config, &issue);
 
@@ -209,7 +209,7 @@ mod tests {
             Priority::P2,
             vec![],
         );
-        issue.frontmatter.status = Status::Todo;
+        issue.frontmatter.status = Status::Open;
         issue.frontmatter.schema_version = CURRENT_SCHEMA - 1;
         let issue_path = write_issue(&paths, &config, &issue);
 

@@ -310,7 +310,7 @@ fn draw_all_list(f: &mut Frame, area: Rect, app: &mut App) {
                 .all_status_filter
                 .iter()
                 .map(|s| match s {
-                    crate::issue::Status::Todo => "T",
+                    crate::issue::Status::Open => "T",
                     crate::issue::Status::Doing => "D",
                     crate::issue::Status::Done => "✓",
                     crate::issue::Status::Skip => "⊘",
@@ -342,7 +342,7 @@ fn draw_all_list(f: &mut Frame, area: Rect, app: &mut App) {
         .map(|(i, id)| {
             let issue = app.issues.get(id).unwrap();
             let status_char = match issue.status() {
-                crate::issue::Status::Todo => ' ',
+                crate::issue::Status::Open => ' ',
                 crate::issue::Status::Doing => '→',
                 crate::issue::Status::Done => '✓',
                 crate::issue::Status::Skip => '⊘',
@@ -365,7 +365,7 @@ fn draw_all_list(f: &mut Frame, area: Rect, app: &mut App) {
                         Style::default().fg(Color::DarkGray)
                     }
                     crate::issue::Status::Doing => Style::default().fg(Color::Green),
-                    crate::issue::Status::Todo => Style::default(),
+                    crate::issue::Status::Open => Style::default(),
                 }
             };
             // add type-based styling (italic for design, bold for meta)
@@ -433,7 +433,7 @@ fn draw_detail(f: &mut Frame, area: Rect, app: &App) {
                 match issue.status() {
                     crate::issue::Status::Done => Style::default().fg(Color::Green),
                     crate::issue::Status::Doing => Style::default().fg(Color::Yellow),
-                    crate::issue::Status::Todo => Style::default(),
+                    crate::issue::Status::Open => Style::default(),
                     crate::issue::Status::Skip => Style::default().fg(Color::DarkGray),
                 },
             ),
@@ -506,7 +506,7 @@ fn draw_detail(f: &mut Frame, area: Rect, app: &App) {
                 let status_style = match dep_issue.status() {
                     crate::issue::Status::Done => Style::default().fg(Color::Green),
                     crate::issue::Status::Doing => Style::default().fg(Color::Yellow),
-                    crate::issue::Status::Todo => Style::default(),
+                    crate::issue::Status::Open => Style::default(),
                     crate::issue::Status::Skip => Style::default().fg(Color::DarkGray),
                 };
                 lines.push(Line::from(vec![
@@ -596,7 +596,7 @@ fn draw_help(f: &mut Frame, area: Rect) {
         Line::from("  /          enter filter mode"),
         Line::from("  enter      confirm filter"),
         Line::from("  esc        clear filter and exit filter mode"),
-        Line::from("  1-4        toggle status (1=todo 2=doing 3=done 4=skip)"),
+        Line::from("  1-4        toggle status (1=open 2=doing 3=done 4=skip)"),
         Line::from(""),
         Line::from(Span::styled(
             "other",

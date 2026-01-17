@@ -102,7 +102,7 @@ pub fn cmd_ls(
     for issue in filtered {
         match issue.status() {
             Status::Doing => doing.push(issue),
-            Status::Todo => todo.push(issue),
+            Status::Open => todo.push(issue),
             Status::Done | Status::Skip => resolved.push(issue),
         }
     }
@@ -247,7 +247,7 @@ pub fn cmd_ls(
 
             // status column: padded to 5 chars (length of "doing")
             let status_col = match issue.status() {
-                Status::Todo => "todo ",
+                Status::Open => "open ",
                 Status::Doing => "doing",
                 Status::Done => "done ",
                 Status::Skip => "skip ",

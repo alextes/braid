@@ -50,7 +50,7 @@ fn count_issues(issues: &HashMap<String, Issue>) -> IssueCounts {
 
     for issue in issues.values() {
         match issue.status() {
-            Status::Todo => counts.open += 1,
+            Status::Open => counts.open += 1,
             Status::Doing => counts.doing += 1,
             Status::Done => counts.done += 1,
             Status::Skip => counts.skip += 1,

@@ -313,8 +313,8 @@ mod tests {
     #[test]
     fn test_done_ambiguous_id() {
         let (_dir, paths, config) = create_test_repo();
-        write_issue(&paths, &config, "brd-aaaa", Status::Todo, None);
-        write_issue(&paths, &config, "brd-aaab", Status::Todo, None);
+        write_issue(&paths, &config, "brd-aaaa", Status::Open, None);
+        write_issue(&paths, &config, "brd-aaab", Status::Open, None);
 
         let cli = make_cli();
         let err = cmd_done(&cli, &paths, "aaa", false, &[], true).unwrap_err();
@@ -348,7 +348,7 @@ mod tests {
     fn test_done_design_with_result() {
         let (_dir, paths, config) = create_test_repo();
         write_design_issue(&paths, &config, "brd-design");
-        write_issue(&paths, &config, "brd-impl", Status::Todo, None);
+        write_issue(&paths, &config, "brd-impl", Status::Open, None);
 
         let cli = make_cli();
         cmd_done(
@@ -388,7 +388,7 @@ mod tests {
     fn test_done_design_replaces_dependents() {
         let (_dir, paths, config) = create_test_repo();
         write_design_issue(&paths, &config, "brd-design");
-        write_issue(&paths, &config, "brd-impl", Status::Todo, None);
+        write_issue(&paths, &config, "brd-impl", Status::Open, None);
         write_issue_with_deps(
             &paths,
             &config,
@@ -416,8 +416,8 @@ mod tests {
     #[test]
     fn test_done_design_transfers_deps_to_results() {
         let (_dir, paths, config) = create_test_repo();
-        write_issue(&paths, &config, "brd-upstream", Status::Todo, None);
-        write_issue(&paths, &config, "brd-existing", Status::Todo, None);
+        write_issue(&paths, &config, "brd-upstream", Status::Open, None);
+        write_issue(&paths, &config, "brd-existing", Status::Open, None);
         write_design_issue_with_deps(
             &paths,
             &config,
@@ -573,6 +573,6 @@ mod tests {
         let dependent = issues.get("brd-dependent").unwrap();
         assert!(dependent.deps().contains(&"brd-design".to_string()));
         let design = issues.get("brd-design").unwrap();
-        assert_eq!(design.status(), Status::Todo);
+        assert_eq!(design.status(), Status::Open);
     }
 }

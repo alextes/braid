@@ -272,7 +272,7 @@ fn handle_key_event(app: &mut App, paths: &RepoPaths, key: KeyEvent) -> Result<b
                 }
                 // toggle status filters with 1-4
                 KeyCode::Char('1') => {
-                    app.toggle_status_filter(crate::issue::Status::Todo);
+                    app.toggle_status_filter(crate::issue::Status::Open);
                 }
                 KeyCode::Char('2') => {
                     app.toggle_status_filter(crate::issue::Status::Doing);
@@ -335,7 +335,7 @@ fn handle_key_event(app: &mut App, paths: &RepoPaths, key: KeyEvent) -> Result<b
         KeyCode::Char('1')
             if app.view_mode == ViewMode::Normal && app.active_pane == ActivePane::All =>
         {
-            app.toggle_status_filter(crate::issue::Status::Todo);
+            app.toggle_status_filter(crate::issue::Status::Open);
         }
         KeyCode::Char('2')
             if app.view_mode == ViewMode::Normal && app.active_pane == ActivePane::All =>
@@ -452,8 +452,8 @@ mod tests {
     #[test]
     fn test_reload_clamps_selection() {
         let env = TestEnv::new();
-        env.add_issue("brd-aaaa", "first", Priority::P1, Status::Todo);
-        env.add_issue("brd-bbbb", "second", Priority::P2, Status::Todo);
+        env.add_issue("brd-aaaa", "first", Priority::P1, Status::Open);
+        env.add_issue("brd-bbbb", "second", Priority::P2, Status::Open);
 
         let mut app = env.app();
         app.ready_selected = 10;
@@ -467,8 +467,8 @@ mod tests {
     #[test]
     fn test_pane_switch_clears_message() {
         let env = TestEnv::new();
-        env.add_issue("brd-aaaa", "first", Priority::P1, Status::Todo);
-        env.add_issue("brd-bbbb", "second", Priority::P2, Status::Todo);
+        env.add_issue("brd-aaaa", "first", Priority::P1, Status::Open);
+        env.add_issue("brd-bbbb", "second", Priority::P2, Status::Open);
 
         let mut app = env.app();
         app.message = Some("note".to_string());
@@ -570,8 +570,8 @@ mod tests {
     #[test]
     fn test_filter_inline_updates_query() {
         let env = TestEnv::new();
-        env.add_issue("brd-aaaa", "alpha", Priority::P1, Status::Todo);
-        env.add_issue("brd-bbbb", "bravo", Priority::P2, Status::Todo);
+        env.add_issue("brd-aaaa", "alpha", Priority::P1, Status::Open);
+        env.add_issue("brd-bbbb", "bravo", Priority::P2, Status::Open);
 
         let mut app = env.app();
         handle_key_event(&mut app, &env.paths, key(KeyCode::Tab)).expect("switch pane failed");
@@ -602,7 +602,7 @@ mod tests {
     #[test]
     fn test_filter_escape_clears() {
         let env = TestEnv::new();
-        env.add_issue("brd-aaaa", "alpha", Priority::P1, Status::Todo);
+        env.add_issue("brd-aaaa", "alpha", Priority::P1, Status::Open);
 
         let mut app = env.app();
         handle_key_event(&mut app, &env.paths, key(KeyCode::Tab)).expect("switch pane failed");
@@ -620,7 +620,7 @@ mod tests {
     #[test]
     fn test_status_filter_toggle_in_normal_mode() {
         let env = TestEnv::new();
-        env.add_issue("brd-aaaa", "todo item", Priority::P1, Status::Todo);
+        env.add_issue("brd-aaaa", "todo item", Priority::P1, Status::Open);
         env.add_issue("brd-bbbb", "done item", Priority::P2, Status::Done);
 
         let mut app = env.app();
@@ -639,7 +639,7 @@ mod tests {
     #[test]
     fn test_edit_title_flow() {
         let env = TestEnv::new();
-        env.add_issue("brd-aaaa", "old", Priority::P2, Status::Todo);
+        env.add_issue("brd-aaaa", "old", Priority::P2, Status::Open);
         let mut app = env.app();
 
         handle_key_event(&mut app, &env.paths, key(KeyCode::Char('e'))).expect("start edit failed");
@@ -660,7 +660,7 @@ mod tests {
     #[test]
     fn test_edit_priority_flow() {
         let env = TestEnv::new();
-        env.add_issue("brd-aaaa", "issue", Priority::P2, Status::Todo);
+        env.add_issue("brd-aaaa", "issue", Priority::P2, Status::Open);
         let mut app = env.app();
 
         handle_key_event(&mut app, &env.paths, key(KeyCode::Char('e'))).expect("start edit failed");
@@ -680,7 +680,7 @@ mod tests {
     #[test]
     fn test_edit_status_flow() {
         let env = TestEnv::new();
-        env.add_issue("brd-aaaa", "issue", Priority::P2, Status::Todo);
+        env.add_issue("brd-aaaa", "issue", Priority::P2, Status::Open);
         let mut app = env.app();
 
         handle_key_event(&mut app, &env.paths, key(KeyCode::Char('e'))).expect("start edit failed");
@@ -717,13 +717,13 @@ mod tests {
     #[test]
     fn test_dependency_navigation_and_open() {
         let env = TestEnv::new();
-        env.add_issue("brd-dep1", "dep one", Priority::P2, Status::Todo);
-        env.add_issue("brd-dep2", "dep two", Priority::P3, Status::Todo);
+        env.add_issue("brd-dep1", "dep one", Priority::P2, Status::Open);
+        env.add_issue("brd-dep2", "dep two", Priority::P3, Status::Open);
         env.add_issue_with_deps(
             "brd-main",
             "main issue",
             Priority::P1,
-            Status::Todo,
+            Status::Open,
             vec!["brd-dep1".to_string(), "brd-dep2".to_string()],
         );
 

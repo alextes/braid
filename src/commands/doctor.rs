@@ -548,7 +548,7 @@ schema_version: {}
 id: {}
 title: Test Issue {}
 priority: P2
-status: todo
+status: open
 {}
 tags: []
 owner: ~
@@ -666,7 +666,7 @@ brd: 1
 id: old-issue
 title: Old Schema Issue
 priority: P2
-status: todo
+status: open
 deps: []
 tags: []
 created_at: 2024-01-01T00:00:00Z

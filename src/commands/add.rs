@@ -79,7 +79,7 @@ schema_version: 4
 id: {}
 title: Existing Issue
 priority: P2
-status: todo
+status: open
 deps: []
 tags: []
 owner: ~

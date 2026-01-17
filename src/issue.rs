@@ -47,7 +47,7 @@ impl std::str::FromStr for Priority {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Status {
-    Todo,
+    Open,
     Doing,
     Done,
     Skip,
@@ -56,7 +56,7 @@ pub enum Status {
 impl std::fmt::Display for Status {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Status::Todo => write!(f, "todo"),
+            Status::Open => write!(f, "open"),
             Status::Doing => write!(f, "doing"),
             Status::Done => write!(f, "done"),
             Status::Skip => write!(f, "skip"),
@@ -69,7 +69,7 @@ impl std::str::FromStr for Status {
 
     fn from_str(s: &str) -> Result<Self> {
         match s.to_lowercase().as_str() {
-            "todo" => Ok(Status::Todo),
+            "open" => Ok(Status::Open),
             "doing" => Ok(Status::Doing),
             "done" => Ok(Status::Done),
             "skip" => Ok(Status::Skip),
@@ -155,7 +155,7 @@ impl Issue {
                 id,
                 title,
                 priority,
-                status: Status::Todo,
+                status: Status::Open,
                 issue_type: None,
                 deps,
                 tags: Vec::new(),
@@ -376,7 +376,7 @@ schema_version: 2
 id: "test-abc123"
 title: "Test issue"
 priority: P1
-status: todo
+status: open
 deps: []
 created_at: 2025-12-25T12:00:00Z
 updated_at: 2025-12-25T12:00:00Z
@@ -389,7 +389,7 @@ This is the body.
         assert_eq!(issue.frontmatter.id, "test-abc123");
         assert_eq!(issue.frontmatter.title, "Test issue");
         assert_eq!(issue.frontmatter.priority, Priority::P1);
-        assert_eq!(issue.frontmatter.status, Status::Todo);
+        assert_eq!(issue.frontmatter.status, Status::Open);
         assert!(issue.frontmatter.tags.is_empty());
         assert!(issue.body.contains("This is the body"));
     }
@@ -492,7 +492,7 @@ schema_version: 2
 id: "test-minimal"
 title: "Minimal issue"
 priority: P2
-status: todo
+status: open
 created_at: 2025-12-25T12:00:00Z
 updated_at: 2025-12-25T12:00:00Z
 ---
@@ -502,7 +502,7 @@ updated_at: 2025-12-25T12:00:00Z
         assert_eq!(issue.frontmatter.id, "test-minimal");
         assert_eq!(issue.frontmatter.title, "Minimal issue");
         assert_eq!(issue.frontmatter.priority, Priority::P2);
-        assert_eq!(issue.frontmatter.status, Status::Todo);
+        assert_eq!(issue.frontmatter.status, Status::Open);
         // optional fields should have defaults
         assert!(issue.frontmatter.deps.is_empty());
         assert!(issue.frontmatter.tags.is_empty());
@@ -577,7 +577,7 @@ schema_version: 2
 id: "test-whitespace"
 title: "Whitespace body"
 priority: P3
-status: todo
+status: open
 created_at: 2025-12-25T12:00:00Z
 updated_at: 2025-12-25T12:00:00Z
 ---
@@ -632,7 +632,7 @@ title: "Bad yaml"
 schema_version: 2
 id: "test-notitle"
 priority: P2
-status: todo
+status: open
 created_at: 2025-12-25T12:00:00Z
 updated_at: 2025-12-25T12:00:00Z
 ---
@@ -649,7 +649,7 @@ schema_version: 2
 id: "test-badpri"
 title: "Bad priority"
 priority: P9
-status: todo
+status: open
 created_at: 2025-12-25T12:00:00Z
 updated_at: 2025-12-25T12:00:00Z
 ---

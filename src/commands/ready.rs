@@ -152,9 +152,9 @@ mod tests {
     #[test]
     fn test_format_ready_output_text_filters_ready() {
         let mut issues = HashMap::new();
-        let ready_issue = make_issue("brd-ready", Priority::P2, Status::Todo, vec![]);
+        let ready_issue = make_issue("brd-ready", Priority::P2, Status::Open, vec![]);
         let blocked_issue =
-            make_issue("brd-blocked", Priority::P1, Status::Todo, vec!["brd-ready"]);
+            make_issue("brd-blocked", Priority::P1, Status::Open, vec!["brd-ready"]);
         let mut done_issue = make_issue("brd-done", Priority::P0, Status::Done, vec![]);
         done_issue.frontmatter.issue_type = Some(IssueType::Meta);
 
@@ -176,11 +176,11 @@ mod tests {
         let now = OffsetDateTime::now_utc();
         let mut issues = HashMap::new();
 
-        let mut issue_p2 = make_issue("brd-p2", Priority::P2, Status::Todo, vec![]);
+        let mut issue_p2 = make_issue("brd-p2", Priority::P2, Status::Open, vec![]);
         issue_p2.frontmatter.created_at = now - Duration::days(2);
         issue_p2.frontmatter.updated_at = issue_p2.frontmatter.created_at;
 
-        let mut issue_p0 = make_issue("brd-p0", Priority::P0, Status::Todo, vec![]);
+        let mut issue_p0 = make_issue("brd-p0", Priority::P0, Status::Open, vec![]);
         issue_p0.frontmatter.created_at = now - Duration::days(1);
         issue_p0.frontmatter.updated_at = issue_p0.frontmatter.created_at;
 
@@ -198,7 +198,7 @@ mod tests {
     #[test]
     fn test_format_ready_output_no_ready_issues() {
         let mut issues = HashMap::new();
-        let blocked_issue = make_issue("brd-blocked", Priority::P1, Status::Todo, vec!["brd-miss"]);
+        let blocked_issue = make_issue("brd-blocked", Priority::P1, Status::Open, vec!["brd-miss"]);
         issues.insert(blocked_issue.id().to_string(), blocked_issue);
 
         let ready = get_ready_issues(&issues);

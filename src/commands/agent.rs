@@ -1225,7 +1225,7 @@ mod tests {
         // Create a test issue (no type field = regular issue)
         std::fs::write(
             issues_dir.join("tst-0001.md"),
-            "---\nschema_version: 6\nid: tst-0001\ntitle: test issue\npriority: P2\nstatus: todo\ndeps: []\ncreated_at: 2024-01-01T00:00:00Z\nupdated_at: 2024-01-01T00:00:00Z\n---\n",
+            "---\nschema_version: 6\nid: tst-0001\ntitle: test issue\npriority: P2\nstatus: open\ndeps: []\ncreated_at: 2024-01-01T00:00:00Z\nupdated_at: 2024-01-01T00:00:00Z\n---\n",
         )
         .unwrap();
 

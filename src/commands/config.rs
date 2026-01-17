@@ -1391,7 +1391,7 @@ mod tests {
         fs::create_dir_all(&wt_issues).unwrap();
         fs::write(
             wt_issues.join("tst-abc1.md"),
-            "---\nid: tst-abc1\ntitle: test issue\npriority: P2\nstatus: todo\ncreated_at: 2024-01-01T00:00:00Z\nupdated_at: 2024-01-01T00:00:00Z\n---\n",
+            "---\nid: tst-abc1\ntitle: test issue\npriority: P2\nstatus: open\ncreated_at: 2024-01-01T00:00:00Z\nupdated_at: 2024-01-01T00:00:00Z\n---\n",
         )
         .unwrap();
 

@@ -730,7 +730,7 @@ impl App {
             2 => {
                 // edit status
                 let status_idx = match issue.status() {
-                    Status::Todo => 0,
+                    Status::Open => 0,
                     Status::Doing => 1,
                     Status::Done => 2,
                     Status::Skip => 3,
@@ -766,11 +766,11 @@ impl App {
             }
             InputMode::EditStatus { issue_id, selected } => {
                 let status = match selected {
-                    0 => Status::Todo,
+                    0 => Status::Open,
                     1 => Status::Doing,
                     2 => Status::Done,
                     3 => Status::Skip,
-                    _ => Status::Todo,
+                    _ => Status::Open,
                 };
                 (issue_id.clone(), None, None, Some(status))
             }
@@ -963,19 +963,19 @@ mod tests {
             "brd-aaaa",
             "fix authentication bug",
             Priority::P1,
-            Status::Todo,
+            Status::Open,
         );
         env.add_issue(
             "brd-bbbb",
             "add logging feature",
             Priority::P2,
-            Status::Todo,
+            Status::Open,
         );
         env.add_issue(
             "brd-cccc",
             "authentication refactor",
             Priority::P3,
-            Status::Todo,
+            Status::Open,
         );
 
         let mut app = env.app();
@@ -990,8 +990,8 @@ mod tests {
     #[test]
     fn test_apply_filter_only_matches_title() {
         let env = TestEnv::new();
-        env.add_issue("brd-aaaa", "first issue", Priority::P1, Status::Todo);
-        env.add_issue("brd-bbbb", "second issue", Priority::P2, Status::Todo);
+        env.add_issue("brd-aaaa", "first issue", Priority::P1, Status::Open);
+        env.add_issue("brd-bbbb", "second issue", Priority::P2, Status::Open);
 
         let mut app = env.app();
         // filter by ID should not match (filter only works on title)
@@ -1011,7 +1011,7 @@ mod tests {
     #[test]
     fn test_apply_filter_case_insensitive() {
         let env = TestEnv::new();
-        env.add_issue("brd-aaaa", "Fix BUG in Parser", Priority::P1, Status::Todo);
+        env.add_issue("brd-aaaa", "Fix BUG in Parser", Priority::P1, Status::Open);
 
         let mut app = env.app();
         app.all_filter_query = "bug".to_string();
@@ -1043,8 +1043,8 @@ mod tests {
     #[test]
     fn test_move_up_at_top_stays_at_top() {
         let env = TestEnv::new();
-        env.add_issue("brd-aaaa", "first", Priority::P1, Status::Todo);
-        env.add_issue("brd-bbbb", "second", Priority::P2, Status::Todo);
+        env.add_issue("brd-aaaa", "first", Priority::P1, Status::Open);
+        env.add_issue("brd-bbbb", "second", Priority::P2, Status::Open);
 
         let mut app = env.app();
         app.all_selected = 0;
@@ -1057,8 +1057,8 @@ mod tests {
     #[test]
     fn test_move_down_at_bottom_stays_at_bottom() {
         let env = TestEnv::new();
-        env.add_issue("brd-aaaa", "first", Priority::P1, Status::Todo);
-        env.add_issue("brd-bbbb", "second", Priority::P2, Status::Todo);
+        env.add_issue("brd-aaaa", "first", Priority::P1, Status::Open);
+        env.add_issue("brd-bbbb", "second", Priority::P2, Status::Open);
 
         let mut app = env.app();
         app.all_selected = 1; // at bottom
@@ -1161,7 +1161,7 @@ mod tests {
     #[test]
     fn test_toggle_dep_adds_and_removes() {
         let env = TestEnv::new();
-        env.add_issue("brd-aaaa", "dep issue", Priority::P1, Status::Todo);
+        env.add_issue("brd-aaaa", "dep issue", Priority::P1, Status::Open);
 
         let mut app = env.app();
         app.input_mode = InputMode::Deps {
@@ -1193,7 +1193,7 @@ mod tests {
     #[test]
     fn test_clear_filter_resets_state() {
         let env = TestEnv::new();
-        env.add_issue("brd-aaaa", "issue", Priority::P1, Status::Todo);
+        env.add_issue("brd-aaaa", "issue", Priority::P1, Status::Open);
 
         let mut app = env.app();
         app.all_filter_query = "test".to_string();
@@ -1215,8 +1215,8 @@ mod tests {
     #[test]
     fn test_visible_all_issues_uses_filter_when_active() {
         let env = TestEnv::new();
-        env.add_issue("brd-aaaa", "alpha", Priority::P1, Status::Todo);
-        env.add_issue("brd-bbbb", "beta", Priority::P2, Status::Todo);
+        env.add_issue("brd-aaaa", "alpha", Priority::P1, Status::Open);
+        env.add_issue("brd-bbbb", "beta", Priority::P2, Status::Open);
 
         let mut app = env.app();
 

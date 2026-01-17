@@ -37,10 +37,10 @@ pub fn compute_derived(issue: &Issue, all_issues: &HashMap<String, Issue>) -> De
     }
 
     let is_ready =
-        issue.status() == Status::Todo && open_deps.is_empty() && missing_deps.is_empty();
+        issue.status() == Status::Open && open_deps.is_empty() && missing_deps.is_empty();
 
     let is_blocked =
-        issue.status() == Status::Todo && (!open_deps.is_empty() || !missing_deps.is_empty());
+        issue.status() == Status::Open && (!open_deps.is_empty() || !missing_deps.is_empty());
 
     DerivedState {
         is_ready,
@@ -201,7 +201,7 @@ mod tests {
     #[test]
     fn test_compute_derived_ready() {
         let mut issues = HashMap::new();
-        issues.insert("a".to_string(), make_issue("a", Status::Todo, vec![]));
+        issues.insert("a".to_string(), make_issue("a", Status::Open, vec![]));
 
         let derived = compute_derived(&issues["a"], &issues);
         assert!(derived.is_ready);
@@ -211,8 +211,8 @@ mod tests {
     #[test]
     fn test_compute_derived_blocked() {
         let mut issues = HashMap::new();
-        issues.insert("a".to_string(), make_issue("a", Status::Todo, vec!["b"]));
-        issues.insert("b".to_string(), make_issue("b", Status::Todo, vec![]));
+        issues.insert("a".to_string(), make_issue("a", Status::Open, vec!["b"]));
+        issues.insert("b".to_string(), make_issue("b", Status::Open, vec![]));
 
         let derived = compute_derived(&issues["a"], &issues);
         assert!(!derived.is_ready);
@@ -223,8 +223,8 @@ mod tests {
     #[test]
     fn test_find_cycles() {
         let mut issues = HashMap::new();
-        issues.insert("a".to_string(), make_issue("a", Status::Todo, vec!["b"]));
-        issues.insert("b".to_string(), make_issue("b", Status::Todo, vec!["a"]));
+        issues.insert("a".to_string(), make_issue("a", Status::Open, vec!["b"]));
+        issues.insert("b".to_string(), make_issue("b", Status::Open, vec!["a"]));
 
         let cycles = find_cycles(&issues);
         assert!(!cycles.is_empty());
@@ -234,8 +234,8 @@ mod tests {
     fn test_would_create_cycle_detects_direct() {
         // a -> b exists, adding b -> a would create cycle
         let mut issues = HashMap::new();
-        issues.insert("a".to_string(), make_issue("a", Status::Todo, vec!["b"]));
-        issues.insert("b".to_string(), make_issue("b", Status::Todo, vec![]));
+        issues.insert("a".to_string(), make_issue("a", Status::Open, vec!["b"]));
+        issues.insert("b".to_string(), make_issue("b", Status::Open, vec![]));
 
         let result = would_create_cycle("b", "a", &issues);
         assert!(result.is_some());
@@ -245,9 +245,9 @@ mod tests {
     fn test_would_create_cycle_detects_indirect() {
         // a -> b -> c exists, adding c -> a would create cycle
         let mut issues = HashMap::new();
-        issues.insert("a".to_string(), make_issue("a", Status::Todo, vec!["b"]));
-        issues.insert("b".to_string(), make_issue("b", Status::Todo, vec!["c"]));
-        issues.insert("c".to_string(), make_issue("c", Status::Todo, vec![]));
+        issues.insert("a".to_string(), make_issue("a", Status::Open, vec!["b"]));
+        issues.insert("b".to_string(), make_issue("b", Status::Open, vec!["c"]));
+        issues.insert("c".to_string(), make_issue("c", Status::Open, vec![]));
 
         let result = would_create_cycle("c", "a", &issues);
         assert!(result.is_some());
@@ -257,9 +257,9 @@ mod tests {
     fn test_would_create_cycle_allows_valid() {
         // a -> b exists, adding c -> a is fine
         let mut issues = HashMap::new();
-        issues.insert("a".to_string(), make_issue("a", Status::Todo, vec!["b"]));
-        issues.insert("b".to_string(), make_issue("b", Status::Todo, vec![]));
-        issues.insert("c".to_string(), make_issue("c", Status::Todo, vec![]));
+        issues.insert("a".to_string(), make_issue("a", Status::Open, vec!["b"]));
+        issues.insert("b".to_string(), make_issue("b", Status::Open, vec![]));
+        issues.insert("c".to_string(), make_issue("c", Status::Open, vec![]));
 
         let result = would_create_cycle("c", "a", &issues);
         assert!(result.is_none());
@@ -269,10 +269,10 @@ mod tests {
     fn test_get_dependents() {
         // a depends on nothing, b and c depend on a
         let mut issues = HashMap::new();
-        issues.insert("a".to_string(), make_issue("a", Status::Todo, vec![]));
-        issues.insert("b".to_string(), make_issue("b", Status::Todo, vec!["a"]));
-        issues.insert("c".to_string(), make_issue("c", Status::Todo, vec!["a"]));
-        issues.insert("d".to_string(), make_issue("d", Status::Todo, vec!["b"]));
+        issues.insert("a".to_string(), make_issue("a", Status::Open, vec![]));
+        issues.insert("b".to_string(), make_issue("b", Status::Open, vec!["a"]));
+        issues.insert("c".to_string(), make_issue("c", Status::Open, vec!["a"]));
+        issues.insert("d".to_string(), make_issue("d", Status::Open, vec!["b"]));
 
         let dependents = get_dependents("a", &issues);
         assert_eq!(dependents, vec!["b", "c"]);

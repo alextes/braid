@@ -352,7 +352,7 @@ fn test_json_output_show() {
 
     assert_eq!(json["title"], "test issue");
     assert_eq!(json["priority"], "P2");
-    assert_eq!(json["status"], "todo");
+    assert_eq!(json["status"], "open");
     assert!(
         json["acceptance"]
             .as_array()
@@ -670,7 +670,7 @@ fn test_claim_sets_owner_and_status() {
     // verify initial state
     let output = env.brd_json(&["show", &id]);
     let json = TestEnv::json(&output);
-    assert_eq!(json["status"], "todo");
+    assert_eq!(json["status"], "open");
     assert!(json["owner"].is_null());
 
     // start the issue

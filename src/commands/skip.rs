@@ -114,8 +114,8 @@ mod tests {
     #[test]
     fn test_skip_ambiguous_id() {
         let (_dir, paths, config) = create_test_repo();
-        write_issue(&paths, &config, "brd-aaaa", Status::Todo, None);
-        write_issue(&paths, &config, "brd-aaab", Status::Todo, None);
+        write_issue(&paths, &config, "brd-aaaa", Status::Open, None);
+        write_issue(&paths, &config, "brd-aaab", Status::Open, None);
 
         let cli = make_cli();
         let err = cmd_skip(&cli, &paths, "aaa").unwrap_err();

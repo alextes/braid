@@ -524,7 +524,7 @@ mod tests {
             &config,
             "brd-aaaa",
             crate::issue::Priority::P2,
-            Status::Todo,
+            Status::Open,
             None,
             None,
         );
@@ -546,7 +546,7 @@ mod tests {
             &config,
             "brd-meta",
             crate::issue::Priority::P0,
-            Status::Todo,
+            Status::Open,
             Some(IssueType::Meta),
             None,
         );
@@ -555,7 +555,7 @@ mod tests {
             &config,
             "brd-work",
             crate::issue::Priority::P1,
-            Status::Todo,
+            Status::Open,
             None,
             None,
         );
@@ -568,7 +568,7 @@ mod tests {
         let meta = issues.get("brd-meta").unwrap();
         assert_eq!(work.status(), Status::Doing);
         assert_eq!(work.frontmatter.owner.as_deref(), Some("tester"));
-        assert_eq!(meta.status(), Status::Todo);
+        assert_eq!(meta.status(), Status::Open);
     }
 
     #[test]
@@ -622,7 +622,7 @@ mod tests {
             &config,
             "brd-aaaa",
             crate::issue::Priority::P2,
-            Status::Todo,
+            Status::Open,
             None,
             None,
         );
@@ -631,7 +631,7 @@ mod tests {
             &config,
             "brd-aaab",
             crate::issue::Priority::P2,
-            Status::Todo,
+            Status::Open,
             None,
             None,
         );
