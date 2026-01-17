@@ -3,11 +3,11 @@ schema_version: 6
 id: brd-cakw
 title: show issue type more clearly in brd show output
 priority: P2
-status: doing
+status: done
 deps: []
-owner: agent-one
+owner: null
 created_at: 2025-12-28T10:19:23.832329Z
-updated_at: 2026-01-04T20:37:47.257191Z
+updated_at: 2026-01-04T20:40:04.491421Z
 ---
 
 currently `brd show` doesn't prominently display the issue type (design/meta).
