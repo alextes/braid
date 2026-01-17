@@ -3,11 +3,11 @@ schema_version: 6
 id: brd-j1n7
 title: add brd set command for quick field updates
 priority: P2
-status: doing
+status: done
 deps: []
-owner: alextes
+owner: null
 created_at: 2026-01-04T18:55:43.585849Z
-updated_at: 2026-01-04T20:36:45.954463Z
+updated_at: 2026-01-04T21:03:02.338284Z
 ---
 
 ## Problem

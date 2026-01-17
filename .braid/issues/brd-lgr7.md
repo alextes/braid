@@ -3,11 +3,11 @@ schema_version: 6
 id: brd-lgr7
 title: allow custom file path for AGENTS block injection
 priority: P3
-status: todo
+status: done
 deps: []
 owner: null
 created_at: 2026-01-02T15:27:06.520373Z
-updated_at: 2026-01-02T15:27:06.520373Z
+updated_at: 2026-01-12T13:17:18.413539Z
 ---
 
 ## Problem
