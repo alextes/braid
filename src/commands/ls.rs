@@ -133,7 +133,7 @@ pub fn cmd_ls(
 
     // track how many are hidden
     let hidden_todo;
-    let _hidden_resolved;
+    let hidden_resolved;
 
     // limit todo and resolved issues unless --all is specified
     if !show_all && todo.len() > DEFAULT_TODO_LIMIT {
@@ -144,10 +144,10 @@ pub fn cmd_ls(
     }
 
     if !show_all && resolved.len() > DEFAULT_DONE_LIMIT {
-        _hidden_resolved = resolved.len() - DEFAULT_DONE_LIMIT;
+        hidden_resolved = resolved.len() - DEFAULT_DONE_LIMIT;
         resolved.truncate(DEFAULT_DONE_LIMIT);
     } else {
-        _hidden_resolved = 0;
+        hidden_resolved = 0;
     }
 
     // combine: doing first, then todo, then resolved
@@ -327,6 +327,30 @@ pub fn cmd_ls(
                 } else {
                     println!("... +{} more todo", hidden_todo);
                 }
+            }
+        }
+
+        // print indicator after resolved issues
+        if hidden_resolved > 0 {
+            // use status name if filtering, otherwise generic "resolved"
+            let status_name = match status_filter {
+                Some(Status::Done) => "done",
+                Some(Status::Skip) => "skip",
+                _ => "resolved",
+            };
+            if !cli.no_color {
+                println!(
+                    "{}... +{} more {} (--all to show all){}",
+                    SetAttribute(Attribute::Dim),
+                    hidden_resolved,
+                    status_name,
+                    SetAttribute(Attribute::Reset)
+                );
+            } else {
+                println!(
+                    "... +{} more {} (--all to show all)",
+                    hidden_resolved, status_name
+                );
             }
         }
 
