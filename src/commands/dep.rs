@@ -48,7 +48,7 @@ pub fn cmd_dep_add(cli: &Cli, paths: &RepoPaths, blocked_id: &str, blocker_id: &
         println!(r#"{{"ok": true}}"#);
     } else {
         println!(
-            "Added dependency: {} blocked by {}",
+            "added dependency: {} blocked by {}",
             blocked_full, blocker_full
         );
     }
@@ -79,7 +79,7 @@ pub fn cmd_dep_rm(cli: &Cli, paths: &RepoPaths, blocked_id: &str, blocker_id: &s
         println!(r#"{{"ok": true}}"#);
     } else {
         println!(
-            "Removed dependency: {} no longer blocked by {}",
+            "removed dependency: {} no longer blocked by {}",
             blocked_full, blocker_full
         );
     }
