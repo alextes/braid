@@ -9,7 +9,7 @@ use ratatui::{
 };
 use time::{Duration as TimeDuration, OffsetDateTime};
 
-use super::app::{ActivePane, App, InputMode, ViewMode};
+use super::app::{App, InputMode};
 
 /// draw the entire UI.
 pub fn draw(f: &mut Frame, app: &mut App) {
@@ -38,18 +38,14 @@ pub fn draw(f: &mut Frame, app: &mut App) {
 }
 
 fn draw_header(f: &mut Frame, area: Rect, app: &App) {
-    let text = if app.view_mode == ViewMode::Live {
-        format!("brd tui — live — agent: {}", app.agent_id)
-    } else {
-        format!("brd tui — agent: {}", app.agent_id)
-    };
+    let text = format!("brd tui — agent: {}", app.agent_id);
     let header = Paragraph::new(text).style(Style::default().fg(Color::Cyan));
     f.render_widget(header, area);
 }
 
 fn draw_footer(f: &mut Frame, area: Rect, app: &App) {
     let msg = app.message.as_deref().unwrap_or("");
-    let help = "[a]dd [e]dit [s]tart [d]one [r]efresh [/]filter [1-4]status [v]live [↑↓/jk]nav [tab]switch [?]help [q]uit";
+    let help = "[a]dd [e]dit [s]tart [d]one [r]efresh [/]filter [1-4]status [g/G]top/bot [?]help [q]uit";
     let text = if msg.is_empty() {
         help.to_string()
     } else {
@@ -60,239 +56,20 @@ fn draw_footer(f: &mut Frame, area: Rect, app: &App) {
 }
 
 fn draw_main(f: &mut Frame, area: Rect, app: &mut App) {
-    match app.view_mode {
-        ViewMode::Normal => draw_normal_main(f, area, app),
-        ViewMode::Live => draw_live_main(f, area, app),
-    }
-}
-
-fn draw_normal_main(f: &mut Frame, area: Rect, app: &mut App) {
     let chunks = Layout::default()
         .direction(Direction::Horizontal)
-        .constraints([Constraint::Percentage(40), Constraint::Percentage(60)])
-        .split(area);
-
-    draw_lists(f, chunks[0], app);
-    draw_detail(f, chunks[1], app);
-}
-
-fn draw_lists(f: &mut Frame, area: Rect, app: &mut App) {
-    let chunks = Layout::default()
-        .direction(Direction::Vertical)
         .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
         .split(area);
 
-    draw_ready_list(f, chunks[0], app);
-    draw_all_list(f, chunks[1], app);
-}
-
-fn draw_live_main(f: &mut Frame, area: Rect, app: &mut App) {
-    let chunks = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([Constraint::Percentage(40), Constraint::Percentage(60)])
-        .split(area);
-
-    draw_live_lists(f, chunks[0], app);
+    draw_issue_list(f, chunks[0], app);
     draw_detail(f, chunks[1], app);
 }
 
-fn draw_live_lists(f: &mut Frame, area: Rect, app: &mut App) {
-    let chunks = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([Constraint::Percentage(65), Constraint::Percentage(35)])
-        .split(area);
-
-    draw_in_progress_list(f, chunks[0], app);
-    draw_recent_done_list(f, chunks[1], app);
-}
-
-fn draw_in_progress_list(f: &mut Frame, area: Rect, app: &mut App) {
+fn draw_issue_list(f: &mut Frame, area: Rect, app: &mut App) {
     let border_style = Style::default().fg(Color::Yellow);
-    let title = format!(" In Progress ({}) ", app.in_progress_issues.len());
-    let block = Block::default()
-        .title(title)
-        .borders(Borders::ALL)
-        .border_style(border_style);
-
-    let owner_width = 12usize;
-    let fixed_width = 4 + 2 + 8 + 1 + 2 + 1 + owner_width + 1;
-    let title_width = usize::from(area.width.saturating_sub(fixed_width as u16)).max(1);
-    let view_height = block.inner(area).height as usize;
-    let now = OffsetDateTime::now_utc();
-
-    let items: Vec<ListItem> = app
-        .in_progress_issues
-        .iter()
-        .enumerate()
-        .map(|(i, id)| {
-            let issue = app.issues.get(id).unwrap();
-            let age = format_age(issue.frontmatter.updated_at);
-            let owner = issue.frontmatter.owner.as_deref().unwrap_or("unknown");
-            let owner = truncate(owner, owner_width);
-            let title = truncate(issue.title(), title_width);
-            let text = format!(
-                "{:>4}  {} {} {:<width$} {}",
-                age,
-                id,
-                issue.priority(),
-                owner,
-                title,
-                width = owner_width
-            );
-            let duration = now - issue.frontmatter.updated_at;
-            let age_color = age_color(duration);
-            let style = if !app.in_progress_issues.is_empty() && i == app.in_progress_selected {
-                Style::default()
-                    .bg(Color::Yellow)
-                    .fg(Color::Black)
-                    .add_modifier(Modifier::BOLD)
-            } else {
-                Style::default().fg(age_color)
-            };
-            ListItem::new(text).style(style)
-        })
-        .collect();
-
-    let selected = if app.in_progress_issues.is_empty() {
-        None
-    } else {
-        Some(app.in_progress_selected)
-    };
-    update_offset(
-        &mut app.in_progress_offset,
-        selected,
-        app.in_progress_issues.len(),
-        view_height,
-    );
-    let mut state = ListState::default()
-        .with_selected(selected)
-        .with_offset(app.in_progress_offset);
-    let list = List::new(items)
-        .block(block)
-        .highlight_style(Style::default())
-        .highlight_symbol("");
-    f.render_stateful_widget(list, area, &mut state);
-}
-
-fn draw_recent_done_list(f: &mut Frame, area: Rect, app: &mut App) {
-    let title = format!(" Recently Done ({}) ", app.recent_done_issues.len());
-    let block = Block::default()
-        .title(title)
-        .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::DarkGray));
-
-    let fixed_width = 4 + 1 + 1 + 8 + 1;
-    let title_width = usize::from(area.width.saturating_sub(fixed_width as u16)).max(1);
-
-    let items: Vec<ListItem> = app
-        .recent_done_issues
-        .iter()
-        .map(|id| {
-            let issue = app.issues.get(id).unwrap();
-            let age = format_age(issue.frontmatter.updated_at);
-            let status_char = match issue.status() {
-                crate::issue::Status::Done => '✓',
-                crate::issue::Status::Skip => '⊘',
-                _ => ' ',
-            };
-            let title = truncate(issue.title(), title_width);
-            let text = format!("{:>4} {} {} {}", age, status_char, id, title);
-            let style = match issue.status() {
-                crate::issue::Status::Done => Style::default().fg(Color::Green),
-                crate::issue::Status::Skip => Style::default().fg(Color::DarkGray),
-                _ => Style::default(),
-            };
-            ListItem::new(text).style(style)
-        })
-        .collect();
-
-    let list = List::new(items).block(block);
-    f.render_widget(list, area);
-}
-
-fn draw_ready_list(f: &mut Frame, area: Rect, app: &mut App) {
-    let is_active = app.active_pane == ActivePane::Ready;
-    let border_style = if is_active {
-        Style::default().fg(Color::Yellow)
-    } else {
-        Style::default().fg(Color::DarkGray)
-    };
-
-    let title = format!(" Ready ({}) ", app.ready_issues.len());
-    let block = Block::default()
-        .title(title)
-        .borders(Borders::ALL)
-        .border_style(border_style);
-
-    // calculate available width for title: area - borders(2) - id(8) - priority(2) - spaces(2)
-    let title_width = area.width.saturating_sub(14) as usize;
-    let view_height = block.inner(area).height as usize;
-
-    let items: Vec<ListItem> = app
-        .ready_issues
-        .iter()
-        .enumerate()
-        .map(|(i, id)| {
-            let issue = app.issues.get(id).unwrap();
-            let text = format!(
-                "{} {} {}",
-                id,
-                issue.priority(),
-                truncate(issue.title(), title_width)
-            );
-            let mut style = if is_active && i == app.ready_selected {
-                Style::default()
-                    .bg(Color::Yellow)
-                    .fg(Color::Black)
-                    .add_modifier(Modifier::BOLD)
-            } else {
-                Style::default()
-            };
-            // add type-based styling (italic for design, bold for meta)
-            match issue.issue_type() {
-                Some(crate::issue::IssueType::Design) => {
-                    style = style.add_modifier(Modifier::ITALIC);
-                }
-                Some(crate::issue::IssueType::Meta) => {
-                    style = style.add_modifier(Modifier::BOLD);
-                }
-                None => {}
-            }
-            ListItem::new(text).style(style)
-        })
-        .collect();
-
-    let selected = if app.ready_issues.is_empty() {
-        None
-    } else {
-        Some(app.ready_selected)
-    };
-    update_offset(
-        &mut app.ready_offset,
-        selected,
-        app.ready_issues.len(),
-        view_height,
-    );
-    let mut state = ListState::default()
-        .with_selected(selected)
-        .with_offset(app.ready_offset);
-    let list = List::new(items)
-        .block(block)
-        .highlight_style(Style::default())
-        .highlight_symbol("");
-    f.render_stateful_widget(list, area, &mut state);
-}
-
-fn draw_all_list(f: &mut Frame, area: Rect, app: &mut App) {
-    let is_active = app.active_pane == ActivePane::All;
-    let border_style = if is_active {
-        Style::default().fg(Color::Yellow)
-    } else {
-        Style::default().fg(Color::DarkGray)
-    };
 
     // build title with filter info
-    let visible = app.visible_all_issues();
+    let visible = app.visible_issues();
     let filter_input = match &app.input_mode {
         InputMode::Filter(query) => Some(query.clone()),
         _ => None,
@@ -302,12 +79,12 @@ fn draw_all_list(f: &mut Frame, area: Rect, app: &mut App) {
         let mut filter_parts = Vec::new();
         if let Some(query) = &filter_input {
             filter_parts.push(format!("/{query}_"));
-        } else if !app.all_filter_query.is_empty() {
-            filter_parts.push(format!("\"{}\"", app.all_filter_query));
+        } else if !app.filter_query.is_empty() {
+            filter_parts.push(format!("\"{}\"", app.filter_query));
         }
-        if !app.all_status_filter.is_empty() {
+        if !app.status_filter.is_empty() {
             let statuses: Vec<&str> = app
-                .all_status_filter
+                .status_filter
                 .iter()
                 .map(|s| match s {
                     crate::issue::Status::Open => "T",
@@ -319,22 +96,25 @@ fn draw_all_list(f: &mut Frame, area: Rect, app: &mut App) {
             filter_parts.push(statuses.join(""));
         }
         format!(
-            " All ({}/{}) [{}] ",
+            " Issues ({}/{}) [{}] ",
             visible.len(),
-            app.all_issues.len(),
+            app.sorted_issues.len(),
             filter_parts.join(" ")
         )
     } else {
-        format!(" All ({}) ", app.all_issues.len())
+        format!(" Issues ({}) ", app.sorted_issues.len())
     };
+
     let block = Block::default()
         .title(title)
         .borders(Borders::ALL)
         .border_style(border_style);
 
-    // calculate available width for title: area - borders(2) - status(1) - id(8) - priority(2) - spaces(3)
-    let title_width = area.width.saturating_sub(16) as usize;
+    // calculate available width for title
+    // area - borders(2) - status(1) - id(8) - priority(2) - age(4) - owner(12) - spaces(6)
+    let title_width = area.width.saturating_sub(35) as usize;
     let view_height = block.inner(area).height as usize;
+    let now = OffsetDateTime::now_utc();
 
     let items: Vec<ListItem> = visible
         .iter()
@@ -347,14 +127,39 @@ fn draw_all_list(f: &mut Frame, area: Rect, app: &mut App) {
                 crate::issue::Status::Done => '✓',
                 crate::issue::Status::Skip => '⊘',
             };
+            let age = format_age(issue.frontmatter.created_at);
+            let owner = issue
+                .frontmatter
+                .owner
+                .as_deref()
+                .map(|o| truncate(o, 10))
+                .unwrap_or_else(|| "-".to_string());
+            let tags = issue
+                .frontmatter
+                .tags
+                .iter()
+                .map(|t| format!("#{}", t))
+                .collect::<Vec<_>>()
+                .join(" ");
+            let title_and_tags = if tags.is_empty() {
+                truncate(issue.title(), title_width)
+            } else {
+                let title_part = truncate(issue.title(), title_width.saturating_sub(tags.len() + 1));
+                format!("{} {}", title_part, tags)
+            };
+
             let text = format!(
-                "{} {} {} {}",
+                "{} {} {} {:>4} {:<10} {}",
                 status_char,
                 id,
                 issue.priority(),
-                truncate(issue.title(), title_width)
+                age,
+                owner,
+                title_and_tags
             );
-            let mut style = if is_active && i == app.all_selected {
+
+            let duration = now - issue.frontmatter.created_at;
+            let mut style = if i == app.selected {
                 Style::default()
                     .bg(Color::Yellow)
                     .fg(Color::Black)
@@ -364,10 +169,14 @@ fn draw_all_list(f: &mut Frame, area: Rect, app: &mut App) {
                     crate::issue::Status::Done | crate::issue::Status::Skip => {
                         Style::default().fg(Color::DarkGray)
                     }
-                    crate::issue::Status::Doing => Style::default().fg(Color::Green),
+                    crate::issue::Status::Doing => {
+                        let age_color = age_color(duration);
+                        Style::default().fg(age_color)
+                    }
                     crate::issue::Status::Open => Style::default(),
                 }
             };
+
             // add type-based styling (italic for design, bold for meta)
             match issue.issue_type() {
                 Some(crate::issue::IssueType::Design) => {
@@ -386,12 +195,12 @@ fn draw_all_list(f: &mut Frame, area: Rect, app: &mut App) {
     let selected = if visible_len == 0 {
         None
     } else {
-        Some(app.all_selected)
+        Some(app.selected)
     };
-    update_offset(&mut app.all_offset, selected, visible_len, view_height);
+    update_offset(&mut app.offset, selected, visible_len, view_height);
     let mut state = ListState::default()
         .with_selected(selected)
-        .with_offset(app.all_offset);
+        .with_offset(app.offset);
     let list = List::new(items)
         .block(block)
         .highlight_style(Style::default())
@@ -444,6 +253,21 @@ fn draw_detail(f: &mut Frame, area: Rect, app: &App) {
         lines.push(Line::from(vec![
             Span::styled("Owner:    ", Style::default().fg(Color::DarkGray)),
             Span::raw(owner.as_str()),
+        ]));
+    }
+
+    // tags
+    if !issue.frontmatter.tags.is_empty() {
+        let tags = issue
+            .frontmatter
+            .tags
+            .iter()
+            .map(|t| format!("#{}", t))
+            .collect::<Vec<_>>()
+            .join(" ");
+        lines.push(Line::from(vec![
+            Span::styled("Tags:     ", Style::default().fg(Color::DarkGray)),
+            Span::styled(tags, Style::default().fg(Color::Cyan)),
         ]));
     }
 
@@ -573,9 +397,10 @@ fn draw_help(f: &mut Frame, area: Rect) {
         )),
         Line::from("  ↑ / k      move up"),
         Line::from("  ↓ / j      move down"),
+        Line::from("  g          go to top"),
+        Line::from("  G          go to bottom"),
         Line::from("  ← / h      select previous dependency"),
         Line::from("  → / l      select next dependency"),
-        Line::from("  tab        switch pane (ready ↔ all)"),
         Line::from(""),
         Line::from(Span::styled(
             "actions",
@@ -587,15 +412,14 @@ fn draw_help(f: &mut Frame, area: Rect) {
         Line::from("  d          mark selected issue as done"),
         Line::from("  enter      open selected dependency"),
         Line::from("  r          refresh issues from disk"),
-        Line::from("  v          toggle live view"),
         Line::from(""),
         Line::from(Span::styled(
-            "filter (all pane)",
+            "filter",
             Style::default().add_modifier(Modifier::BOLD),
         )),
         Line::from("  /          enter filter mode"),
         Line::from("  enter      confirm filter"),
-        Line::from("  esc        clear filter and exit filter mode"),
+        Line::from("  esc        clear filter"),
         Line::from("  1-4        toggle status (1=open 2=doing 3=done 4=skip)"),
         Line::from(""),
         Line::from(Span::styled(
@@ -624,9 +448,9 @@ fn truncate(s: &str, max_len: usize) -> String {
     }
 }
 
-fn format_age(updated_at: OffsetDateTime) -> String {
+fn format_age(timestamp: OffsetDateTime) -> String {
     let now = OffsetDateTime::now_utc();
-    let duration = now - updated_at;
+    let duration = now - timestamp;
     let minutes = duration.whole_minutes();
 
     if minutes < 0 {
@@ -662,11 +486,7 @@ fn draw_input_dialog(f: &mut Frame, app: &App) {
         InputMode::Title(_) => 3,        // slim: just input
         InputMode::Priority { .. } => 7, // title + 4 options
         InputMode::Type { .. } => 7,     // title + pri + 3 options
-        InputMode::Deps { .. } => 12.min(app.all_issues.len() as u16 + 5), // title + pri + type + scrollable list
-        InputMode::EditSelect { .. } => 7,
-        InputMode::EditTitle { .. } => 5,
-        InputMode::EditPriority { .. } => 7,
-        InputMode::EditStatus { .. } => 8,
+        InputMode::Deps { .. } => 12.min(app.sorted_issues.len() as u16 + 5),
         InputMode::Filter(_) | InputMode::Normal => return,
     };
 
@@ -711,7 +531,6 @@ fn draw_input_dialog(f: &mut Frame, app: &App) {
                 })
                 .collect();
 
-            // show title at top of dialog
             let inner = block.inner(area);
             f.render_widget(block, area);
 
@@ -794,7 +613,7 @@ fn draw_input_dialog(f: &mut Frame, app: &App) {
             let types = ["(none)", "design", "meta"];
 
             let items: Vec<ListItem> = app
-                .all_issues
+                .sorted_issues
                 .iter()
                 .enumerate()
                 .map(|(i, id)| {
@@ -839,7 +658,7 @@ fn draw_input_dialog(f: &mut Frame, app: &App) {
                 .style(Style::default().fg(Color::Cyan));
             f.render_widget(type_line, chunks[2]);
 
-            if app.all_issues.is_empty() {
+            if app.sorted_issues.is_empty() {
                 let empty = Paragraph::new("  (no existing issues)")
                     .style(Style::default().fg(Color::DarkGray));
                 f.render_widget(empty, chunks[3]);
@@ -847,142 +666,6 @@ fn draw_input_dialog(f: &mut Frame, app: &App) {
                 let list = List::new(items);
                 f.render_widget(list, chunks[3]);
             }
-        }
-        InputMode::EditSelect { issue_id, selected } => {
-            let block = Block::default()
-                .title(" Edit Issue - Select Field (Enter to edit, Esc to cancel) ")
-                .borders(Borders::ALL)
-                .border_style(Style::default().fg(Color::Yellow));
-
-            let fields = ["Title", "Priority", "Status"];
-            let items: Vec<ListItem> = fields
-                .iter()
-                .enumerate()
-                .map(|(i, field)| {
-                    let style = if i == *selected {
-                        Style::default()
-                            .bg(Color::Yellow)
-                            .fg(Color::Black)
-                            .add_modifier(Modifier::BOLD)
-                    } else {
-                        Style::default()
-                    };
-                    ListItem::new(format!("  {}", field)).style(style)
-                })
-                .collect();
-
-            let inner = block.inner(area);
-            f.render_widget(block, area);
-
-            let chunks = Layout::default()
-                .direction(Direction::Vertical)
-                .constraints([Constraint::Length(1), Constraint::Min(0)])
-                .split(inner);
-
-            let id_line = Paragraph::new(format!("Editing: {}", issue_id))
-                .style(Style::default().fg(Color::Cyan));
-            f.render_widget(id_line, chunks[0]);
-
-            let list = List::new(items);
-            f.render_widget(list, chunks[1]);
-        }
-        InputMode::EditTitle { issue_id, current } => {
-            let block = Block::default()
-                .title(" Edit Title (Enter to save, Esc to cancel) ")
-                .borders(Borders::ALL)
-                .border_style(Style::default().fg(Color::Yellow));
-
-            let inner = block.inner(area);
-            f.render_widget(block, area);
-
-            let chunks = Layout::default()
-                .direction(Direction::Vertical)
-                .constraints([Constraint::Length(1), Constraint::Min(0)])
-                .split(inner);
-
-            let id_line = Paragraph::new(format!("Issue: {}", issue_id))
-                .style(Style::default().fg(Color::Cyan));
-            f.render_widget(id_line, chunks[0]);
-
-            let input =
-                Paragraph::new(format!("{}_", current)).style(Style::default().fg(Color::White));
-            f.render_widget(input, chunks[1]);
-        }
-        InputMode::EditPriority { issue_id, selected } => {
-            let block = Block::default()
-                .title(" Edit Priority (Enter to save, Esc to cancel) ")
-                .borders(Borders::ALL)
-                .border_style(Style::default().fg(Color::Yellow));
-
-            let priorities = ["P0 (critical)", "P1 (high)", "P2 (normal)", "P3 (low)"];
-            let items: Vec<ListItem> = priorities
-                .iter()
-                .enumerate()
-                .map(|(i, p)| {
-                    let style = if i == *selected {
-                        Style::default()
-                            .bg(Color::Yellow)
-                            .fg(Color::Black)
-                            .add_modifier(Modifier::BOLD)
-                    } else {
-                        Style::default()
-                    };
-                    ListItem::new(format!("  {}", p)).style(style)
-                })
-                .collect();
-
-            let inner = block.inner(area);
-            f.render_widget(block, area);
-
-            let chunks = Layout::default()
-                .direction(Direction::Vertical)
-                .constraints([Constraint::Length(1), Constraint::Min(0)])
-                .split(inner);
-
-            let id_line = Paragraph::new(format!("Issue: {}", issue_id))
-                .style(Style::default().fg(Color::Cyan));
-            f.render_widget(id_line, chunks[0]);
-
-            let list = List::new(items);
-            f.render_widget(list, chunks[1]);
-        }
-        InputMode::EditStatus { issue_id, selected } => {
-            let block = Block::default()
-                .title(" Edit Status (Enter to save, Esc to cancel) ")
-                .borders(Borders::ALL)
-                .border_style(Style::default().fg(Color::Yellow));
-
-            let statuses = ["Todo", "Doing", "Done", "Skip"];
-            let items: Vec<ListItem> = statuses
-                .iter()
-                .enumerate()
-                .map(|(i, s)| {
-                    let style = if i == *selected {
-                        Style::default()
-                            .bg(Color::Yellow)
-                            .fg(Color::Black)
-                            .add_modifier(Modifier::BOLD)
-                    } else {
-                        Style::default()
-                    };
-                    ListItem::new(format!("  {}", s)).style(style)
-                })
-                .collect();
-
-            let inner = block.inner(area);
-            f.render_widget(block, area);
-
-            let chunks = Layout::default()
-                .direction(Direction::Vertical)
-                .constraints([Constraint::Length(1), Constraint::Min(0)])
-                .split(inner);
-
-            let id_line = Paragraph::new(format!("Issue: {}", issue_id))
-                .style(Style::default().fg(Color::Cyan));
-            f.render_widget(id_line, chunks[0]);
-
-            let list = List::new(items);
-            f.render_widget(list, chunks[1]);
         }
         InputMode::Filter(_) | InputMode::Normal => {}
     }

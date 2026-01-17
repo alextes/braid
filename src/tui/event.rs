@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyModifiers};
 
-use super::app::{ActivePane, App, InputMode, ViewMode};
+use super::app::{App, InputMode};
 use crate::error::Result;
 use crate::repo::RepoPaths;
 
@@ -111,7 +111,7 @@ fn handle_key_event(app: &mut App, paths: &RepoPaths, key: KeyEvent) -> Result<b
             selected_deps,
             cursor,
         } => {
-            let max_cursor = app.all_issues.len().saturating_sub(1);
+            let max_cursor = app.sorted_issues.len().saturating_sub(1);
             match key.code {
                 KeyCode::Esc => app.cancel_add_issue(),
                 KeyCode::Enter => {
@@ -147,117 +147,6 @@ fn handle_key_event(app: &mut App, paths: &RepoPaths, key: KeyEvent) -> Result<b
             }
             return Ok(false);
         }
-        InputMode::EditSelect { issue_id, selected } => {
-            match key.code {
-                KeyCode::Esc => app.cancel_edit(),
-                KeyCode::Enter => app.confirm_edit_field(),
-                KeyCode::Up | KeyCode::Char('k') => {
-                    if *selected > 0 {
-                        app.input_mode = InputMode::EditSelect {
-                            issue_id: issue_id.clone(),
-                            selected: selected - 1,
-                        };
-                    }
-                }
-                KeyCode::Down | KeyCode::Char('j') => {
-                    if *selected < 2 {
-                        app.input_mode = InputMode::EditSelect {
-                            issue_id: issue_id.clone(),
-                            selected: selected + 1,
-                        };
-                    }
-                }
-                _ => {}
-            }
-            return Ok(false);
-        }
-        InputMode::EditTitle { issue_id, current } => {
-            match key.code {
-                KeyCode::Esc => app.cancel_edit(),
-                KeyCode::Enter => {
-                    if let Err(e) = app.save_edit(paths) {
-                        app.message = Some(format!("error: {}", e));
-                        app.input_mode = InputMode::Normal;
-                    }
-                }
-                KeyCode::Backspace => {
-                    let mut s = current.clone();
-                    s.pop();
-                    app.input_mode = InputMode::EditTitle {
-                        issue_id: issue_id.clone(),
-                        current: s,
-                    };
-                }
-                KeyCode::Char(c) => {
-                    let mut s = current.clone();
-                    s.push(c);
-                    app.input_mode = InputMode::EditTitle {
-                        issue_id: issue_id.clone(),
-                        current: s,
-                    };
-                }
-                _ => {}
-            }
-            return Ok(false);
-        }
-        InputMode::EditPriority { issue_id, selected } => {
-            match key.code {
-                KeyCode::Esc => app.cancel_edit(),
-                KeyCode::Enter => {
-                    if let Err(e) = app.save_edit(paths) {
-                        app.message = Some(format!("error: {}", e));
-                        app.input_mode = InputMode::Normal;
-                    }
-                }
-                KeyCode::Up | KeyCode::Char('k') => {
-                    if *selected > 0 {
-                        app.input_mode = InputMode::EditPriority {
-                            issue_id: issue_id.clone(),
-                            selected: selected - 1,
-                        };
-                    }
-                }
-                KeyCode::Down | KeyCode::Char('j') => {
-                    if *selected < 3 {
-                        app.input_mode = InputMode::EditPriority {
-                            issue_id: issue_id.clone(),
-                            selected: selected + 1,
-                        };
-                    }
-                }
-                _ => {}
-            }
-            return Ok(false);
-        }
-        InputMode::EditStatus { issue_id, selected } => {
-            match key.code {
-                KeyCode::Esc => app.cancel_edit(),
-                KeyCode::Enter => {
-                    if let Err(e) = app.save_edit(paths) {
-                        app.message = Some(format!("error: {}", e));
-                        app.input_mode = InputMode::Normal;
-                    }
-                }
-                KeyCode::Up | KeyCode::Char('k') => {
-                    if *selected > 0 {
-                        app.input_mode = InputMode::EditStatus {
-                            issue_id: issue_id.clone(),
-                            selected: selected - 1,
-                        };
-                    }
-                }
-                KeyCode::Down | KeyCode::Char('j') => {
-                    if *selected < 3 {
-                        app.input_mode = InputMode::EditStatus {
-                            issue_id: issue_id.clone(),
-                            selected: selected + 1,
-                        };
-                    }
-                }
-                _ => {}
-            }
-            return Ok(false);
-        }
         InputMode::Filter(current) => {
             match key.code {
                 KeyCode::Esc => app.cancel_filter(),
@@ -265,7 +154,7 @@ fn handle_key_event(app: &mut App, paths: &RepoPaths, key: KeyEvent) -> Result<b
                 KeyCode::Backspace => {
                     let mut s = current.clone();
                     s.pop();
-                    app.all_filter_query = s.clone();
+                    app.filter_query = s.clone();
                     app.apply_filter();
                     app.input_mode = InputMode::Filter(s);
                     app.message = None;
@@ -286,7 +175,7 @@ fn handle_key_event(app: &mut App, paths: &RepoPaths, key: KeyEvent) -> Result<b
                 KeyCode::Char(c) => {
                     let mut s = current.clone();
                     s.push(c);
-                    app.all_filter_query = s.clone();
+                    app.filter_query = s.clone();
                     app.apply_filter();
                     app.input_mode = InputMode::Filter(s);
                     app.message = None;
@@ -306,13 +195,14 @@ fn handle_key_event(app: &mut App, paths: &RepoPaths, key: KeyEvent) -> Result<b
         // navigation
         KeyCode::Up | KeyCode::Char('k') => app.move_up(),
         KeyCode::Down | KeyCode::Char('j') => app.move_down(),
-        KeyCode::Tab => app.switch_pane(),
+        KeyCode::Char('g') => app.move_to_top(),
+        KeyCode::Char('G') => app.move_to_bottom(),
         KeyCode::Left | KeyCode::Char('h') => app.move_dep_prev(),
         KeyCode::Right | KeyCode::Char('l') => app.move_dep_next(),
 
         // actions
         KeyCode::Char('a') | KeyCode::Char('n') => app.start_add_issue(),
-        KeyCode::Char('e') => app.start_edit_issue(),
+        KeyCode::Char('e') => app.open_in_editor(paths),
         KeyCode::Char('s') => {
             if let Err(e) = app.start_selected(paths) {
                 app.message = Some(format!("error: {}", e));
@@ -328,35 +218,14 @@ fn handle_key_event(app: &mut App, paths: &RepoPaths, key: KeyEvent) -> Result<b
                 app.message = Some(format!("error: {}", e));
             }
         }
-        KeyCode::Char('v') => app.toggle_live_view(),
         KeyCode::Enter => app.open_selected_dependency(),
 
         // filter
-        KeyCode::Char('1')
-            if app.view_mode == ViewMode::Normal && app.active_pane == ActivePane::All =>
-        {
-            app.toggle_status_filter(crate::issue::Status::Open);
-        }
-        KeyCode::Char('2')
-            if app.view_mode == ViewMode::Normal && app.active_pane == ActivePane::All =>
-        {
-            app.toggle_status_filter(crate::issue::Status::Doing);
-        }
-        KeyCode::Char('3')
-            if app.view_mode == ViewMode::Normal && app.active_pane == ActivePane::All =>
-        {
-            app.toggle_status_filter(crate::issue::Status::Done);
-        }
-        KeyCode::Char('4')
-            if app.view_mode == ViewMode::Normal && app.active_pane == ActivePane::All =>
-        {
-            app.toggle_status_filter(crate::issue::Status::Skip);
-        }
-        KeyCode::Char('/') => {
-            if app.view_mode == ViewMode::Normal && app.active_pane == ActivePane::All {
-                app.start_filter();
-            }
-        }
+        KeyCode::Char('1') => app.toggle_status_filter(crate::issue::Status::Open),
+        KeyCode::Char('2') => app.toggle_status_filter(crate::issue::Status::Doing),
+        KeyCode::Char('3') => app.toggle_status_filter(crate::issue::Status::Done),
+        KeyCode::Char('4') => app.toggle_status_filter(crate::issue::Status::Skip),
+        KeyCode::Char('/') => app.start_filter(),
         KeyCode::Esc => {
             if app.has_filter() {
                 app.clear_filter();
@@ -374,7 +243,6 @@ fn handle_key_event(app: &mut App, paths: &RepoPaths, key: KeyEvent) -> Result<b
 
 #[cfg(test)]
 mod tests {
-    use super::super::app::ActivePane;
     use super::*;
     use crate::config::Config;
     use crate::issue::{Issue, Priority, Status};
@@ -456,26 +324,19 @@ mod tests {
         env.add_issue("brd-bbbb", "second", Priority::P2, Status::Open);
 
         let mut app = env.app();
-        app.ready_selected = 10;
-        app.all_selected = 10;
+        app.selected = 10;
         app.reload_issues(&env.paths).expect("reload failed");
 
-        assert_eq!(app.ready_selected, app.ready_issues.len() - 1);
-        assert_eq!(app.all_selected, app.all_issues.len() - 1);
+        assert_eq!(app.selected, app.sorted_issues.len() - 1);
     }
 
     #[test]
-    fn test_pane_switch_clears_message() {
+    fn test_navigation_clears_message() {
         let env = TestEnv::new();
         env.add_issue("brd-aaaa", "first", Priority::P1, Status::Open);
         env.add_issue("brd-bbbb", "second", Priority::P2, Status::Open);
 
         let mut app = env.app();
-        app.message = Some("note".to_string());
-        handle_key_event(&mut app, &env.paths, key(KeyCode::Tab)).expect("tab failed");
-        assert_eq!(app.active_pane, ActivePane::All);
-        assert!(app.message.is_none());
-
         app.message = Some("note".to_string());
         handle_key_event(&mut app, &env.paths, key(KeyCode::Down)).expect("down failed");
         assert!(app.message.is_none());
@@ -561,7 +422,7 @@ mod tests {
         handle_key_event(&mut app, &env.paths, key(KeyCode::Enter)).expect("create issue failed");
         assert!(matches!(app.input_mode, InputMode::Normal));
         assert_eq!(app.message.as_deref(), Some("refreshed"));
-        assert_eq!(app.all_issues.len(), 1);
+        assert_eq!(app.sorted_issues.len(), 1);
 
         handle_key_event(&mut app, &env.paths, key(KeyCode::Down)).expect("move down failed");
         assert!(app.message.is_none());
@@ -574,7 +435,6 @@ mod tests {
         env.add_issue("brd-bbbb", "bravo", Priority::P2, Status::Open);
 
         let mut app = env.app();
-        handle_key_event(&mut app, &env.paths, key(KeyCode::Tab)).expect("switch pane failed");
         handle_key_event(&mut app, &env.paths, key(KeyCode::Char('/')))
             .expect("start filter failed");
         assert!(matches!(
@@ -587,10 +447,10 @@ mod tests {
         handle_key_event(&mut app, &env.paths, key(KeyCode::Char('l')))
             .expect("filter char failed");
 
-        assert_eq!(app.all_filter_query, "al");
-        assert_eq!(app.visible_all_issues().len(), 1);
+        assert_eq!(app.filter_query, "al");
+        assert_eq!(app.visible_issues().len(), 1);
         assert_eq!(
-            app.visible_all_issues().first().map(String::as_str),
+            app.visible_issues().first().map(String::as_str),
             Some("brd-aaaa")
         );
 
@@ -605,7 +465,6 @@ mod tests {
         env.add_issue("brd-aaaa", "alpha", Priority::P1, Status::Open);
 
         let mut app = env.app();
-        handle_key_event(&mut app, &env.paths, key(KeyCode::Tab)).expect("switch pane failed");
         handle_key_event(&mut app, &env.paths, key(KeyCode::Char('/')))
             .expect("start filter failed");
         handle_key_event(&mut app, &env.paths, key(KeyCode::Char('a')))
@@ -613,87 +472,38 @@ mod tests {
         handle_key_event(&mut app, &env.paths, key(KeyCode::Esc)).expect("clear filter failed");
 
         assert!(matches!(app.input_mode, InputMode::Normal));
-        assert!(app.all_filter_query.is_empty());
-        assert!(app.all_status_filter.is_empty());
+        assert!(app.filter_query.is_empty());
+        assert!(app.status_filter.is_empty());
     }
 
     #[test]
-    fn test_status_filter_toggle_in_normal_mode() {
+    fn test_status_filter_toggle() {
         let env = TestEnv::new();
         env.add_issue("brd-aaaa", "todo item", Priority::P1, Status::Open);
         env.add_issue("brd-bbbb", "done item", Priority::P2, Status::Done);
 
         let mut app = env.app();
-        handle_key_event(&mut app, &env.paths, key(KeyCode::Tab)).expect("switch pane failed");
         handle_key_event(&mut app, &env.paths, key(KeyCode::Char('3')))
             .expect("toggle status filter failed");
 
-        assert!(app.all_status_filter.contains(&Status::Done));
-        assert_eq!(app.visible_all_issues().len(), 1);
+        assert!(app.status_filter.contains(&Status::Done));
+        assert_eq!(app.visible_issues().len(), 1);
         assert_eq!(
-            app.visible_all_issues().first().map(String::as_str),
+            app.visible_issues().first().map(String::as_str),
             Some("brd-bbbb")
         );
     }
 
     #[test]
-    fn test_edit_title_flow() {
-        let env = TestEnv::new();
-        env.add_issue("brd-aaaa", "old", Priority::P2, Status::Open);
-        let mut app = env.app();
-
-        handle_key_event(&mut app, &env.paths, key(KeyCode::Char('e'))).expect("start edit failed");
-        assert!(matches!(app.input_mode, InputMode::EditSelect { selected, .. } if selected == 0));
-
-        handle_key_event(&mut app, &env.paths, key(KeyCode::Enter)).expect("confirm field failed");
-        assert!(
-            matches!(app.input_mode, InputMode::EditTitle { ref current, .. } if current == "old")
-        );
-
-        handle_key_event(&mut app, &env.paths, key(KeyCode::Char('x'))).expect("edit char failed");
-        handle_key_event(&mut app, &env.paths, key(KeyCode::Enter)).expect("save edit failed");
-        assert!(matches!(app.input_mode, InputMode::Normal));
-        assert_eq!(app.message.as_deref(), Some("refreshed"));
-        assert_eq!(app.issues.get("brd-aaaa").unwrap().title(), "oldx");
-    }
-
-    #[test]
-    fn test_edit_priority_flow() {
+    fn test_open_in_editor_sets_flag() {
         let env = TestEnv::new();
         env.add_issue("brd-aaaa", "issue", Priority::P2, Status::Open);
         let mut app = env.app();
 
-        handle_key_event(&mut app, &env.paths, key(KeyCode::Char('e'))).expect("start edit failed");
-        handle_key_event(&mut app, &env.paths, key(KeyCode::Down)).expect("select priority failed");
-        handle_key_event(&mut app, &env.paths, key(KeyCode::Enter))
-            .expect("confirm priority failed");
-        assert!(
-            matches!(app.input_mode, InputMode::EditPriority { selected, .. } if selected == 2)
-        );
-
-        handle_key_event(&mut app, &env.paths, key(KeyCode::Up)).expect("priority up failed");
-        handle_key_event(&mut app, &env.paths, key(KeyCode::Enter)).expect("save priority failed");
-        assert!(matches!(app.input_mode, InputMode::Normal));
-        assert_eq!(app.issues.get("brd-aaaa").unwrap().priority(), Priority::P1);
-    }
-
-    #[test]
-    fn test_edit_status_flow() {
-        let env = TestEnv::new();
-        env.add_issue("brd-aaaa", "issue", Priority::P2, Status::Open);
-        let mut app = env.app();
-
-        handle_key_event(&mut app, &env.paths, key(KeyCode::Char('e'))).expect("start edit failed");
-        handle_key_event(&mut app, &env.paths, key(KeyCode::Down)).expect("select status failed");
-        handle_key_event(&mut app, &env.paths, key(KeyCode::Down)).expect("select status failed");
-        handle_key_event(&mut app, &env.paths, key(KeyCode::Enter)).expect("confirm status failed");
-        assert!(matches!(app.input_mode, InputMode::EditStatus { selected, .. } if selected == 0));
-
-        handle_key_event(&mut app, &env.paths, key(KeyCode::Down)).expect("status down failed");
-        handle_key_event(&mut app, &env.paths, key(KeyCode::Down)).expect("status down failed");
-        handle_key_event(&mut app, &env.paths, key(KeyCode::Enter)).expect("save status failed");
-        assert!(matches!(app.input_mode, InputMode::Normal));
-        assert_eq!(app.issues.get("brd-aaaa").unwrap().status(), Status::Done);
+        handle_key_event(&mut app, &env.paths, key(KeyCode::Char('e'))).expect("open editor failed");
+        // The editor_file flag should be set
+        assert!(app.editor_file.is_some());
+        assert!(app.editor_file.as_ref().unwrap().ends_with("brd-aaaa.md"));
     }
 
     #[test]
@@ -728,7 +538,6 @@ mod tests {
         );
 
         let mut app = env.app();
-        handle_key_event(&mut app, &env.paths, key(KeyCode::Tab)).expect("switch pane failed");
         assert_eq!(app.selected_issue_id(), Some("brd-main"));
         assert_eq!(app.detail_dep_selected, Some(0));
 
@@ -736,7 +545,6 @@ mod tests {
         assert_eq!(app.detail_dep_selected, Some(1));
 
         handle_key_event(&mut app, &env.paths, key(KeyCode::Enter)).expect("open dep failed");
-        assert_eq!(app.active_pane, ActivePane::All);
         assert_eq!(app.selected_issue_id(), Some("brd-dep2"));
     }
 }
