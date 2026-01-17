@@ -315,17 +315,17 @@ pub fn cmd_ls(
 
             printed_count += 1;
 
-            // print indicator after last todo issue (before resolved)
+            // print indicator after last open issue (before resolved)
             if printed_count == indicator_after && hidden_todo > 0 {
                 if use_color {
                     println!(
-                        "{}... +{} more todo{}",
+                        "{}... +{} more open{}",
                         SetAttribute(Attribute::Dim),
                         hidden_todo,
                         SetAttribute(Attribute::Reset)
                     );
                 } else {
-                    println!("... +{} more todo", hidden_todo);
+                    println!("... +{} more open", hidden_todo);
                 }
             }
         }
