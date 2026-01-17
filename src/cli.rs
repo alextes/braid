@@ -341,7 +341,7 @@ pub struct AddArgs {
     #[arg(long, short = 't')]
     pub r#type: Option<String>,
 
-    /// add dependency on another issue (can be repeated)
+    /// this issue is blocked by DEP (can be repeated)
     #[arg(long, short)]
     pub dep: Vec<String>,
 
