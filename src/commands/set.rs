@@ -221,8 +221,12 @@ mod tests {
     #[test]
     fn test_set_type_clear() {
         let (_dir, paths, config) = create_test_repo();
-        let mut issue =
-            Issue::new("brd-tclear".to_string(), "test".to_string(), Priority::P2, vec![]);
+        let mut issue = Issue::new(
+            "brd-tclear".to_string(),
+            "test".to_string(),
+            Priority::P2,
+            vec![],
+        );
         issue.frontmatter.issue_type = Some(IssueType::Design);
         issue.frontmatter.status = Status::Open;
         let issue_path = paths.issues_dir(&config).join("brd-tclear.md");
@@ -252,8 +256,12 @@ mod tests {
     #[test]
     fn test_set_owner_clear() {
         let (_dir, paths, config) = create_test_repo();
-        let mut issue =
-            Issue::new("brd-oclear".to_string(), "test".to_string(), Priority::P2, vec![]);
+        let mut issue = Issue::new(
+            "brd-oclear".to_string(),
+            "test".to_string(),
+            Priority::P2,
+            vec![],
+        );
         issue.frontmatter.owner = Some("bob".to_string());
         issue.frontmatter.status = Status::Open;
         let issue_path = paths.issues_dir(&config).join("brd-oclear.md");
@@ -309,8 +317,12 @@ mod tests {
     #[test]
     fn test_set_tag_remove() {
         let (_dir, paths, config) = create_test_repo();
-        let mut issue =
-            Issue::new("brd-tag3".to_string(), "test".to_string(), Priority::P2, vec![]);
+        let mut issue = Issue::new(
+            "brd-tag3".to_string(),
+            "test".to_string(),
+            Priority::P2,
+            vec![],
+        );
         issue.frontmatter.tags = vec!["bug".to_string(), "urgent".to_string()];
         issue.frontmatter.status = Status::Open;
         let issue_path = paths.issues_dir(&config).join("brd-tag3.md");
@@ -328,8 +340,12 @@ mod tests {
     #[test]
     fn test_set_tag_no_duplicate() {
         let (_dir, paths, config) = create_test_repo();
-        let mut issue =
-            Issue::new("brd-tag4".to_string(), "test".to_string(), Priority::P2, vec![]);
+        let mut issue = Issue::new(
+            "brd-tag4".to_string(),
+            "test".to_string(),
+            Priority::P2,
+            vec![],
+        );
         issue.frontmatter.tags = vec!["bug".to_string()];
         issue.frontmatter.status = Status::Open;
         let issue_path = paths.issues_dir(&config).join("brd-tag4.md");

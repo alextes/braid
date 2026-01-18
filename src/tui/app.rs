@@ -139,9 +139,7 @@ impl App {
                     return false;
                 };
                 // check status filter (empty means show all)
-                if !self.status_filter.is_empty()
-                    && !self.status_filter.contains(&issue.status())
-                {
+                if !self.status_filter.is_empty() && !self.status_filter.contains(&issue.status()) {
                     return false;
                 }
                 // check query filter
@@ -220,9 +218,7 @@ impl App {
 
     /// get the currently selected issue id.
     pub fn selected_issue_id(&self) -> Option<&str> {
-        self.visible_issues()
-            .get(self.selected)
-            .map(|s| s.as_str())
+        self.visible_issues().get(self.selected).map(|s| s.as_str())
     }
 
     /// get the currently selected issue.

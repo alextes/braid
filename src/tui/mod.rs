@@ -80,7 +80,7 @@ fn open_in_editor(
     terminal: &mut Terminal<CrosstermBackend<io::Stdout>>,
     file_path: &std::path::Path,
 ) -> Result<()> {
-    use crossterm::terminal::{LeaveAlternateScreen, EnterAlternateScreen};
+    use crossterm::terminal::{EnterAlternateScreen, LeaveAlternateScreen};
     use std::process::Command;
 
     // Get editor from environment
@@ -91,9 +91,7 @@ fn open_in_editor(
     execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
 
     // Run editor
-    let status = Command::new(&editor)
-        .arg(file_path)
-        .status();
+    let status = Command::new(&editor).arg(file_path).status();
 
     // Restore terminal
     execute!(terminal.backend_mut(), EnterAlternateScreen)?;
@@ -101,7 +99,10 @@ fn open_in_editor(
     terminal.clear()?;
 
     if let Err(e) = status {
-        return Err(crate::error::BrdError::Other(format!("failed to open editor: {}", e)));
+        return Err(crate::error::BrdError::Other(format!(
+            "failed to open editor: {}",
+            e
+        )));
     }
 
     Ok(())

@@ -45,7 +45,8 @@ fn draw_header(f: &mut Frame, area: Rect, app: &App) {
 
 fn draw_footer(f: &mut Frame, area: Rect, app: &App) {
     let msg = app.message.as_deref().unwrap_or("");
-    let help = "[a]dd [e]dit [s]tart [d]one [r]efresh [/]filter [1-4]status [g/G]top/bot [?]help [q]uit";
+    let help =
+        "[a]dd [e]dit [s]tart [d]one [r]efresh [/]filter [1-4]status [g/G]top/bot [?]help [q]uit";
     let text = if msg.is_empty() {
         help.to_string()
     } else {
@@ -144,7 +145,8 @@ fn draw_issue_list(f: &mut Frame, area: Rect, app: &mut App) {
             let title_and_tags = if tags.is_empty() {
                 truncate(issue.title(), title_width)
             } else {
-                let title_part = truncate(issue.title(), title_width.saturating_sub(tags.len() + 1));
+                let title_part =
+                    truncate(issue.title(), title_width.saturating_sub(tags.len() + 1));
                 format!("{} {}", title_part, tags)
             };
 

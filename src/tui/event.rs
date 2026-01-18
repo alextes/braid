@@ -500,7 +500,8 @@ mod tests {
         env.add_issue("brd-aaaa", "issue", Priority::P2, Status::Open);
         let mut app = env.app();
 
-        handle_key_event(&mut app, &env.paths, key(KeyCode::Char('e'))).expect("open editor failed");
+        handle_key_event(&mut app, &env.paths, key(KeyCode::Char('e')))
+            .expect("open editor failed");
         // The editor_file flag should be set
         assert!(app.editor_file.is_some());
         assert!(app.editor_file.as_ref().unwrap().ends_with("brd-aaaa.md"));

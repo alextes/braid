@@ -41,8 +41,8 @@ fn format_age(created_at: OffsetDateTime) -> String {
 /// Maximum number of done issues to show by default
 const DEFAULT_DONE_LIMIT: usize = 10;
 
-/// Maximum number of todo issues to show by default
-const DEFAULT_TODO_LIMIT: usize = 15;
+/// Maximum number of open issues to show by default
+const DEFAULT_OPEN_LIMIT: usize = 15;
 
 #[allow(clippy::too_many_arguments)]
 pub fn cmd_ls(
@@ -94,22 +94,22 @@ pub fn cmd_ls(
         })
         .collect();
 
-    // partition into doing, todo, and resolved (done/skip) issues
+    // partition into doing, open, and resolved (done/skip) issues
     let mut doing: Vec<&Issue> = Vec::new();
-    let mut todo: Vec<&Issue> = Vec::new();
+    let mut open: Vec<&Issue> = Vec::new();
     let mut resolved: Vec<&Issue> = Vec::new();
 
     for issue in filtered {
         match issue.status() {
             Status::Doing => doing.push(issue),
-            Status::Open => todo.push(issue),
+            Status::Open => open.push(issue),
             Status::Done | Status::Skip => resolved.push(issue),
         }
     }
 
-    // sort doing and todo by priority, created_at, id
+    // sort doing and open by priority, created_at, id
     doing.sort_by(|a, b| a.cmp_by_priority(b));
-    todo.sort_by(|a, b| a.cmp_by_priority(b));
+    open.sort_by(|a, b| a.cmp_by_priority(b));
 
     // sort resolved issues by updated_at (most recent first), then by id for stability
     resolved.sort_by(|a, b| {
@@ -121,7 +121,7 @@ pub fn cmd_ls(
 
     // compute total counts BEFORE truncation
     let total_doing = doing.len();
-    let total_todo = todo.len();
+    let total_open = open.len();
     let total_done = resolved
         .iter()
         .filter(|i| i.status() == Status::Done)
@@ -132,15 +132,15 @@ pub fn cmd_ls(
         .count();
 
     // track how many are hidden
-    let hidden_todo;
+    let hidden_open;
     let hidden_resolved;
 
-    // limit todo and resolved issues unless --all is specified
-    if !show_all && todo.len() > DEFAULT_TODO_LIMIT {
-        hidden_todo = todo.len() - DEFAULT_TODO_LIMIT;
-        todo.truncate(DEFAULT_TODO_LIMIT);
+    // limit open and resolved issues unless --all is specified
+    if !show_all && open.len() > DEFAULT_OPEN_LIMIT {
+        hidden_open = open.len() - DEFAULT_OPEN_LIMIT;
+        open.truncate(DEFAULT_OPEN_LIMIT);
     } else {
-        hidden_todo = 0;
+        hidden_open = 0;
     }
 
     if !show_all && resolved.len() > DEFAULT_DONE_LIMIT {
@@ -150,8 +150,8 @@ pub fn cmd_ls(
         hidden_resolved = 0;
     }
 
-    // combine: doing first, then todo, then resolved
-    let filtered: Vec<&Issue> = doing.into_iter().chain(todo).chain(resolved).collect();
+    // combine: doing first, then open, then resolved
+    let filtered: Vec<&Issue> = doing.into_iter().chain(open).chain(resolved).collect();
 
     if cli.json {
         let json: Vec<_> = filtered
@@ -161,7 +161,7 @@ pub fn cmd_ls(
         println!("{}", serde_json::to_string_pretty(&json).unwrap());
     } else {
         // use pre-computed totals
-        let open_count = total_todo + total_doing;
+        let open_count = total_open + total_doing;
 
         if filtered.is_empty() {
             println!("No issues found.");
@@ -169,7 +169,7 @@ pub fn cmd_ls(
 
         // track position to insert indicator
         let mut printed_count = 0;
-        let indicator_after = total_doing + total_todo.min(DEFAULT_TODO_LIMIT);
+        let indicator_after = total_doing + total_open.min(DEFAULT_OPEN_LIMIT);
 
         for issue in &filtered {
             let derived = compute_derived(issue, &issues);
@@ -316,16 +316,16 @@ pub fn cmd_ls(
             printed_count += 1;
 
             // print indicator after last open issue (before resolved)
-            if printed_count == indicator_after && hidden_todo > 0 {
+            if printed_count == indicator_after && hidden_open > 0 {
                 if use_color {
                     println!(
                         "{}... +{} more open{}",
                         SetAttribute(Attribute::Dim),
-                        hidden_todo,
+                        hidden_open,
                         SetAttribute(Attribute::Reset)
                     );
                 } else {
-                    println!("... +{} more open", hidden_todo);
+                    println!("... +{} more open", hidden_open);
                 }
             }
         }
@@ -356,7 +356,7 @@ pub fn cmd_ls(
 
         let elapsed_ms = start.elapsed().as_millis();
 
-        // build summary line: open (todo+doing), plus non-zero resolved counts
+        // build summary line: open (open+doing), plus non-zero resolved counts
         let mut parts = Vec::new();
         parts.push(format!("open: {}", open_count));
         if total_doing > 0 {
