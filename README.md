@@ -65,8 +65,6 @@ brd start
 
 `brd init` asks two questions: where to store issues and whether to auto-sync with git. the defaults work well for most setups.
 
-for a more detailed walkthrough, see the [getting started guide](docs/getting-started.md).
-
 ## commands
 
 ### issue management
