@@ -1,13 +1,13 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-lrtx
 title: lowercase brd dep output messages
 priority: P2
-status: todo
+status: done
 deps: []
 owner: null
 created_at: 2026-01-02T13:33:45.977655Z
-updated_at: 2026-01-02T13:33:45.977655Z
+updated_at: 2026-01-17T10:20:27.359108Z
 ---
 
 Currently `brd dep add` outputs:

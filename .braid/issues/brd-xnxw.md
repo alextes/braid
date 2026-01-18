@@ -1,60 +1,44 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-xnxw
-title: 'TUI: spawn ephemeral agent for issue'
+title: 'CLI: spawn agent in worktree for issue'
 priority: P2
-status: todo
+status: open
 type: design
 deps: []
 owner: null
 created_at: 2026-01-04T23:31:02.736303Z
-updated_at: 2026-01-04T23:31:02.736303Z
+updated_at: 2026-01-18T14:20:29.707683Z
 ---
 
-## Idea
+## goal
 
-From the TUI, assign an issue to a new ephemeral agent that:
-1. Sets up a fresh worktree for the task
-2. Programmatically invokes Claude to work on it
-3. Shows progress in the TUI
-4. Allows human input when agent requests it
+Add CLI command to spawn a claude agent working on an issue in a fresh worktree.
 
-## User flow
+```
+brd agent spawn <issue-id>
+```
 
-1. In TUI, select an issue
-2. Press hotkey (e.g., `a` for "assign to agent")
-3. Braid creates agent worktree, starts Claude on the task
-4. TUI shows live output/progress
-5. If Claude asks a question, TUI prompts user for input
-6. When done, agent worktree can be cleaned up or kept
+## what it does
 
-## Open questions
+1. creates a new worktree for the issue (like `brd agent init`)
+2. fires up claude code in that worktree with the issue context
+3. returns control to user (agent runs in background? foreground?)
 
-- How to invoke Claude programmatically? Options:
-  - Claude Code CLI (`claude` command)
-  - Anthropic API directly
-  - Claude Agent SDK
-- How to capture and display progress?
-  - Stream stdout/stderr
-  - Parse structured output
-- How to handle agent input requests?
-  - Detect when Claude is waiting
-  - Switch TUI to input mode
-- Worktree lifecycle:
-  - Auto-cleanup on success?
-  - Keep on failure for debugging?
-- Multiple concurrent agents?
-  - Show agent status in sidebar
-  - Switch between agent views
+## open questions
 
-## Prior art
+- how to invoke claude code programmatically?
+  - `claude` CLI with `--print` or similar?
+  - need to pass issue context as prompt
+- foreground vs background execution?
+  - foreground: simpler, user sees output directly
+  - background: allows spawning multiple agents
+- how to pass issue context to claude?
+  - read issue file, format as prompt
+  - include deps context?
 
-- Cursor's agent mode
-- Aider's watch mode
-- Claude Code's interactive mode
+## out of scope (separate issues)
 
-## Considerations
-
-- This is a significant feature, may want to prototype outside TUI first
-- Could start with CLI-only version: `brd agent spawn <issue-id>`
-- TUI integration as follow-up
+- TUI integration (brd-cnd8)
+- interacting with running agent (brd-qas3)
+- progress streaming / output capture
