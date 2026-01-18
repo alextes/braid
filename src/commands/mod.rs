@@ -132,7 +132,8 @@ pub(crate) fn issue_to_json(
         "tags": issue.tags(),
         "owner": issue.frontmatter.owner,
         "created_at": issue.frontmatter.created_at.format(&time::format_description::well_known::Rfc3339).unwrap(),
-        "updated_at": issue.frontmatter.updated_at.format(&time::format_description::well_known::Rfc3339).unwrap(),
+        "started_at": issue.frontmatter.started_at.map(|t| t.format(&time::format_description::well_known::Rfc3339).unwrap()),
+        "completed_at": issue.frontmatter.completed_at.map(|t| t.format(&time::format_description::well_known::Rfc3339).unwrap()),
         "acceptance": issue.frontmatter.acceptance,
         "derived": {
             "is_ready": derived.is_ready,

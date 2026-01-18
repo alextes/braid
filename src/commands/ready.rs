@@ -178,11 +178,9 @@ mod tests {
 
         let mut issue_p2 = make_issue("brd-p2", Priority::P2, Status::Open, vec![]);
         issue_p2.frontmatter.created_at = now - Duration::days(2);
-        issue_p2.frontmatter.updated_at = issue_p2.frontmatter.created_at;
 
         let mut issue_p0 = make_issue("brd-p0", Priority::P0, Status::Open, vec![]);
         issue_p0.frontmatter.created_at = now - Duration::days(1);
-        issue_p0.frontmatter.updated_at = issue_p0.frontmatter.created_at;
 
         issues.insert(issue_p2.id().to_string(), issue_p2);
         issues.insert(issue_p0.id().to_string(), issue_p0);

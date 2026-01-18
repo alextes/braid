@@ -111,12 +111,11 @@ pub fn cmd_ls(
     doing.sort_by(|a, b| a.cmp_by_priority(b));
     open.sort_by(|a, b| a.cmp_by_priority(b));
 
-    // sort resolved issues by updated_at (most recent first), then by id for stability
+    // sort resolved issues by completed_at (most recent first), then by id for stability
     resolved.sort_by(|a, b| {
-        b.frontmatter
-            .updated_at
-            .cmp(&a.frontmatter.updated_at)
-            .then_with(|| a.id().cmp(b.id()))
+        let a_time = a.frontmatter.completed_at.unwrap_or(a.frontmatter.created_at);
+        let b_time = b.frontmatter.completed_at.unwrap_or(b.frontmatter.created_at);
+        b_time.cmp(&a_time).then_with(|| a.id().cmp(b.id()))
     });
 
     // compute total counts BEFORE truncation

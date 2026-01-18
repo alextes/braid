@@ -131,8 +131,18 @@ pub struct IssueFrontmatter {
     pub owner: Option<String>,
     #[serde(with = "time::serde::rfc3339")]
     pub created_at: OffsetDateTime,
-    #[serde(with = "time::serde::rfc3339")]
-    pub updated_at: OffsetDateTime,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "time::serde::rfc3339::option"
+    )]
+    pub started_at: Option<OffsetDateTime>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "time::serde::rfc3339::option"
+    )]
+    pub completed_at: Option<OffsetDateTime>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub acceptance: Vec<String>,
 }
@@ -161,7 +171,8 @@ impl Issue {
                 tags: Vec::new(),
                 owner: None,
                 created_at: now,
-                updated_at: now,
+                started_at: None,
+                completed_at: None,
                 acceptance: Vec::new(),
             },
             body: String::new(),
@@ -238,9 +249,16 @@ impl Issue {
         Ok(())
     }
 
-    /// update the updated_at timestamp to now.
-    pub fn touch(&mut self) {
-        self.frontmatter.updated_at = OffsetDateTime::now_utc();
+    /// Mark the issue as started (sets started_at if not already set).
+    pub fn mark_started(&mut self) {
+        if self.frontmatter.started_at.is_none() {
+            self.frontmatter.started_at = Some(OffsetDateTime::now_utc());
+        }
+    }
+
+    /// Mark the issue as completed (sets completed_at).
+    pub fn mark_completed(&mut self) {
+        self.frontmatter.completed_at = Some(OffsetDateTime::now_utc());
     }
 
     /// convenience accessors
@@ -729,8 +747,12 @@ with multiple paragraphs.
             reparsed.frontmatter.created_at
         );
         assert_eq!(
-            issue.frontmatter.updated_at,
-            reparsed.frontmatter.updated_at
+            issue.frontmatter.started_at,
+            reparsed.frontmatter.started_at
+        );
+        assert_eq!(
+            issue.frontmatter.completed_at,
+            reparsed.frontmatter.completed_at
         );
         assert_eq!(
             issue.frontmatter.acceptance,

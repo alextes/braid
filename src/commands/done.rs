@@ -93,7 +93,6 @@ pub fn cmd_done(
                 let before_len = dependent.frontmatter.deps.len();
                 dependent.frontmatter.deps.retain(|d| d != &full_id);
                 if dependent.frontmatter.deps.len() != before_len {
-                    dependent.touch();
                     changed_ids.insert(dependent_id.clone());
                 }
             }
@@ -132,7 +131,7 @@ pub fn cmd_done(
 
         issue.frontmatter.status = Status::Done;
         issue.frontmatter.owner = None;
-        issue.touch();
+        issue.mark_completed();
         changed_ids.insert(full_id.clone());
     }
 
@@ -194,7 +193,6 @@ fn add_dep_checked(
         .get_mut(child_id)
         .ok_or_else(|| BrdError::IssueNotFound(child_id.to_string()))?;
     child.frontmatter.deps.push(parent);
-    child.touch();
 
     Ok(true)
 }

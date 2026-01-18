@@ -358,7 +358,7 @@ impl App {
 
         issue.frontmatter.status = Status::Doing;
         issue.frontmatter.owner = Some(self.agent_id.clone());
-        issue.touch();
+        issue.mark_started();
 
         // save issue
         let issue_path = paths
@@ -387,7 +387,7 @@ impl App {
 
         issue.frontmatter.status = Status::Done;
         issue.frontmatter.owner = None;
-        issue.touch();
+        issue.mark_completed();
 
         // save issue
         let issue_path = paths

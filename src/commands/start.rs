@@ -31,7 +31,7 @@ pub fn claim_issue(
 
     issue.frontmatter.status = Status::Doing;
     issue.frontmatter.owner = Some(agent_id.to_string());
-    issue.touch();
+    issue.mark_started();
 
     let issue_path = paths.issues_dir(config).join(format!("{}.md", issue.id()));
     issue.save(&issue_path)?;

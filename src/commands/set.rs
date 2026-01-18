@@ -28,6 +28,12 @@ pub fn cmd_set(cli: &Cli, paths: &RepoPaths, id: &str, field: &str, value: &str)
             }
             "status" | "s" => {
                 let status: Status = value.parse()?;
+                // Update timestamps based on status transition
+                if status == Status::Doing {
+                    issue.mark_started();
+                } else if matches!(status, Status::Done | Status::Skip) {
+                    issue.mark_completed();
+                }
                 issue.frontmatter.status = status;
             }
             "type" | "t" => {
@@ -66,7 +72,6 @@ pub fn cmd_set(cli: &Cli, paths: &RepoPaths, id: &str, field: &str, value: &str)
             }
         }
 
-        issue.touch();
         let issue_path = paths.issues_dir(&config).join(format!("{}.md", full_id));
         issue.save(&issue_path)?;
     }

@@ -23,7 +23,7 @@ pub fn cmd_skip(cli: &Cli, paths: &RepoPaths, id: &str) -> Result<()> {
 
         issue.frontmatter.status = Status::Skip;
         issue.frontmatter.owner = None;
-        issue.touch();
+        issue.mark_completed();
 
         let issue_path = paths.issues_dir(&config).join(format!("{}.md", full_id));
         issue.save(&issue_path)?;

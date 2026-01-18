@@ -37,7 +37,6 @@ pub fn cmd_dep_add(cli: &Cli, paths: &RepoPaths, blocked_id: &str, blocker_id: &
 
     if !blocked.frontmatter.deps.contains(&blocker_full) {
         blocked.frontmatter.deps.push(blocker_full.clone());
-        blocked.touch();
         let issue_path = paths
             .issues_dir(&config)
             .join(format!("{}.md", blocked_full));
@@ -69,7 +68,6 @@ pub fn cmd_dep_rm(cli: &Cli, paths: &RepoPaths, blocked_id: &str, blocker_id: &s
         .ok_or_else(|| BrdError::IssueNotFound(blocked_id.to_string()))?;
 
     blocked.frontmatter.deps.retain(|d| d != &blocker_full);
-    blocked.touch();
     let issue_path = paths
         .issues_dir(&config)
         .join(format!("{}.md", blocked_full));

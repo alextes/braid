@@ -8,7 +8,7 @@ use serde_yaml::Value;
 use crate::error::{BrdError, Result};
 
 /// The current schema version. All new issues are created with this version.
-pub const CURRENT_SCHEMA: u32 = 7;
+pub const CURRENT_SCHEMA: u32 = 8;
 
 /// Check if a schema version needs migration.
 pub fn needs_migration(schema_version: u32) -> bool {
@@ -62,6 +62,7 @@ fn apply_migration(frontmatter: Value, from_version: u32) -> Result<Value> {
         4 => migrate_v4_to_v5(frontmatter),
         5 => migrate_v5_to_v6(frontmatter),
         6 => migrate_v6_to_v7(frontmatter),
+        7 => migrate_v7_to_v8(frontmatter),
         _ => {
             // No migration needed for this version
             Ok(frontmatter)
@@ -173,6 +174,49 @@ fn migrate_v6_to_v7(mut frontmatter: Value) -> Result<Value> {
     Ok(frontmatter)
 }
 
+/// Migration from v7 to v8.
+/// - Removes `updated_at`, adds `started_at` and `completed_at`
+/// - If status is 'doing', set `started_at` to old `updated_at`
+/// - If status is 'done' or 'skip', set both to old `updated_at`
+fn migrate_v7_to_v8(mut frontmatter: Value) -> Result<Value> {
+    if let Value::Mapping(ref mut map) = frontmatter {
+        let updated_at_key = Value::String("updated_at".to_string());
+        let started_at_key = Value::String("started_at".to_string());
+        let completed_at_key = Value::String("completed_at".to_string());
+        let status_key = Value::String("status".to_string());
+        let schema_key = Value::String("schema_version".to_string());
+
+        // Get the old updated_at value and status
+        let updated_at = map.remove(&updated_at_key);
+        let status = map
+            .get(&status_key)
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
+
+        // Set started_at and completed_at based on status
+        match status {
+            "doing" => {
+                if let Some(ts) = updated_at {
+                    map.insert(started_at_key, ts);
+                }
+            }
+            "done" | "skip" => {
+                if let Some(ts) = updated_at {
+                    map.insert(started_at_key.clone(), ts.clone());
+                    map.insert(completed_at_key, ts);
+                }
+            }
+            _ => {
+                // open status: no timestamps to set
+            }
+        }
+
+        // Update schema version
+        map.insert(schema_key, Value::Number(8.into()));
+    }
+    Ok(frontmatter)
+}
+
 /// Summary of what migrations would be applied to get from one version to another.
 pub fn migration_summary(from_version: u32, to_version: u32) -> Vec<String> {
     let mut summaries = Vec::new();
@@ -186,6 +230,7 @@ pub fn migration_summary(from_version: u32, to_version: u32) -> Vec<String> {
             4 => summaries.push("v4→v5: external-repo config support".to_string()),
             5 => summaries.push("v5→v6: auto_pull/auto_push config support".to_string()),
             6 => summaries.push("v6→v7: rename status 'todo' to 'open'".to_string()),
+            7 => summaries.push("v7→v8: replace updated_at with started_at/completed_at".to_string()),
             _ => {}
         }
     }
