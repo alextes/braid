@@ -71,7 +71,7 @@ brd start
 
 - `brd init` — initialize braid in current repo
 - `brd add "<title>" [-p P0-P3] [-b "<body>"] [--dep <id>]` — create a new issue
-- `brd ls [--status todo|doing|done] [-p P0-P3] [--ready] [--blocked]` — list issues
+- `brd ls [--status open|doing|done|skip] [-p P0-P3] [--ready] [--blocked]` — list issues
 - `brd show <id> [--context]` — show issue details (with `--context`: include deps and dependents)
 - `brd set <id> <field> <value>` — quickly update a field (priority, status, type, owner, title, tag)
 - `brd edit <id>` — open issue in $EDITOR
@@ -95,7 +95,7 @@ brd start
 ### utilities
 
 - `brd tui` — interactive terminal UI for browsing and managing issues
-- `brd commit` — commit .braid changes with auto-generated message
+- `brd commit [-m "<message>"]` — commit .braid changes (auto-generates message if omitted)
 - `brd search` — show how to search issues with grep/rg
 - `brd doctor` — validate repo state
 - `brd status` — show repo status summary
