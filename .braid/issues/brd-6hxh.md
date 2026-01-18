@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-6hxh
 title: add unit tests for ship command (git operations)
 priority: P1

@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-u9vk
 title: 'tui: add live view mode for in-progress issues'
 priority: P2

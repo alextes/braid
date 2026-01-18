@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-w3ao
 title: add workflow config field and schema v5 migration
 priority: P2

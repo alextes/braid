@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-6lme
 title: add git show/ls-tree helpers for reading from issues branch
 priority: P2

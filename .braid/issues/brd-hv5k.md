@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-hv5k
 title: 'design: rename status ''todo'' to ''open'' to pair with reopen'
 priority: P2

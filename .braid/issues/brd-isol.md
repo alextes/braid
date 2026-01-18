@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-isol
 title: style priority column for visual distinction
 priority: P3

@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-x00g
 title: consolidate agent.rs and agents.rs modules
 priority: P2

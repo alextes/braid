@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-38g3
 title: add tests for search command
 priority: P3

@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-iv8z
 title: refactor dep command to use blocker/blocked terminology
 priority: P2

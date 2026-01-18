@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-2bi5
 title: add unit tests for issue parsing edge cases
 priority: P2

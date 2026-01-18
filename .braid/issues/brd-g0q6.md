@@ -1,9 +1,9 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-g0q6
 title: expand brd status to show agent info
 priority: P2
-status: todo
+status: open
 type: design
 deps: []
 owner: null

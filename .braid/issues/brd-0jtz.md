@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-0jtz
 title: require result issues when closing design issues
 priority: P1

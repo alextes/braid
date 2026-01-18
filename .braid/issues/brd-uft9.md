@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-uft9
 title: add unit tests for clear_external_repo
 priority: P1

@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-hzkt
 title: add unit tests for clear_issues_branch
 priority: P1

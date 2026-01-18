@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-tmbh
 title: add unit tests for repo module
 priority: P3

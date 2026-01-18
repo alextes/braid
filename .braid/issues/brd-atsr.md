@@ -1,9 +1,9 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-atsr
 title: add brd reopen command
 priority: P2
-status: todo
+status: open
 deps:
 - brd-yci2
 - brd-1i52

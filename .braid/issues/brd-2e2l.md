@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-2e2l
 title: 'bug: brd ls footer shows redundant ''todo'' and ''open'' counts'
 priority: P2

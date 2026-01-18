@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-i2q5
 title: add issues_repo config field and schema v5 migration
 priority: P2

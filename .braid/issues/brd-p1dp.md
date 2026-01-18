@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-p1dp
 title: implement claims system for multi-agent coordination
 priority: P3

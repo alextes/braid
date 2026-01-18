@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-wx1e
 title: add cancelled status for abandoned issues
 priority: P2

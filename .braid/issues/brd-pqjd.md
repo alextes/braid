@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-pqjd
 title: revise brd init interactive prompt with orthogonal questions
 priority: P2

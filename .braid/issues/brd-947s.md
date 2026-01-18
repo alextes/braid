@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-947s
 title: document workflow modes
 priority: P3

@@ -1,9 +1,9 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-ywk8
 title: set up npm release with cargo-dist
 priority: P3
-status: todo
+status: open
 type: design
 deps: []
 owner: null

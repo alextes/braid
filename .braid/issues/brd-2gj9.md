@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-2gj9
 title: after init, recommend injecting agent instructions
 priority: P1

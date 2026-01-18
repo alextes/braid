@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-blyq
 title: add unit tests for agents command
 priority: P3

@@ -1,9 +1,9 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-bego
 title: document brd commit and brd tui in README
 priority: P2
-status: todo
+status: open
 deps: []
 owner: null
 created_at: 2026-01-05T21:28:54.706039Z

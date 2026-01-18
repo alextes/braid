@@ -1,9 +1,9 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-a6sf
 title: add started_at and completed_at, remove updated_at
 priority: P2
-status: todo
+status: open
 deps: []
 owner: null
 created_at: 2026-01-05T21:28:54.956461Z

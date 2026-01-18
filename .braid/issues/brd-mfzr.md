@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-mfzr
 title: 'design: orthogonal workflow configuration (branch + auto-sync)'
 priority: P2

@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-whi8
 title: robust schema version checking across repos and modes
 priority: P1

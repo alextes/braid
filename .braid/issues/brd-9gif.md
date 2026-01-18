@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-9gif
 title: warn when agent claims new issue while another is still doing
 priority: P1

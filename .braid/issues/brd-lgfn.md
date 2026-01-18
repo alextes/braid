@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-lgfn
 title: add unit tests for mode.rs
 priority: P2

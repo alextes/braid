@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-1my2
 title: enable exploring dep issues in TUI
 priority: P2

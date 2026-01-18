@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-ww8p
 title: implement brd v0.1 CLI
 priority: P0

@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-77te
 title: add brd ship command to streamline agent merge workflow
 priority: P2

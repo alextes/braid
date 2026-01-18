@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-a7te
 title: 'TUI: allow adding deps when creating issues'
 priority: P3

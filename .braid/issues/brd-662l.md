@@ -1,9 +1,9 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-662l
 title: add timing output to doctor command
 priority: P3
-status: todo
+status: open
 deps: []
 owner: null
 created_at: 2025-12-28T22:57:56.683906Z

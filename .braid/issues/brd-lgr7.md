@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-lgr7
 title: allow custom file path for AGENTS block injection
 priority: P3

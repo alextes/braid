@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-0oro
 title: improve brd init visual output clarity
 priority: P3

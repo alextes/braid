@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-wpqs
 title: 'TUI: priority picker missing P0'
 priority: P2

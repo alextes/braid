@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-rx4v
 title: implement TUI unit tests
 priority: P2

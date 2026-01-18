@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-86av
 title: add unit tests for sync.rs
 priority: P2

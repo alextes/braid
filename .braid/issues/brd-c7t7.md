@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-c7t7
 title: add workflow field to issue frontmatter
 priority: P2

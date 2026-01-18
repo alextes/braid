@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-pezq
 title: add unit tests for agent init command
 priority: P2

@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-mg33
 title: 'TUI: slim down issue creation dialog'
 priority: P3

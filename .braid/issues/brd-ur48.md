@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-ur48
 title: implement smart brd ls defaults
 priority: P2

@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-vcdg
 title: add unit tests for issue ID resolution
 priority: P2

@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-5wnb
 title: Extend doctor to check CLAUDE.md and CLAUDE.local.md
 priority: P2

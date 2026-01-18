@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-nfhi
 title: add unit test for external-repo set success
 priority: P1

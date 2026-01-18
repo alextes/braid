@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-1ml1
 title: 'design: behavior when brd init called on already-initialized repo'
 priority: P2

@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-9luu
 title: add -p shorthand for --priority flag
 priority: P3
