@@ -91,7 +91,7 @@ pub enum Command {
         /// issue ID (full or partial)
         id: String,
 
-        /// field to update (priority, tag)
+        /// field to update (priority, status, type, owner, title, tag)
         field: String,
 
         /// new value
