@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-zhgu
 title: add tests for agent.rs worktree operations
 priority: P2

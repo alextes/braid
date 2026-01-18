@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-3oav
 title: simplify brd mode - separate config from migration
 priority: P3

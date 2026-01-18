@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-optf
 title: can't run `brd completions zsh` from not braid repo directory
 priority: P2

@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-qt66
 title: design TUI live view for in-progress issues
 priority: P2

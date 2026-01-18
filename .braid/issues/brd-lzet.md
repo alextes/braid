@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-lzet
 title: update brd start to use config.auto_pull instead of mode check
 priority: P2

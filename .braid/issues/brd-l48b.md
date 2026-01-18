@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-l48b
 title: add tests for mode command
 priority: P3

@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-1qzs
 title: prevent old brd versions from creating issues in upgraded repos
 priority: P2

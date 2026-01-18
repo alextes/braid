@@ -1,9 +1,9 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-4cjb
 title: implement full-text search for issues
 priority: P3
-status: todo
+status: open
 type: design
 deps: []
 owner: null

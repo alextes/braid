@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-zeqv
 title: add auto_pull and auto_push config fields with schema v6 migration
 priority: P2

@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-vgox
 title: 'tui: inline filter mode instead of dialog'
 priority: P2

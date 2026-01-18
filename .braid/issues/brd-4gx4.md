@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-4gx4
 title: set up cargo-dist for automated releases
 priority: P2

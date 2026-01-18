@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-sbd8
 title: rename labels field to tags in schema
 priority: P2

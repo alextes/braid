@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-fmiv
 title: update AGENTS.md block to document both workflows
 priority: P2

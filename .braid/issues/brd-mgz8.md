@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-mgz8
 title: improve schema mismatch error handling for agents
 priority: P1

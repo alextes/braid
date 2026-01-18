@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-nb5l
 title: move helper functions to appropriate modules
 priority: P2

@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-homg
 title: add brd rm command to delete issues
 priority: P2

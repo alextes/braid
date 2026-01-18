@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-e27d
 title: testing checklist for workflow modes
 priority: P2

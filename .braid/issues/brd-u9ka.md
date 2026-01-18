@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-u9ka
 title: integration tests for workflow mode switching and init
 priority: P2

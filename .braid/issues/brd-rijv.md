@@ -1,9 +1,9 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-rijv
 title: gh repo create integration for external-repo setup
 priority: P3
-status: todo
+status: open
 deps:
 - brd-ily8
 owner: null

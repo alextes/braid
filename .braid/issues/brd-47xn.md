@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-47xn
 title: implement brd mode external-repo command
 priority: P2

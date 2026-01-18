@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-3udt
 title: 'design: improve error for uninitialized repo'
 priority: P2

@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-s7rz
 title: add visual distinction for status and priority in brd ls/ready output
 priority: P1

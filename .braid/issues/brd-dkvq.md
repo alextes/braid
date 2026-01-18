@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-dkvq
 title: add summary counts for doing/done/skip to brd ls output
 priority: P2

@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-s5bg
 title: add unit tests for init command
 priority: P2

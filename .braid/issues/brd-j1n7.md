@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-j1n7
 title: add brd set command for quick field updates
 priority: P2

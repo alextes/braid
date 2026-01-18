@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-xj5z
 title: 'render #bug tag in red in brd ls and brd ready output'
 priority: P3

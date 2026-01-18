@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-obsv
 title: prompt to update AGENTS.md after mode switch
 priority: P2

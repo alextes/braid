@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-m7vy
 title: add cycle prevention on dep edits
 priority: P3

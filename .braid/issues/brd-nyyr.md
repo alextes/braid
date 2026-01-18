@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-nyyr
 title: skip commit+push in local-sync mode for brd start
 priority: P2

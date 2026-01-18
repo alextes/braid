@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-eig1
 title: add stats footer to ls and ready output
 priority: P2

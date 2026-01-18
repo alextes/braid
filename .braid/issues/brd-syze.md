@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-syze
 title: make issues visible in editor for issues-branch mode
 priority: P2

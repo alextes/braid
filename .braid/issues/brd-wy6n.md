@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-wy6n
 title: 'design: rename agent commands to use git-aligned terminology'
 priority: P2

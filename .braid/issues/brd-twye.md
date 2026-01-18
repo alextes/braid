@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-twye
 title: implement issues-branch mode
 priority: P2

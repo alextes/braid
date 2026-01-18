@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-6oxb
 title: update AGENTS.md block with new agent merge command
 priority: P2

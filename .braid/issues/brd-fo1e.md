@@ -1,9 +1,9 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-fo1e
 title: 'design: getting started guide for humans'
 priority: P2
-status: todo
+status: open
 type: design
 deps: []
 owner: null

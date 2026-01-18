@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-8x1q
 title: rename brd agent ship to brd agent merge
 priority: P2

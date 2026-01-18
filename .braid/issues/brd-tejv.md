@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-tejv
 title: deduplicate issue sorting logic
 priority: P2

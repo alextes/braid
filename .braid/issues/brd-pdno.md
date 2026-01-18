@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-pdno
 title: visually distinguish meta and design issues in TUI
 priority: P2

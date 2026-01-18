@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-vkc4
 title: add unit tests for doctor command
 priority: P1

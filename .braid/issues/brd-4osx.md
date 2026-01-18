@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-4osx
 title: prevent reuse of agent worktrees by humans
 priority: P2

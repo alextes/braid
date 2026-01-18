@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-hj6a
 title: add main-branch detection to agent merge and pr commands
 priority: P2

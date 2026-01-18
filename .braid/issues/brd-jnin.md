@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-jnin
 title: warn about rebasing agent worktrees after mode switch
 priority: P2

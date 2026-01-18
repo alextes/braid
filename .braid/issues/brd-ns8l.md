@@ -1,9 +1,9 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-ns8l
 title: lightweight version update check
 priority: P3
-status: todo
+status: open
 type: design
 deps: []
 owner: null

@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-yg66
 title: brd next should skip meta-type issues
 priority: P2

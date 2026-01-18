@@ -1,9 +1,9 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-fait
 title: Agent Grid TUI - Headless JSON Approach
 priority: P2
-status: todo
+status: open
 type: design
 deps: []
 owner: null

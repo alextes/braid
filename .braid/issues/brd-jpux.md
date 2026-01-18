@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-jpux
 title: design braid workflow modes and configuration
 priority: P1

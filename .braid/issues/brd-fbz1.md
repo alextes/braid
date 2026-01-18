@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-fbz1
 title: update brd done to auto-push when config.auto_push is true
 priority: P2

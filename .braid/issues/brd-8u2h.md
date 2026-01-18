@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-8u2h
 title: 'design: align workflow-modes.md with init/mode implementation'
 priority: P2

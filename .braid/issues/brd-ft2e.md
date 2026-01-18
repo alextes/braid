@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-ft2e
 title: implement brd mode issues-branch command
 priority: P2

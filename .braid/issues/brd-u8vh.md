@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-u8vh
 title: add command to set up agent worktree
 priority: P1

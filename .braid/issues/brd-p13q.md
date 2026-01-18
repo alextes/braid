@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-p13q
 title: implement brd agent branch command
 priority: P2

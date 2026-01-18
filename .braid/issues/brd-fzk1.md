@@ -1,9 +1,9 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-fzk1
 title: design workflow-aware command hints and warnings
 priority: P3
-status: todo
+status: open
 type: design
 deps:
 - brd-1k3w

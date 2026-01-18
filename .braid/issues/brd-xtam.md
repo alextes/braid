@@ -1,9 +1,9 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-xtam
 title: '''brd ls'' error for dir with git, without brd'
 priority: P2
-status: todo
+status: open
 deps: []
 owner: null
 created_at: 2026-01-09T19:41:29.693793Z

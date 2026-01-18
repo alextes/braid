@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-4nvh
 title: 'tui: add filtering in all issues view'
 priority: P2

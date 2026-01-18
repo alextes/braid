@@ -1,9 +1,9 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-1i52
 title: 'design: track PR URL in issue frontmatter'
 priority: P3
-status: todo
+status: open
 type: design
 deps: []
 owner: null

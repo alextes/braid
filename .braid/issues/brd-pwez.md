@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-pwez
 title: add verbose logging flag for debugging
 priority: P2

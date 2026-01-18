@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-rzk2
 title: add tests for TUI modules
 priority: P2

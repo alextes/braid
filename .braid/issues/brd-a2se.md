@@ -1,9 +1,9 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-a2se
 title: automatic cleanup/housekeeping command
 priority: P3
-status: todo
+status: open
 type: design
 deps: []
 owner: null

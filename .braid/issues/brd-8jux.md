@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-8jux
 title: update docs for external-repo mode
 priority: P2

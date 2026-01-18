@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-xerg
 title: add unit tests for commit.rs
 priority: P2

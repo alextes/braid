@@ -1,5 +1,5 @@
 ---
-schema_version: 6
+schema_version: 7
 id: brd-0pwy
 title: improve agent init output with agent start instructions
 priority: P3
