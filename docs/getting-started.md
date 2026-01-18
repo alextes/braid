@@ -97,48 +97,12 @@ brd done abc1
 
 The issue moves to "done" status.
 
-## Viewing and Filtering Issues
-
-### List All Issues
+## Viewing Issues
 
 ```bash
-brd ls
-```
-
-### Filter by Status
-
-```bash
-brd ls --status open      # not started
-brd ls --status doing     # in progress
-brd ls --status done      # completed
-```
-
-### Filter by Priority
-
-```bash
-brd ls -p P0           # critical only
-brd ls -p P1 -p P2     # high and normal
-```
-
-### Show Issue Details
-
-```bash
-brd show abc1
-```
-
-Add `--context` to see dependencies and dependents:
-
-```bash
-brd show abc1 --context
-```
-
-### Search Issues
-
-Braid issues are just markdown files, so use your favorite tools:
-
-```bash
-grep -r "authentication" .braid/issues/
-rg "TODO" .braid/issues/
+brd ls                    # list all issues
+brd ls --status doing     # filter by status
+brd show abc1             # view issue details
 ```
 
 ## Quick Reference
