@@ -95,7 +95,7 @@ brd start
 ### utilities
 
 - `brd tui` — interactive terminal UI for browsing and managing issues
-- `brd commit [-m "<message>"]` — commit .braid changes (auto-generates message if omitted)
+- `brd commit` — commit .braid changes with auto-generated message
 - `brd search` — show how to search issues with grep/rg
 - `brd doctor` — validate repo state
 - `brd status` — show repo status summary
