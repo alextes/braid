@@ -9,7 +9,7 @@ use ratatui::{
 };
 use time::{Duration as TimeDuration, OffsetDateTime};
 
-use super::app::{App, InputMode};
+use super::app::{App, InputMode, View};
 
 /// draw the entire UI.
 pub fn draw(f: &mut Frame, app: &mut App) {
@@ -45,8 +45,7 @@ fn draw_header(f: &mut Frame, area: Rect, app: &App) {
 
 fn draw_footer(f: &mut Frame, area: Rect, app: &App) {
     let msg = app.message.as_deref().unwrap_or("");
-    let help =
-        "[a]dd [e]dit [s]tart [d]one [r]efresh [/]filter [1-4]status [g/G]top/bot [?]help [q]uit";
+    let help = "[1]dashboard [2]issues [a]dd [e]dit [s]tart [d]one [/]filter [?]help [q]uit";
     let text = if msg.is_empty() {
         help.to_string()
     } else {
@@ -57,6 +56,51 @@ fn draw_footer(f: &mut Frame, area: Rect, app: &App) {
 }
 
 fn draw_main(f: &mut Frame, area: Rect, app: &mut App) {
+    match app.view {
+        View::Dashboard => draw_dashboard(f, area, app),
+        View::Issues => draw_issues_view(f, area, app),
+    }
+}
+
+fn draw_dashboard(f: &mut Frame, area: Rect, app: &App) {
+    let block = Block::default()
+        .title(" Dashboard ")
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::Yellow));
+
+    // count issues by status
+    let open_count = app.issues.values().filter(|i| i.status() == crate::issue::Status::Open).count();
+    let doing_count = app.issues.values().filter(|i| i.status() == crate::issue::Status::Doing).count();
+    let done_count = app.issues.values().filter(|i| i.status() == crate::issue::Status::Done).count();
+    let skip_count = app.issues.values().filter(|i| i.status() == crate::issue::Status::Skip).count();
+
+    let lines = vec![
+        Line::from(""),
+        Line::from(vec![
+            Span::styled("  open:  ", Style::default().fg(Color::DarkGray)),
+            Span::raw(format!("{}", open_count)),
+        ]),
+        Line::from(vec![
+            Span::styled("  doing: ", Style::default().fg(Color::DarkGray)),
+            Span::styled(format!("{}", doing_count), Style::default().fg(Color::Yellow)),
+        ]),
+        Line::from(vec![
+            Span::styled("  done:  ", Style::default().fg(Color::DarkGray)),
+            Span::styled(format!("{}", done_count), Style::default().fg(Color::Green)),
+        ]),
+        Line::from(vec![
+            Span::styled("  skip:  ", Style::default().fg(Color::DarkGray)),
+            Span::styled(format!("{}", skip_count), Style::default().fg(Color::DarkGray)),
+        ]),
+        Line::from(""),
+        Line::from(Span::styled("  (placeholder — more stats coming)", Style::default().fg(Color::DarkGray))),
+    ];
+
+    let paragraph = Paragraph::new(lines).block(block);
+    f.render_widget(paragraph, area);
+}
+
+fn draw_issues_view(f: &mut Frame, area: Rect, app: &mut App) {
     let chunks = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
@@ -416,13 +460,19 @@ fn draw_help(f: &mut Frame, area: Rect) {
         Line::from("  r          refresh issues from disk"),
         Line::from(""),
         Line::from(Span::styled(
+            "views",
+            Style::default().add_modifier(Modifier::BOLD),
+        )),
+        Line::from("  1          dashboard"),
+        Line::from("  2          issues"),
+        Line::from(""),
+        Line::from(Span::styled(
             "filter",
             Style::default().add_modifier(Modifier::BOLD),
         )),
         Line::from("  /          enter filter mode"),
         Line::from("  enter      confirm filter"),
         Line::from("  esc        clear filter"),
-        Line::from("  1-4        toggle status (1=open 2=doing 3=done 4=skip)"),
         Line::from(""),
         Line::from(Span::styled(
             "other",

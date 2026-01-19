@@ -9,6 +9,16 @@ use crate::issue::{Issue, IssueType, Priority, Status};
 use crate::lock::LockGuard;
 use crate::repo::RepoPaths;
 
+/// which view is currently active.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum View {
+    /// dashboard with stats overview
+    Dashboard,
+    /// issue list (default)
+    #[default]
+    Issues,
+}
+
 /// input mode for creating/editing issues.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum InputMode {
@@ -38,6 +48,8 @@ pub enum InputMode {
 
 /// TUI application state.
 pub struct App {
+    /// current view
+    pub view: View,
     /// all issues loaded from disk
     pub issues: HashMap<String, Issue>,
     /// sorted issue ids (priority order)
@@ -74,6 +86,7 @@ impl App {
         let agent_id = get_agent_id(&paths.worktree_root);
         let config = Config::load(&paths.config_path())?;
         let mut app = Self {
+            view: View::Issues,
             issues: HashMap::new(),
             sorted_issues: Vec::new(),
             filtered_issues: Vec::new(),
@@ -173,17 +186,6 @@ impl App {
         } else {
             &self.sorted_issues
         }
-    }
-
-    /// toggle a status in the filter.
-    pub fn toggle_status_filter(&mut self, status: Status) {
-        if self.status_filter.contains(&status) {
-            self.status_filter.remove(&status);
-        } else {
-            self.status_filter.insert(status);
-        }
-        self.apply_filter();
-        self.message = None;
     }
 
     /// clear all filters.
@@ -717,26 +719,6 @@ mod tests {
         app.apply_filter();
 
         assert_eq!(app.filtered_issues.len(), 1);
-    }
-
-    #[test]
-    fn test_toggle_status_filter() {
-        let env = TestEnv::new();
-        let mut app = env.app();
-
-        assert!(app.status_filter.is_empty());
-
-        app.toggle_status_filter(Status::Done);
-        assert!(app.status_filter.contains(&Status::Done));
-
-        app.toggle_status_filter(Status::Skip);
-        assert!(app.status_filter.contains(&Status::Done));
-        assert!(app.status_filter.contains(&Status::Skip));
-
-        // toggle off
-        app.toggle_status_filter(Status::Done);
-        assert!(!app.status_filter.contains(&Status::Done));
-        assert!(app.status_filter.contains(&Status::Skip));
     }
 
     #[test]

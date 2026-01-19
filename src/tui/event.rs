@@ -159,19 +159,6 @@ fn handle_key_event(app: &mut App, paths: &RepoPaths, key: KeyEvent) -> Result<b
                     app.input_mode = InputMode::Filter(s);
                     app.message = None;
                 }
-                // toggle status filters with 1-4
-                KeyCode::Char('1') => {
-                    app.toggle_status_filter(crate::issue::Status::Open);
-                }
-                KeyCode::Char('2') => {
-                    app.toggle_status_filter(crate::issue::Status::Doing);
-                }
-                KeyCode::Char('3') => {
-                    app.toggle_status_filter(crate::issue::Status::Done);
-                }
-                KeyCode::Char('4') => {
-                    app.toggle_status_filter(crate::issue::Status::Skip);
-                }
                 KeyCode::Char(c) => {
                     let mut s = current.clone();
                     s.push(c);
@@ -220,11 +207,11 @@ fn handle_key_event(app: &mut App, paths: &RepoPaths, key: KeyEvent) -> Result<b
         }
         KeyCode::Enter => app.open_selected_dependency(),
 
+        // views
+        KeyCode::Char('1') => app.view = crate::tui::app::View::Dashboard,
+        KeyCode::Char('2') => app.view = crate::tui::app::View::Issues,
+
         // filter
-        KeyCode::Char('1') => app.toggle_status_filter(crate::issue::Status::Open),
-        KeyCode::Char('2') => app.toggle_status_filter(crate::issue::Status::Doing),
-        KeyCode::Char('3') => app.toggle_status_filter(crate::issue::Status::Done),
-        KeyCode::Char('4') => app.toggle_status_filter(crate::issue::Status::Skip),
         KeyCode::Char('/') => app.start_filter(),
         KeyCode::Esc => {
             if app.has_filter() {
@@ -477,21 +464,19 @@ mod tests {
     }
 
     #[test]
-    fn test_status_filter_toggle() {
+    fn test_view_switching() {
         let env = TestEnv::new();
-        env.add_issue("brd-aaaa", "todo item", Priority::P1, Status::Open);
-        env.add_issue("brd-bbbb", "done item", Priority::P2, Status::Done);
-
         let mut app = env.app();
-        handle_key_event(&mut app, &env.paths, key(KeyCode::Char('3')))
-            .expect("toggle status filter failed");
 
-        assert!(app.status_filter.contains(&Status::Done));
-        assert_eq!(app.visible_issues().len(), 1);
-        assert_eq!(
-            app.visible_issues().first().map(String::as_str),
-            Some("brd-bbbb")
-        );
+        assert_eq!(app.view, crate::tui::app::View::Issues);
+
+        handle_key_event(&mut app, &env.paths, key(KeyCode::Char('1')))
+            .expect("switch to dashboard failed");
+        assert_eq!(app.view, crate::tui::app::View::Dashboard);
+
+        handle_key_event(&mut app, &env.paths, key(KeyCode::Char('2')))
+            .expect("switch to issues failed");
+        assert_eq!(app.view, crate::tui::app::View::Issues);
     }
 
     #[test]
