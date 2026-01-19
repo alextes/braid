@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-ns8l
 title: lightweight version update check
 priority: P3
@@ -8,7 +8,6 @@ type: design
 deps: []
 owner: null
 created_at: 2026-01-04T17:05:14.799101Z
-updated_at: 2026-01-04T17:05:14.799101Z
 ---
 
 ## Problem

@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-c7t7
 title: add workflow field to issue frontmatter
 priority: P2
@@ -9,5 +9,6 @@ deps:
 - brd-w3ao
 owner: null
 created_at: 2025-12-29T21:03:59.917647Z
-updated_at: 2026-01-02T08:14:08.298263Z
+started_at: 2026-01-02T08:14:08.298263Z
+completed_at: 2026-01-02T08:14:08.298263Z
 ---

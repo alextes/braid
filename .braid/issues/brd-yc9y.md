@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-yc9y
 title: interactive brd init with workflow choice
 priority: P2
@@ -8,7 +8,8 @@ deps:
 - brd-47xn
 owner: null
 created_at: 2025-12-28T23:16:42.066Z
-updated_at: 2025-12-30T16:48:53.191655Z
+started_at: 2025-12-30T16:48:53.191655Z
+completed_at: 2025-12-30T16:48:53.191655Z
 ---
 
 Make `brd init` interactive by default, asking about workflow needs.

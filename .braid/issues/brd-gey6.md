@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-gey6
 title: detect AI agent execution and refuse interactive commands without --force
 priority: P2
@@ -8,7 +8,6 @@ type: design
 deps: []
 owner: null
 created_at: 2026-01-17T10:18:09.269942Z
-updated_at: 2026-01-17T10:18:09.269942Z
 ---
 
 Commands like `brd edit` open an interactive editor, which doesn't work for AI agents (Claude, Codex, etc.).

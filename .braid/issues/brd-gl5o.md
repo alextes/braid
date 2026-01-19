@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-gl5o
 title: fix TUI list scrolling beyond visible screen
 priority: P2
@@ -10,7 +10,8 @@ tags:
 - bug
 owner: null
 created_at: 2025-12-28T08:44:05.342773Z
-updated_at: 2025-12-28T18:27:57.619688Z
+started_at: 2025-12-28T18:27:57.619688Z
+completed_at: 2025-12-28T18:27:57.619688Z
 acceptance:
 - scrolling all issues view keeps cursor visible
 - list view scrolls when cursor moves beyond viewport

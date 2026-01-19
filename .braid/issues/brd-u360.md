@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-u360
 title: 'brd ls: limit visible todo issues with indicator for more'
 priority: P2
@@ -8,7 +8,8 @@ type: design
 deps: []
 owner: null
 created_at: 2025-12-29T23:34:26.853547Z
-updated_at: 2025-12-30T16:38:38.831768Z
+started_at: 2025-12-30T16:38:38.831768Z
+completed_at: 2025-12-30T16:38:38.831768Z
 ---
 
 `brd ls` already limits done issues to recent ones. but the todo list can grow large too.

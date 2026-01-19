@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-twye
 title: implement issues-branch mode
 priority: P2
@@ -8,7 +8,8 @@ type: design
 deps: []
 owner: null
 created_at: 2025-12-28T23:55:59.853809Z
-updated_at: 2025-12-29T00:00:08.170503Z
+started_at: 2025-12-29T00:00:08.170503Z
+completed_at: 2025-12-29T00:00:08.170503Z
 ---
 
 A new workflow mode that keeps issues on a separate branch while maintaining simple git semantics.

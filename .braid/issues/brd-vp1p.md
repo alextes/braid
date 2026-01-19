@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-vp1p
 title: extend doctor to print passing checks with descriptions
 priority: P2
@@ -7,7 +7,8 @@ status: done
 deps: []
 owner: null
 created_at: 2025-12-26T07:42:40.025085Z
-updated_at: 2025-12-26T18:43:50.993222Z
+started_at: 2025-12-26T18:43:50.993222Z
+completed_at: 2025-12-26T18:43:50.993222Z
 ---
 
 currently `brd doctor` only prints "✓ All checks passed" on success. extend it to print each individual check as it passes, with a short description of what was validated.

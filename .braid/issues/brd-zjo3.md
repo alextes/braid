@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-zjo3
 title: add unit tests for show command
 priority: P3
@@ -9,7 +9,8 @@ tags:
 - testing
 owner: null
 created_at: 2025-12-28T08:49:45.008596Z
-updated_at: 2025-12-28T20:28:20.222964Z
+started_at: 2025-12-28T20:28:20.222964Z
+completed_at: 2025-12-28T20:28:20.222964Z
 ---
 
 show command displays issue details but has no unit tests.

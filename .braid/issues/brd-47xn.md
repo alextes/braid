@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-47xn
 title: implement brd mode external-repo command
 priority: P2
@@ -8,7 +8,8 @@ deps:
 - brd-6zmi
 owner: null
 created_at: 2025-12-30T15:40:20.443884Z
-updated_at: 2025-12-30T16:19:27.037549Z
+started_at: 2025-12-30T16:19:27.037549Z
+completed_at: 2025-12-30T16:19:27.037549Z
 ---
 
 Add `brd mode external-repo <path>` subcommand:

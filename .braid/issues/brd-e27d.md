@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-e27d
 title: testing checklist for workflow modes
 priority: P2
@@ -7,7 +7,8 @@ status: done
 deps: []
 owner: null
 created_at: 2026-01-02T13:27:04.113387Z
-updated_at: 2026-01-04T15:22:38.373641Z
+started_at: 2026-01-04T15:22:38.373641Z
+completed_at: 2026-01-04T15:22:38.373641Z
 ---
 
 ## Purpose

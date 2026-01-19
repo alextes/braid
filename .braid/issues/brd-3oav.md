@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-3oav
 title: simplify brd mode - separate config from migration
 priority: P3
@@ -8,7 +8,8 @@ type: design
 deps: []
 owner: null
 created_at: 2025-12-29T17:22:49.63266Z
-updated_at: 2025-12-30T11:39:14.836764Z
+started_at: 2025-12-30T11:39:14.836764Z
+completed_at: 2025-12-30T11:39:14.836764Z
 ---
 
 `brd mode` currently does several things:

@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-yg66
 title: brd next should skip meta-type issues
 priority: P2
@@ -7,7 +7,8 @@ status: done
 deps: []
 owner: null
 created_at: 2025-12-27T08:26:43.753205Z
-updated_at: 2025-12-27T08:37:07.879477Z
+started_at: 2025-12-27T08:37:07.879477Z
+completed_at: 2025-12-27T08:37:07.879477Z
 acceptance:
 - 'brd next excludes issues with type: meta'
 ---

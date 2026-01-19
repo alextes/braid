@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-fbz1
 title: update brd done to auto-push when config.auto_push is true
 priority: P2
@@ -8,7 +8,8 @@ deps:
 - brd-zeqv
 owner: null
 created_at: 2025-12-30T17:08:56.720094Z
-updated_at: 2025-12-30T20:09:54.594101Z
+started_at: 2025-12-30T20:09:54.594101Z
+completed_at: 2025-12-30T20:09:54.594101Z
 ---
 
 Add auto-push behavior to `brd done` when `config.auto_push` is enabled.

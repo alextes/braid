@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-t2o8
 title: smarter brd start with auto-sync
 priority: P1
@@ -8,7 +8,8 @@ type: design
 deps: []
 owner: null
 created_at: 2025-12-28T17:30:56.763758Z
-updated_at: 2025-12-28T17:45:40.592713Z
+started_at: 2025-12-28T17:45:40.592713Z
+completed_at: 2025-12-28T17:45:40.592713Z
 ---
 
 make `brd start` handle syncing automatically to prevent stale claims and race conditions.

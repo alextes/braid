@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-ft2e
 title: implement brd mode issues-branch command
 priority: P2
@@ -9,7 +9,8 @@ deps:
 - brd-8vcu
 owner: null
 created_at: 2025-12-28T23:59:41.070542Z
-updated_at: 2025-12-30T15:54:10.528483Z
+started_at: 2025-12-30T15:54:10.528483Z
+completed_at: 2025-12-30T15:54:10.528483Z
 ---
 
 Add `brd mode issues-branch [branch-name]` subcommand to switch to issues-branch mode.

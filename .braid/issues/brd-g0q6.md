@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-g0q6
 title: expand brd status to show agent info
 priority: P2
@@ -8,7 +8,6 @@ type: design
 deps: []
 owner: null
 created_at: 2026-01-06T22:29:00.765428Z
-updated_at: 2026-01-06T22:29:00.765428Z
 ---
 
 expand brd status to show information about agents:

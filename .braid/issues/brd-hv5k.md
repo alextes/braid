@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-hv5k
 title: 'design: rename status ''todo'' to ''open'' to pair with reopen'
 priority: P2
@@ -8,7 +8,8 @@ type: design
 deps: []
 owner: null
 created_at: 2025-12-29T23:15:06.206602Z
-updated_at: 2026-01-09T12:12:28.969276Z
+started_at: 2026-01-09T12:12:28.969276Z
+completed_at: 2026-01-09T12:12:28.969276Z
 ---
 
 if we're adding `brd reopen`, having `status: todo` feels odd. "reopen" suggests "open".

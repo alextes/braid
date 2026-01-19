@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-isol
 title: style priority column for visual distinction
 priority: P3
@@ -9,7 +9,8 @@ tags:
 - visual
 owner: null
 created_at: 2025-12-27T15:37:19.641113Z
-updated_at: 2025-12-27T21:10:52.960305Z
+started_at: 2025-12-27T21:10:52.960305Z
+completed_at: 2025-12-27T21:10:52.960305Z
 acceptance:
 - P0/P1 priority text styled differently from P2/P3
 - styling applies only to priority column, not whole line

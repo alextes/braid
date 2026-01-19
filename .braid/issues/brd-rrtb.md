@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-rrtb
 title: handle uncommitted changes when starting issues
 priority: P1
@@ -8,7 +8,8 @@ type: design
 deps: []
 owner: null
 created_at: 2026-01-09T11:32:14.399513Z
-updated_at: 2026-01-17T10:06:37.976023Z
+started_at: 2026-01-17T10:06:37.976023Z
+completed_at: 2026-01-17T10:06:37.976023Z
 ---
 
 currently brd start refuses to run when there are uncommitted changes in the working tree:

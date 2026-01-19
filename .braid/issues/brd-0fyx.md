@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-0fyx
 title: hint about --all flag when listing done issues
 priority: P2
@@ -7,7 +7,8 @@ status: done
 deps: []
 owner: null
 created_at: 2026-01-04T17:02:41.69323Z
-updated_at: 2026-01-17T10:21:44.922952Z
+started_at: 2026-01-17T10:21:44.922952Z
+completed_at: 2026-01-17T10:21:44.922952Z
 ---
 
 ## Problem

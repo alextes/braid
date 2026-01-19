@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-obsv
 title: prompt to update AGENTS.md after mode switch
 priority: P2
@@ -7,7 +7,8 @@ status: skip
 deps: []
 owner: null
 created_at: 2025-12-29T08:25:39.070202Z
-updated_at: 2025-12-29T23:29:57.184156Z
+started_at: 2025-12-29T23:29:57.184156Z
+completed_at: 2025-12-29T23:29:57.184156Z
 ---
 
 After switching modes, the AGENTS.md block may have stale instructions for the old mode.

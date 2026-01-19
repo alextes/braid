@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-2bi5
 title: add unit tests for issue parsing edge cases
 priority: P2
@@ -7,7 +7,8 @@ status: done
 deps: []
 owner: null
 created_at: 2025-12-26T19:16:45.860751Z
-updated_at: 2025-12-27T22:12:58.108103Z
+started_at: 2025-12-27T22:12:58.108103Z
+completed_at: 2025-12-27T22:12:58.108103Z
 acceptance:
 - test parsing with missing optional fields
 - test parsing with malformed frontmatter

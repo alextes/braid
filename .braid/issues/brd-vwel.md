@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-vwel
 title: add issues_branch config field and schema v5 migration
 priority: P2
@@ -7,7 +7,8 @@ status: skip
 deps: []
 owner: null
 created_at: 2025-12-28T23:58:15.656691Z
-updated_at: 2025-12-30T15:54:10.486666Z
+started_at: 2025-12-30T15:54:10.486666Z
+completed_at: 2025-12-30T15:54:10.486666Z
 ---
 
 Add `issues_branch: Option<String>` field to Config struct and migrate schema from v4 to v5.

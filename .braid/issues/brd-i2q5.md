@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-i2q5
 title: add issues_repo config field and schema v5 migration
 priority: P2
@@ -8,7 +8,8 @@ deps:
 - brd-ucso
 owner: null
 created_at: 2025-12-30T15:40:06.582474Z
-updated_at: 2025-12-30T16:10:53.73031Z
+started_at: 2025-12-30T16:10:53.73031Z
+completed_at: 2025-12-30T16:10:53.73031Z
 ---
 
 Add `issues_repo: Option<String>` to Config struct.

@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-cnd8
 title: 'TUI: spawn and manage agents'
 priority: P2
@@ -8,7 +8,6 @@ deps:
 - brd-xnxw
 owner: null
 created_at: 2026-01-18T14:18:27.121773Z
-updated_at: 2026-01-18T14:20:39.356195Z
 ---
 
 Add TUI support for spawning and managing ephemeral agents.

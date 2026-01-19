@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-mfzr
 title: 'design: orthogonal workflow configuration (branch + auto-sync)'
 priority: P2
@@ -8,7 +8,8 @@ type: design
 deps: []
 owner: null
 created_at: 2025-12-30T17:06:21.463511Z
-updated_at: 2025-12-30T17:10:17.481058Z
+started_at: 2025-12-30T17:10:17.481058Z
+completed_at: 2025-12-30T17:10:17.481058Z
 ---
 
 ## Key Insight: Coordination vs Storage are Orthogonal

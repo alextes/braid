@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-fw9h
 title: add tests for TUI app and ui modules
 priority: P3
@@ -9,7 +9,8 @@ tags:
 - tests
 owner: null
 created_at: 2025-12-28T22:57:32.292647Z
-updated_at: 2026-01-01T14:51:27.032167Z
+started_at: 2026-01-01T14:51:27.032167Z
+completed_at: 2026-01-01T14:51:27.032167Z
 ---
 
 The TUI modules `app.rs` and `ui.rs` have no test coverage (~23K LOC combined). This creates regression risk as the TUI evolves.

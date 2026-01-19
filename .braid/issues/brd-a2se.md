@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-a2se
 title: automatic cleanup/housekeeping command
 priority: P3
@@ -8,7 +8,6 @@ type: design
 deps: []
 owner: null
 created_at: 2025-12-27T13:45:21.834025Z
-updated_at: 2025-12-27T13:45:21.834025Z
 acceptance:
 - brd cleanup command exists
 - auto-cancels issues older than 180 days (configurable)

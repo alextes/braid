@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-lblg
 title: design better agent ID fallback
 priority: P2
@@ -7,7 +7,8 @@ status: done
 deps: []
 owner: null
 created_at: 2025-12-26T08:47:02.778179Z
-updated_at: 2025-12-26T15:43:31.396192Z
+started_at: 2025-12-26T15:43:31.396192Z
+completed_at: 2025-12-26T15:43:31.396192Z
 ---
 
 current fallback for agent ID is `<hostname>:<pid>` which is not great.

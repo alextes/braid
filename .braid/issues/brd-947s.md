@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-947s
 title: document workflow modes
 priority: P3
@@ -11,7 +11,8 @@ deps:
 - brd-tvue
 owner: null
 created_at: 2025-12-28T16:21:56.751882Z
-updated_at: 2025-12-28T21:38:33.367334Z
+started_at: 2025-12-28T21:38:33.367334Z
+completed_at: 2025-12-28T21:38:33.367334Z
 ---
 
 create user-facing documentation for workflow modes.

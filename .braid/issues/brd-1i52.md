@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-1i52
 title: 'design: track PR URL in issue frontmatter'
 priority: P3
@@ -8,7 +8,6 @@ type: design
 deps: []
 owner: null
 created_at: 2025-12-29T23:15:06.307669Z
-updated_at: 2025-12-29T23:15:06.307669Z
 ---
 
 when `brd agent pr` creates a PR, store the URL in the issue frontmatter so agents and humans can easily find it.

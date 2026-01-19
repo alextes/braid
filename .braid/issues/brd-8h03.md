@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-8h03
 title: add brd status command
 priority: P2
@@ -7,7 +7,8 @@ status: done
 deps: []
 owner: null
 created_at: 2025-12-28T23:16:57.75444Z
-updated_at: 2025-12-30T15:19:39.018868Z
+started_at: 2025-12-30T15:19:39.018868Z
+completed_at: 2025-12-30T15:19:39.018868Z
 ---
 
 New command showing repo state at a glance.

@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-c2g4
 title: 'brd sync: detect upstream, support local-only'
 priority: P2
@@ -7,7 +7,8 @@ status: done
 deps: []
 owner: null
 created_at: 2025-12-28T16:21:42.963077Z
-updated_at: 2025-12-28T20:23:41.323509Z
+started_at: 2025-12-28T20:23:41.323509Z
+completed_at: 2025-12-28T20:23:41.323509Z
 ---
 
 update `brd sync` to work in local-only mode when no upstream exists.

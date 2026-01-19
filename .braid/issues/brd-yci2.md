@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-yci2
 title: design better PR-based workflow support
 priority: P2
@@ -8,7 +8,8 @@ type: design
 deps: []
 owner: null
 created_at: 2025-12-29T17:22:49.510666Z
-updated_at: 2025-12-29T23:24:19.017794Z
+started_at: 2025-12-29T23:24:19.017794Z
+completed_at: 2025-12-29T23:24:19.017794Z
 ---
 
 Currently agents need to figure out from AGENTS.md how to work with PRs. We could provide helpful commands that guide agents through PR workflows.

@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-b7l4
 title: TUI Dashboard View
 priority: P2
@@ -8,7 +8,6 @@ type: design
 deps: []
 owner: null
 created_at: 2026-01-17T10:36:01.360526Z
-updated_at: 2026-01-17T10:36:01.360526Z
 ---
 
 Explore adding a dashboard-style view as the first view in the TUI.

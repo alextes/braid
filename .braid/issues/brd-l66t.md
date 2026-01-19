@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-l66t
 title: rename agents command to avoid confusion with agent
 priority: P2
@@ -7,7 +7,8 @@ status: done
 deps: []
 owner: null
 created_at: 2025-12-28T10:50:53.232495Z
-updated_at: 2025-12-28T18:11:45.462063Z
+started_at: 2025-12-28T18:11:45.462063Z
+completed_at: 2025-12-28T18:11:45.462063Z
 ---
 
 currently we have:

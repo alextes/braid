@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-c48z
 title: rename brd frontmatter key to schema_version
 priority: P2
@@ -8,7 +8,8 @@ deps:
 - brd-heid
 owner: agent-one
 created_at: 2025-12-26T16:47:51.781453Z
-updated_at: 2025-12-26T20:54:58.906382Z
+started_at: 2025-12-26T20:54:58.906382Z
+completed_at: 2025-12-26T20:54:58.906382Z
 acceptance:
 - frontmatter uses schema_version instead of brd
 - migration handles old brd key

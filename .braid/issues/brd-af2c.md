@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-af2c
 title: add unit tests for add command
 priority: P2
@@ -9,7 +9,8 @@ tags:
 - testing
 owner: null
 created_at: 2025-12-28T08:49:05.99492Z
-updated_at: 2025-12-28T17:47:46.90586Z
+started_at: 2025-12-28T17:47:46.90586Z
+completed_at: 2025-12-28T17:47:46.90586Z
 ---
 
 the add command has complex logic for issue creation but no unit tests.

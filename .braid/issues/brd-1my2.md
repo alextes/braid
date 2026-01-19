@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-1my2
 title: enable exploring dep issues in TUI
 priority: P2
@@ -9,7 +9,8 @@ tags:
 - tui
 owner: null
 created_at: 2025-12-28T08:44:05.316563Z
-updated_at: 2025-12-28T18:08:44.203297Z
+started_at: 2025-12-28T18:08:44.203297Z
+completed_at: 2025-12-28T18:08:44.203297Z
 acceptance:
 - navigate to dependency issues from details pane
 - consider preview in details pane

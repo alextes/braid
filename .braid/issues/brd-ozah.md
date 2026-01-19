@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-ozah
 title: add brd mode command (show only)
 priority: P2
@@ -7,7 +7,8 @@ status: done
 deps: []
 owner: null
 created_at: 2025-12-28T16:21:42.842145Z
-updated_at: 2025-12-28T16:46:20.675055Z
+started_at: 2025-12-28T16:46:20.675055Z
+completed_at: 2025-12-28T16:46:20.675055Z
 ---
 
 implement `brd mode` command that shows current mode.

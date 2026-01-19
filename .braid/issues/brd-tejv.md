@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-tejv
 title: deduplicate issue sorting logic
 priority: P2
@@ -7,7 +7,8 @@ status: done
 deps: []
 owner: null
 created_at: 2025-12-26T08:26:05.920903Z
-updated_at: 2025-12-26T18:44:45.841225Z
+started_at: 2025-12-26T18:44:45.841225Z
+completed_at: 2025-12-26T18:44:45.841225Z
 ---
 
 the sorting logic (priority → created_at → id) is duplicated:

@@ -1,13 +1,14 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-bego
 title: document brd commit and brd tui in README
 priority: P2
-status: open
+status: done
 deps: []
 owner: null
 created_at: 2026-01-05T21:28:54.706039Z
-updated_at: 2026-01-05T21:28:54.706039Z
+started_at: 2026-01-18T20:54:58.949501Z
+completed_at: 2026-01-18T20:54:58.949501Z
 ---
 
 ## Problem

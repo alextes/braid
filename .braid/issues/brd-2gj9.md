@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-2gj9
 title: after init, recommend injecting agent instructions
 priority: P1
@@ -7,7 +7,8 @@ status: done
 deps: []
 owner: null
 created_at: 2026-01-04T15:54:54.816228Z
-updated_at: 2026-01-04T16:18:53.993489Z
+started_at: 2026-01-04T16:18:53.993489Z
+completed_at: 2026-01-04T16:18:53.993489Z
 ---
 
 ## Problem

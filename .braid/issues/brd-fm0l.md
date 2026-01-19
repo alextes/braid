@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-fm0l
 title: add unit tests for issue ID generation
 priority: P2
@@ -7,7 +7,8 @@ status: done
 deps: []
 owner: agent-one
 created_at: 2025-12-26T19:17:29.029972Z
-updated_at: 2025-12-27T22:16:11.562564Z
+started_at: 2025-12-27T22:16:11.562564Z
+completed_at: 2025-12-27T22:16:11.562564Z
 acceptance:
 - test ID format matches config (prefix-suffix)
 - test suffix length matches config.id_len

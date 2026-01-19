@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-uft9
 title: add unit tests for clear_external_repo
 priority: P1
@@ -7,7 +7,8 @@ status: done
 deps: []
 owner: null
 created_at: 2026-01-04T17:49:49.082482Z
-updated_at: 2026-01-04T18:01:17.598308Z
+started_at: 2026-01-04T18:01:17.598308Z
+completed_at: 2026-01-04T18:01:17.598308Z
 ---
 
 `clear_external_repo` in `src/commands/config.rs` has ~80 lines of code with no unit test coverage.

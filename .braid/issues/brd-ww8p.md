@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-ww8p
 title: implement brd v0.1 CLI
 priority: P0
@@ -7,7 +7,8 @@ status: done
 deps: []
 owner: null
 created_at: 2025-12-25T22:06:30.190214Z
-updated_at: 2025-12-25T22:06:44.997826Z
+started_at: 2025-12-25T22:06:44.997826Z
+completed_at: 2025-12-25T22:06:44.997826Z
 ---
 
 implement the core brd CLI as specified in plans/v0.1.md.

@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-4zc8
 title: add integration tests for dual-write behavior
 priority: P2
@@ -9,7 +9,8 @@ tags:
 - testing
 owner: null
 created_at: 2025-12-28T08:57:41.115931Z
-updated_at: 2025-12-28T17:04:25.864734Z
+started_at: 2025-12-28T17:04:25.864734Z
+completed_at: 2025-12-28T17:04:25.864734Z
 ---
 
 dual-write syncs issue files between worktree and control root but is untested.

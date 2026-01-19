@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-whi8
 title: robust schema version checking across repos and modes
 priority: P1
@@ -7,7 +7,8 @@ status: done
 deps: []
 owner: null
 created_at: 2025-12-30T16:32:05.324322Z
-updated_at: 2025-12-30T16:38:34.293551Z
+started_at: 2025-12-30T16:38:34.293551Z
+completed_at: 2025-12-30T16:38:34.293551Z
 ---
 
 Now that config has versioned migrations, we need robust schema checking to prevent old brd versions from corrupting newer repos.

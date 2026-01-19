@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-bziq
 title: git_rev_parse passes multi-word args as single argument
 priority: P1
@@ -7,7 +7,8 @@ status: done
 deps: []
 owner: null
 created_at: 2025-12-29T23:35:31.749637Z
-updated_at: 2025-12-29T23:36:34.278089Z
+started_at: 2025-12-29T23:36:34.278089Z
+completed_at: 2025-12-29T23:36:34.278089Z
 ---
 
 ## bug

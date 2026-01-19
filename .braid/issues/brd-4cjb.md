@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-4cjb
 title: implement full-text search for issues
 priority: P3
@@ -8,7 +8,6 @@ type: design
 deps: []
 owner: null
 created_at: 2025-12-27T08:14:33.487622Z
-updated_at: 2025-12-27T08:14:33.487622Z
 acceptance:
 - define search scope (title, body, frontmatter fields)
 - decide on search backend (grep, built-in, sqlite fts)

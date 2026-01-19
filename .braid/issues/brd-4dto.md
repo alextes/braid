@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-4dto
 title: add unit tests for start/done/skip commands
 priority: P2
@@ -9,7 +9,8 @@ tags:
 - testing
 owner: null
 created_at: 2025-12-28T08:49:06.106631Z
-updated_at: 2025-12-28T19:10:27.640621Z
+started_at: 2025-12-28T19:10:27.640621Z
+completed_at: 2025-12-28T19:10:27.640621Z
 ---
 
 core workflow commands have no unit tests.

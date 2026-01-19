@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-qas3
 title: 'design: interact with running claude agent'
 priority: P2
@@ -8,7 +8,6 @@ type: design
 deps: []
 owner: null
 created_at: 2026-01-18T14:18:21.998249Z
-updated_at: 2026-01-18T14:20:29.727114Z
 ---
 
 Design how users can interact with a claude agent that's working on an issue.

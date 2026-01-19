@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-l5ac
 title: 'TUI: allow setting type when creating issues'
 priority: P3
@@ -9,7 +9,8 @@ tags:
 - TUI
 owner: null
 created_at: 2025-12-27T13:49:24.110795Z
-updated_at: 2026-01-02T13:28:15.512471Z
+started_at: 2026-01-02T13:28:15.512471Z
+completed_at: 2026-01-02T13:28:15.512471Z
 acceptance:
 - issue creation flow includes optional type selection
 ---

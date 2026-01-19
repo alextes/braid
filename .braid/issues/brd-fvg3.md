@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-fvg3
 title: simplify main.rs
 priority: P2
@@ -10,7 +10,8 @@ deps:
 - brd-tejv
 owner: null
 created_at: 2025-12-26T08:08:41.218254Z
-updated_at: 2025-12-26T18:52:23.567662Z
+started_at: 2025-12-26T18:52:23.567662Z
+completed_at: 2025-12-26T18:52:23.567662Z
 ---
 
 meta issue: reduce main.rs complexity by extracting code into proper modules.
