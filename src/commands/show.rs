@@ -6,7 +6,7 @@ use std::fmt::Write as _;
 use crate::cli::Cli;
 use crate::config::Config;
 use crate::error::{BrdError, Result};
-use crate::graph::{compute_derived, get_dependents};
+use crate::graph::get_dependents;
 use crate::issue::Issue;
 use crate::repo::RepoPaths;
 
@@ -31,7 +31,18 @@ fn format_show_output(issue: &Issue, issues: &HashMap<String, Issue>, json: bool
     }
 
     if !issue.deps().is_empty() {
-        let _ = writeln!(output, "Deps:     {}", issue.deps().join(", "));
+        let deps_with_status: Vec<String> = issue
+            .deps()
+            .iter()
+            .map(|dep_id| {
+                if let Some(dep) = issues.get(dep_id) {
+                    format!("{} ({})", dep_id, dep.status())
+                } else {
+                    format!("{} (missing)", dep_id)
+                }
+            })
+            .collect();
+        let _ = writeln!(output, "Deps:     {}", deps_with_status.join(", "));
     }
 
     let dependents = get_dependents(issue.id(), issues);
@@ -45,18 +56,6 @@ fn format_show_output(issue: &Issue, issues: &HashMap<String, Issue>, json: bool
 
     if let Some(owner) = &issue.frontmatter.owner {
         let _ = writeln!(output, "Owner:    {}", owner);
-    }
-
-    let derived = compute_derived(issue, issues);
-    if derived.is_blocked {
-        let mut blockers = Vec::new();
-        for dep_id in &derived.open_deps {
-            blockers.push(format!("{} (open)", dep_id));
-        }
-        for dep_id in &derived.missing_deps {
-            blockers.push(format!("{} (missing)", dep_id));
-        }
-        let _ = writeln!(output, "Blocked:  {}", blockers.join(", "));
     }
 
     if !issue.frontmatter.acceptance.is_empty() {
@@ -216,10 +215,13 @@ mod tests {
         assert!(output.contains("Priority: P1"));
         assert!(output.contains("Status:   open"));
         assert!(output.contains("Type:     meta"));
-        assert!(output.contains("Deps:     brd-aaaa, brd-missing"));
+        assert!(output.contains("Deps:     brd-aaaa (open), brd-missing (missing)"));
         assert!(output.contains("Tags:     visual, urgent"));
         assert!(output.contains("Owner:    agent-one"));
+<<<<<<< HEAD
         assert!(output.contains("Blocked:  brd-aaaa (open), brd-missing (missing)"));
+=======
+>>>>>>> 85b398c (feat(show): inline dep status, remove separate Blocked field)
         assert!(output.contains("Acceptance:"));
         assert!(output.contains("  - do a thing"));
         assert!(output.contains("more details"));
