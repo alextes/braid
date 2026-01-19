@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-wknf
 title: implement verbose logging flag
 priority: P2
@@ -8,7 +8,8 @@ deps:
 - brd-pwez
 owner: null
 created_at: 2025-12-27T13:46:26.201963Z
-updated_at: 2025-12-27T16:29:32.543294Z
+started_at: 2025-12-27T16:29:32.543294Z
+completed_at: 2025-12-27T16:29:32.543294Z
 acceptance:
 - brd -v ls shows verbose output to stderr
 - BRD_VERBOSE=1 brd ls also enables verbose mode

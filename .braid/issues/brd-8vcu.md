@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-8vcu
 title: add branch switching helpers for writing to issues branch
 priority: P2
@@ -8,7 +8,8 @@ deps:
 - brd-vwel
 owner: null
 created_at: 2025-12-28T23:58:33.893601Z
-updated_at: 2025-12-30T15:54:10.514561Z
+started_at: 2025-12-30T15:54:10.514561Z
+completed_at: 2025-12-30T15:54:10.514561Z
 ---
 
 Add infrastructure for switching to issues branch, making changes, and switching back.

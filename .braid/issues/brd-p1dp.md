@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-p1dp
 title: implement claims system for multi-agent coordination
 priority: P3
@@ -7,7 +7,8 @@ status: skip
 deps: []
 owner: null
 created_at: 2025-12-25T21:46:27.951363Z
-updated_at: 2025-12-27T21:22:26.312819Z
+started_at: 2025-12-27T21:22:26.312819Z
+completed_at: 2025-12-27T21:22:26.312819Z
 acceptance:
 - claim, release, reclaim, claims commands work
 - claims filtering in ready/next

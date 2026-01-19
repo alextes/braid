@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-34d4
 title: separate priority emphasis from meta styling in brd ls/ready
 priority: P1
@@ -9,7 +9,8 @@ tags:
 - visual
 owner: null
 created_at: 2025-12-28T13:12:35.033894Z
-updated_at: 2025-12-28T15:59:38.256385Z
+started_at: 2025-12-28T15:59:38.256385Z
+completed_at: 2025-12-28T15:59:38.256385Z
 acceptance:
 - priority emphasis does not use the same bold styling as meta issues
 - brd ls and brd ready both reflect the updated styling

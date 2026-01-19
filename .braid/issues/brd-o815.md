@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-o815
 title: improve error message for acceptance criteria with colons
 priority: P1
@@ -7,7 +7,8 @@ status: done
 deps: []
 owner: null
 created_at: 2025-12-26T16:44:10.732419Z
-updated_at: 2025-12-26T16:44:10.732419Z
+started_at: 2025-12-26T16:44:10.732419Z
+completed_at: 2025-12-26T16:44:10.732419Z
 acceptance:
 - error message includes actionable hint about quoting
 - brd ls output format is not disrupted by parse errors

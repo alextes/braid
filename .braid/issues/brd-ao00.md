@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-ao00
 title: add unit tests for rm command
 priority: P3
@@ -9,7 +9,8 @@ tags:
 - testing
 owner: null
 created_at: 2025-12-28T08:49:45.127324Z
-updated_at: 2025-12-28T20:29:57.902627Z
+started_at: 2025-12-28T20:29:57.902627Z
+completed_at: 2025-12-28T20:29:57.902627Z
 ---
 
 rm command deletes issues but has no unit tests.

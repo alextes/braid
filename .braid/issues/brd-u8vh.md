@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-u8vh
 title: add command to set up agent worktree
 priority: P1
@@ -7,7 +7,8 @@ status: done
 deps: []
 owner: null
 created_at: 2025-12-26T08:49:36.259455Z
-updated_at: 2025-12-26T12:02:44.944048Z
+started_at: 2025-12-26T12:02:44.944048Z
+completed_at: 2025-12-26T12:02:44.944048Z
 ---
 
 add a command to streamline setting up a new agent worktree. something like:

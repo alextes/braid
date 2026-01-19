@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-1k3w
 title: design workflow preference signaling for agents
 priority: P2
@@ -8,7 +8,8 @@ type: design
 deps: []
 owner: null
 created_at: 2025-12-28T23:37:12.230185Z
-updated_at: 2025-12-29T21:07:54.854094Z
+started_at: 2025-12-29T21:07:54.854094Z
+completed_at: 2025-12-29T21:07:54.854094Z
 ---
 
 braid supports two workflows:

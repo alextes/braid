@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-a7te
 title: 'TUI: allow adding deps when creating issues'
 priority: P3
@@ -9,7 +9,8 @@ tags:
 - TUI
 owner: null
 created_at: 2025-12-27T13:49:24.218099Z
-updated_at: 2026-01-02T13:28:16.433966Z
+started_at: 2026-01-02T13:28:16.433966Z
+completed_at: 2026-01-02T13:28:16.433966Z
 acceptance:
 - issue creation flow allows selecting dependencies
 ---

@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-j1n7
 title: add brd set command for quick field updates
 priority: P2
@@ -7,7 +7,8 @@ status: done
 deps: []
 owner: null
 created_at: 2026-01-04T18:55:43.585849Z
-updated_at: 2026-01-04T21:03:02.338284Z
+started_at: 2026-01-04T21:03:02.338284Z
+completed_at: 2026-01-04T21:03:02.338284Z
 ---
 
 ## Problem

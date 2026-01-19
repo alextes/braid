@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-xrqb
 title: 'design: expand brd set to support more fields'
 priority: P2
@@ -8,7 +8,8 @@ type: design
 deps: []
 owner: null
 created_at: 2026-01-05T21:28:54.567535Z
-updated_at: 2026-01-18T14:23:51.150355Z
+started_at: 2026-01-18T14:23:51.150355Z
+completed_at: 2026-01-18T14:23:51.150355Z
 ---
 
 ## Context

@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-zeqv
 title: add auto_pull and auto_push config fields with schema v6 migration
 priority: P2
@@ -7,7 +7,8 @@ status: done
 deps: []
 owner: null
 created_at: 2025-12-30T17:08:24.421968Z
-updated_at: 2025-12-30T19:45:59.27573Z
+started_at: 2025-12-30T19:45:59.27573Z
+completed_at: 2025-12-30T19:45:59.27573Z
 ---
 
 Add two new boolean config fields for controlling sync behavior:

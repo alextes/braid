@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-rlyx
 title: 'readme: quick start guide'
 priority: P2
@@ -7,7 +7,8 @@ status: done
 deps: []
 owner: null
 created_at: 2025-12-26T08:40:34.976287Z
-updated_at: 2025-12-26T15:55:13.616522Z
+started_at: 2025-12-26T15:55:13.616522Z
+completed_at: 2025-12-26T15:55:13.616522Z
 ---
 
 add a quick start section showing the basic workflow:

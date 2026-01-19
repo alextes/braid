@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-ztwj
 title: design PR-based multi-agent workflow
 priority: P2
@@ -8,7 +8,8 @@ type: design
 deps: []
 owner: null
 created_at: 2025-12-27T22:04:41.412418Z
-updated_at: 2025-12-28T19:59:59.717975Z
+started_at: 2025-12-28T19:59:59.717975Z
+completed_at: 2025-12-28T19:59:59.717975Z
 ---
 
 PR-based workflow as an alternative to direct `brd agent ship` for teams wanting CI gates and human review.

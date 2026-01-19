@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-km9t
 title: 'doctor: detect AGENTS.md block mode mismatch'
 priority: P2
@@ -7,7 +7,8 @@ status: done
 deps: []
 owner: null
 created_at: 2025-12-29T08:25:39.18053Z
-updated_at: 2025-12-30T15:31:39.351959Z
+started_at: 2025-12-30T15:31:39.351959Z
+completed_at: 2025-12-30T15:31:39.351959Z
 ---
 
 `brd doctor` should detect when the injected AGENTS.md block doesn't match the current mode.

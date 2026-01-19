@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-lgfn
 title: add unit tests for mode.rs
 priority: P2
@@ -7,7 +7,8 @@ status: done
 deps: []
 owner: null
 created_at: 2025-12-31T08:27:38.129107Z
-updated_at: 2026-01-02T10:49:04.601327Z
+started_at: 2026-01-02T10:49:04.601327Z
+completed_at: 2026-01-02T10:49:04.601327Z
 ---
 
 mode.rs has 583 lines and 0 unit tests. This module handles critical functionality:

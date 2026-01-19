@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-ywk8
 title: set up npm release with cargo-dist
 priority: P3
@@ -8,7 +8,6 @@ type: design
 deps: []
 owner: null
 created_at: 2025-12-27T13:58:15.293157Z
-updated_at: 2025-12-27T13:58:15.293157Z
 ---
 
 cargo-dist supports npm publishing for wider distribution.

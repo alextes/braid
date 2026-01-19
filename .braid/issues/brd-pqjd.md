@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-pqjd
 title: revise brd init interactive prompt with orthogonal questions
 priority: P2
@@ -8,7 +8,8 @@ deps:
 - brd-zeqv
 owner: null
 created_at: 2025-12-30T17:08:56.470184Z
-updated_at: 2025-12-30T20:27:22.502855Z
+started_at: 2025-12-30T20:27:22.502855Z
+completed_at: 2025-12-30T20:27:22.502855Z
 ---
 
 Replace the mode-based prompt with two orthogonal questions.

@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-72xm
 title: update write commands to use branch switching in issues-branch mode
 priority: P2
@@ -8,7 +8,8 @@ deps:
 - brd-8vcu
 owner: null
 created_at: 2025-12-28T23:59:41.200534Z
-updated_at: 2025-12-30T15:54:10.542931Z
+started_at: 2025-12-30T15:54:10.542931Z
+completed_at: 2025-12-30T15:54:10.542931Z
 ---
 
 Update all commands that write to issues to use the branch switching infrastructure when in issues-branch mode.

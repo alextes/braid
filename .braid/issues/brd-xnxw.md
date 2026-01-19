@@ -1,14 +1,14 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-xnxw
 title: 'CLI: spawn agent in worktree for issue'
 priority: P2
 status: open
 type: design
-deps: []
+deps:
+- brd-qas3
 owner: null
 created_at: 2026-01-04T23:31:02.736303Z
-updated_at: 2026-01-18T14:20:29.707683Z
 ---
 
 ## goal

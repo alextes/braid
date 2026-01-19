@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-rijv
 title: gh repo create integration for external-repo setup
 priority: P3
@@ -8,7 +8,6 @@ deps:
 - brd-ily8
 owner: null
 created_at: 2025-12-30T15:40:40.861126Z
-updated_at: 2025-12-30T15:40:40.861126Z
 ---
 
 If gh CLI is installed, offer to create GitHub repo for external issues:

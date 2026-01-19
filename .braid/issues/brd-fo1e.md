@@ -1,14 +1,15 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-fo1e
 title: 'design: getting started guide for humans'
 priority: P2
-status: open
+status: done
 type: design
 deps: []
 owner: null
 created_at: 2026-01-05T13:48:02.90154Z
-updated_at: 2026-01-05T13:48:02.90154Z
+started_at: 2026-01-18T20:54:30.509974Z
+completed_at: 2026-01-18T20:54:30.509974Z
 ---
 
 create a beginner-friendly getting started guide for humans new to braid.

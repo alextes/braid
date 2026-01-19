@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-wy6n
 title: 'design: rename agent commands to use git-aligned terminology'
 priority: P2
@@ -8,7 +8,8 @@ type: design
 deps: []
 owner: null
 created_at: 2026-01-02T08:14:13.63183Z
-updated_at: 2026-01-02T10:03:38.489369Z
+started_at: 2026-01-02T10:03:38.489369Z
+completed_at: 2026-01-02T10:03:38.489369Z
 ---
 
 ## Problem

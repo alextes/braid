@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-ily8
 title: brd mode external-repo --init to create and initialize external repo
 priority: P3
@@ -7,7 +7,6 @@ status: open
 deps: []
 owner: null
 created_at: 2025-12-30T15:40:32.253103Z
-updated_at: 2025-12-30T15:40:32.253103Z
 ---
 
 Convenience feature: `brd mode external-repo --init <path>`

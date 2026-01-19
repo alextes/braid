@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-wb5z
 title: extensive readme
 priority: P2
@@ -10,7 +10,8 @@ deps:
 - brd-3r5n
 owner: null
 created_at: 2025-12-26T08:41:01.402258Z
-updated_at: 2025-12-26T15:55:46.156844Z
+started_at: 2025-12-26T15:55:46.156844Z
+completed_at: 2025-12-26T15:55:46.156844Z
 ---
 
 meta issue: create a comprehensive README.md for braid.

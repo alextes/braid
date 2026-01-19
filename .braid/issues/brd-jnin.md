@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-jnin
 title: warn about rebasing agent worktrees after mode switch
 priority: P2
@@ -7,7 +7,8 @@ status: done
 deps: []
 owner: null
 created_at: 2025-12-29T00:06:50.222825Z
-updated_at: 2025-12-29T21:10:42.101163Z
+started_at: 2025-12-29T21:10:42.101163Z
+completed_at: 2025-12-29T21:10:42.101163Z
 ---
 
 After switching modes (e.g., `brd mode local-sync`), previously created agent worktrees still have the old config until they rebase on main.

@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-mc5q
 title: update outdated dependencies
 priority: P2
@@ -7,7 +7,8 @@ status: done
 deps: []
 owner: null
 created_at: 2025-12-26T18:46:47.133569Z
-updated_at: 2025-12-26T18:54:43.752163Z
+started_at: 2025-12-26T18:54:43.752163Z
+completed_at: 2025-12-26T18:54:43.752163Z
 ---
 
 Several dependencies have newer versions available:

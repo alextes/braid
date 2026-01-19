@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-1qzs
 title: prevent old brd versions from creating issues in upgraded repos
 priority: P2
@@ -9,7 +9,8 @@ tags:
 - design
 owner: null
 created_at: 2025-12-26T21:19:28.81185Z
-updated_at: 2025-12-26T22:26:40.712921Z
+started_at: 2025-12-26T22:26:40.712921Z
+completed_at: 2025-12-26T22:26:40.712921Z
 ---
 
 ## problem

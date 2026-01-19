@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-ucso
 title: 'design: external-repo mode for tracking issues in a separate repository'
 priority: P2
@@ -8,7 +8,8 @@ type: design
 deps: []
 owner: null
 created_at: 2025-12-30T15:39:59.026761Z
-updated_at: 2025-12-30T15:40:47.192506Z
+started_at: 2025-12-30T15:40:47.192506Z
+completed_at: 2025-12-30T15:40:47.192506Z
 ---
 
 Track braid issues in a completely separate repository.

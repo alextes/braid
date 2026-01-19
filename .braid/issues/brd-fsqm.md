@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-fsqm
 title: 'TUI: workers view for multi-agent management'
 priority: P3
@@ -10,7 +10,8 @@ tags:
 - tui
 owner: null
 created_at: 2025-12-27T21:27:55.788447Z
-updated_at: 2025-12-27T21:29:00.389027Z
+started_at: 2025-12-27T21:29:00.389027Z
+completed_at: 2025-12-27T21:29:00.389027Z
 acceptance:
 - F-key switching between issues view and workers view
 - NxM pane grid (default 1x2 horizontal split)

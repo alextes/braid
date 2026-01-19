@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-77te
 title: add brd ship command to streamline agent merge workflow
 priority: P2
@@ -7,7 +7,8 @@ status: done
 deps: []
 owner: null
 created_at: 2025-12-26T16:34:03.391298Z
-updated_at: 2025-12-26T21:28:46.035129Z
+started_at: 2025-12-26T21:28:46.035129Z
+completed_at: 2025-12-26T21:28:46.035129Z
 acceptance:
 - brd ship command exists
 - refuses to run with dirty working tree (uncommitted changes)

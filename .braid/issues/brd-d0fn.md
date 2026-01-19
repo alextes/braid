@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-d0fn
 title: add confirmation prompts to mode switching
 priority: P2
@@ -8,7 +8,8 @@ deps:
 - brd-47xn
 owner: null
 created_at: 2025-12-28T23:16:57.871755Z
-updated_at: 2025-12-30T16:52:45.856601Z
+started_at: 2025-12-30T16:52:45.856601Z
+completed_at: 2025-12-30T16:52:45.856601Z
 ---
 
 When switching modes, show what will happen and confirm.

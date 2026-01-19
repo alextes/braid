@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-w83n
 title: 'Design: meta/theme issues - naming and mechanics for grouping related issues'
 priority: P2
@@ -7,7 +7,8 @@ status: done
 deps: []
 owner: null
 created_at: 2025-12-26T10:10:18.966011Z
-updated_at: 2025-12-26T14:26:13.483448Z
+started_at: 2025-12-26T14:26:13.483448Z
+completed_at: 2025-12-26T14:26:13.483448Z
 ---
 
 ## Problem

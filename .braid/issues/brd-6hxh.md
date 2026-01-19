@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-6hxh
 title: add unit tests for ship command (git operations)
 priority: P1
@@ -9,7 +9,8 @@ tags:
 - testing
 owner: null
 created_at: 2025-12-28T08:48:43.212119Z
-updated_at: 2025-12-28T16:40:26.435399Z
+started_at: 2025-12-28T16:40:26.435399Z
+completed_at: 2025-12-28T16:40:26.435399Z
 ---
 
 the ship command does complex git operations (fetch, rebase, push, reset) with no test coverage.

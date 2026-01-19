@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-x00g
 title: consolidate agent.rs and agents.rs modules
 priority: P2
@@ -7,7 +7,8 @@ status: done
 deps: []
 owner: null
 created_at: 2025-12-29T23:28:14.369515Z
-updated_at: 2025-12-30T15:00:00.27295Z
+started_at: 2025-12-30T15:00:00.27295Z
+completed_at: 2025-12-30T15:00:00.27295Z
 ---
 
 the CLI was unified under `brd agent` (brd-l66t), but the source files are still split:

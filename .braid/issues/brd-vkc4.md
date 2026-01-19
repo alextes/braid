@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-vkc4
 title: add unit tests for doctor command
 priority: P1
@@ -9,7 +9,8 @@ tags:
 - testing
 owner: null
 created_at: 2025-12-28T08:48:43.455202Z
-updated_at: 2025-12-28T16:53:08.311018Z
+started_at: 2025-12-28T16:53:08.311018Z
+completed_at: 2025-12-28T16:53:08.311018Z
 ---
 
 doctor performs many validation checks but only has integration coverage.

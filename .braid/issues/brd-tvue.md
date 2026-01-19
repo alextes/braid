@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-tvue
 title: mode-aware AGENTS.md injection
 priority: P3
@@ -7,7 +7,8 @@ status: done
 deps: []
 owner: null
 created_at: 2025-12-28T16:21:56.615665Z
-updated_at: 2025-12-28T21:15:21.058183Z
+started_at: 2025-12-28T21:15:21.058183Z
+completed_at: 2025-12-28T21:15:21.058183Z
 ---
 
 update `brd agents inject` to generate mode-aware content.

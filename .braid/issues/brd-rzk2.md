@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-rzk2
 title: add tests for TUI modules
 priority: P2
@@ -7,7 +7,8 @@ status: done
 deps: []
 owner: null
 created_at: 2025-12-31T08:27:38.467381Z
-updated_at: 2026-01-02T21:09:35.389916Z
+started_at: 2026-01-02T21:09:35.389916Z
+completed_at: 2026-01-02T21:09:35.389916Z
 ---
 
 The TUI module has 2,375 lines across 3 files with only 1 test:

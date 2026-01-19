@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-664s
 title: 'design: bidirectional dependency exploration for agents'
 priority: P2
@@ -8,7 +8,8 @@ type: design
 deps: []
 owner: null
 created_at: 2026-01-03T12:57:36.265137Z
-updated_at: 2026-01-04T13:39:58.938932Z
+started_at: 2026-01-04T13:39:58.938932Z
+completed_at: 2026-01-04T13:39:58.938932Z
 ---
 
 deps are useful not only to indicate the sequence in which issues should be picked up, they help users of brd explore which issues are related - open or closed. this is especially useful for agents which may be starting work on an issue beginning from zero context, unlike humans which tend to automatically remember context both consciously and subconsciously.

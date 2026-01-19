@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-jpux
 title: design braid workflow modes and configuration
 priority: P1
@@ -8,7 +8,8 @@ type: design
 deps: []
 owner: null
 created_at: 2025-12-28T16:05:42.310892Z
-updated_at: 2025-12-28T17:10:17.693318Z
+started_at: 2025-12-28T17:10:17.693318Z
+completed_at: 2025-12-28T17:10:17.693318Z
 ---
 
 braid needs clear documentation and configuration for different workflow modes. current implementation has sync branch mode, but the full picture of supported workflows isn't coherent.

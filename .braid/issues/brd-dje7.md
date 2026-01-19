@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-dje7
 title: 'brd mode: add sync-local and default subcommands'
 priority: P2
@@ -8,7 +8,8 @@ deps:
 - brd-ozah
 owner: null
 created_at: 2025-12-28T16:21:56.472458Z
-updated_at: 2025-12-28T21:09:24.505952Z
+started_at: 2025-12-28T21:09:24.505952Z
+completed_at: 2025-12-28T21:09:24.505952Z
 ---
 
 add mode switching to `brd mode` command.

@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-gxid
 title: add unit tests for error module
 priority: P3
@@ -9,7 +9,8 @@ tags:
 - testing
 owner: null
 created_at: 2025-12-28T08:57:40.989672Z
-updated_at: 2025-12-28T21:14:32.850467Z
+started_at: 2025-12-28T21:14:32.850467Z
+completed_at: 2025-12-28T21:14:32.850467Z
 ---
 
 error module defines error types but has no tests for Display/formatting.

@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-6lme
 title: add git show/ls-tree helpers for reading from issues branch
 priority: P2
@@ -8,7 +8,8 @@ deps:
 - brd-vwel
 owner: null
 created_at: 2025-12-28T23:58:33.758788Z
-updated_at: 2025-12-30T15:54:10.500944Z
+started_at: 2025-12-30T15:54:10.500944Z
+completed_at: 2025-12-30T15:54:10.500944Z
 ---
 
 Add infrastructure to read issues directly from a branch without checkout.

@@ -1,5 +1,5 @@
 ---
-schema_version: 7
+schema_version: 8
 id: brd-d1w9
 title: ephemeral agent workflow
 priority: P2
@@ -8,7 +8,6 @@ type: meta
 deps: []
 owner: null
 created_at: 2026-01-18T14:18:16.028557Z
-updated_at: 2026-01-18T14:18:16.028557Z
 ---
 
 Enable spawning claude agents to work on issues autonomously.
