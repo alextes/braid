@@ -113,8 +113,14 @@ pub fn cmd_ls(
 
     // sort resolved issues by completed_at (most recent first), then by id for stability
     resolved.sort_by(|a, b| {
-        let a_time = a.frontmatter.completed_at.unwrap_or(a.frontmatter.created_at);
-        let b_time = b.frontmatter.completed_at.unwrap_or(b.frontmatter.created_at);
+        let a_time = a
+            .frontmatter
+            .completed_at
+            .unwrap_or(a.frontmatter.created_at);
+        let b_time = b
+            .frontmatter
+            .completed_at
+            .unwrap_or(b.frontmatter.created_at);
         b_time.cmp(&a_time).then_with(|| a.id().cmp(b.id()))
     });
 

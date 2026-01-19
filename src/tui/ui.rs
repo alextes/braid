@@ -69,10 +69,26 @@ fn draw_dashboard(f: &mut Frame, area: Rect, app: &App) {
         .border_style(Style::default().fg(Color::Yellow));
 
     // count issues by status
-    let open_count = app.issues.values().filter(|i| i.status() == crate::issue::Status::Open).count();
-    let doing_count = app.issues.values().filter(|i| i.status() == crate::issue::Status::Doing).count();
-    let done_count = app.issues.values().filter(|i| i.status() == crate::issue::Status::Done).count();
-    let skip_count = app.issues.values().filter(|i| i.status() == crate::issue::Status::Skip).count();
+    let open_count = app
+        .issues
+        .values()
+        .filter(|i| i.status() == crate::issue::Status::Open)
+        .count();
+    let doing_count = app
+        .issues
+        .values()
+        .filter(|i| i.status() == crate::issue::Status::Doing)
+        .count();
+    let done_count = app
+        .issues
+        .values()
+        .filter(|i| i.status() == crate::issue::Status::Done)
+        .count();
+    let skip_count = app
+        .issues
+        .values()
+        .filter(|i| i.status() == crate::issue::Status::Skip)
+        .count();
 
     let lines = vec![
         Line::from(""),
@@ -82,7 +98,10 @@ fn draw_dashboard(f: &mut Frame, area: Rect, app: &App) {
         ]),
         Line::from(vec![
             Span::styled("  doing: ", Style::default().fg(Color::DarkGray)),
-            Span::styled(format!("{}", doing_count), Style::default().fg(Color::Yellow)),
+            Span::styled(
+                format!("{}", doing_count),
+                Style::default().fg(Color::Yellow),
+            ),
         ]),
         Line::from(vec![
             Span::styled("  done:  ", Style::default().fg(Color::DarkGray)),
@@ -90,10 +109,16 @@ fn draw_dashboard(f: &mut Frame, area: Rect, app: &App) {
         ]),
         Line::from(vec![
             Span::styled("  skip:  ", Style::default().fg(Color::DarkGray)),
-            Span::styled(format!("{}", skip_count), Style::default().fg(Color::DarkGray)),
+            Span::styled(
+                format!("{}", skip_count),
+                Style::default().fg(Color::DarkGray),
+            ),
         ]),
         Line::from(""),
-        Line::from(Span::styled("  (placeholder — more stats coming)", Style::default().fg(Color::DarkGray))),
+        Line::from(Span::styled(
+            "  (placeholder — more stats coming)",
+            Style::default().fg(Color::DarkGray),
+        )),
     ];
 
     let paragraph = Paragraph::new(lines).block(block);

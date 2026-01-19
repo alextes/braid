@@ -188,10 +188,7 @@ fn migrate_v7_to_v8(mut frontmatter: Value) -> Result<Value> {
 
         // Get the old updated_at value and status
         let updated_at = map.remove(&updated_at_key);
-        let status = map
-            .get(&status_key)
-            .and_then(|v| v.as_str())
-            .unwrap_or("");
+        let status = map.get(&status_key).and_then(|v| v.as_str()).unwrap_or("");
 
         // Set started_at and completed_at based on status
         match status {
@@ -230,7 +227,9 @@ pub fn migration_summary(from_version: u32, to_version: u32) -> Vec<String> {
             4 => summaries.push("v4→v5: external-repo config support".to_string()),
             5 => summaries.push("v5→v6: auto_pull/auto_push config support".to_string()),
             6 => summaries.push("v6→v7: rename status 'todo' to 'open'".to_string()),
-            7 => summaries.push("v7→v8: replace updated_at with started_at/completed_at".to_string()),
+            7 => {
+                summaries.push("v7→v8: replace updated_at with started_at/completed_at".to_string())
+            }
             _ => {}
         }
     }
