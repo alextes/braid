@@ -218,10 +218,6 @@ mod tests {
         assert!(output.contains("Deps:     brd-aaaa (open), brd-missing (missing)"));
         assert!(output.contains("Tags:     visual, urgent"));
         assert!(output.contains("Owner:    agent-one"));
-<<<<<<< HEAD
-        assert!(output.contains("Blocked:  brd-aaaa (open), brd-missing (missing)"));
-=======
->>>>>>> 85b398c (feat(show): inline dep status, remove separate Blocked field)
         assert!(output.contains("Acceptance:"));
         assert!(output.contains("  - do a thing"));
         assert!(output.contains("more details"));
