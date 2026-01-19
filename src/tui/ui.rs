@@ -9,6 +9,9 @@ use ratatui::{
 };
 use time::{Duration as TimeDuration, OffsetDateTime};
 
+use crate::graph::compute_derived;
+use crate::issue::{Priority, Status};
+
 use super::app::{App, InputMode, View};
 
 /// draw the entire UI.
@@ -68,61 +71,269 @@ fn draw_dashboard(f: &mut Frame, area: Rect, app: &App) {
         .borders(Borders::ALL)
         .border_style(Style::default().fg(Color::Yellow));
 
-    // count issues by status
+    let inner = block.inner(area);
+    f.render_widget(block, area);
+
+    // compute all stats
+    let now = OffsetDateTime::now_utc();
+    let day_ago = now - TimeDuration::hours(24);
+
+    // status counts
     let open_count = app
         .issues
         .values()
-        .filter(|i| i.status() == crate::issue::Status::Open)
+        .filter(|i| i.status() == Status::Open)
         .count();
     let doing_count = app
         .issues
         .values()
-        .filter(|i| i.status() == crate::issue::Status::Doing)
+        .filter(|i| i.status() == Status::Doing)
         .count();
     let done_count = app
         .issues
         .values()
-        .filter(|i| i.status() == crate::issue::Status::Done)
+        .filter(|i| i.status() == Status::Done)
         .count();
     let skip_count = app
         .issues
         .values()
-        .filter(|i| i.status() == crate::issue::Status::Skip)
+        .filter(|i| i.status() == Status::Skip)
         .count();
 
-    let lines = vec![
+    // priority counts (open + doing only)
+    let active_issues: Vec<_> = app
+        .issues
+        .values()
+        .filter(|i| matches!(i.status(), Status::Open | Status::Doing))
+        .collect();
+    let p0_count = active_issues
+        .iter()
+        .filter(|i| i.priority() == Priority::P0)
+        .count();
+    let p1_count = active_issues
+        .iter()
+        .filter(|i| i.priority() == Priority::P1)
+        .count();
+    let p2_count = active_issues
+        .iter()
+        .filter(|i| i.priority() == Priority::P2)
+        .count();
+    let p3_count = active_issues
+        .iter()
+        .filter(|i| i.priority() == Priority::P3)
+        .count();
+
+    // health: ready/blocked/stale
+    let mut ready_count = 0;
+    let mut blocked_count = 0;
+    for issue in app.issues.values().filter(|i| i.status() == Status::Open) {
+        let derived = compute_derived(issue, &app.issues);
+        if derived.is_ready {
+            ready_count += 1;
+        } else if derived.is_blocked {
+            blocked_count += 1;
+        }
+    }
+    let stale_count = app
+        .issues
+        .values()
+        .filter(|i| {
+            i.status() == Status::Doing && i.frontmatter.started_at.is_some_and(|t| t < day_ago)
+        })
+        .count();
+
+    // active agents
+    let mut active_agents: Vec<_> = app
+        .issues
+        .values()
+        .filter(|i| i.status() == Status::Doing && i.frontmatter.owner.is_some())
+        .map(|i| {
+            (
+                i.frontmatter.owner.as_deref().unwrap_or("?"),
+                i.id(),
+                i.title(),
+            )
+        })
+        .collect();
+    active_agents.sort_by(|a, b| a.0.cmp(b.0));
+
+    // recent activity
+    let completed_24h = app
+        .issues
+        .values()
+        .filter(|i| i.frontmatter.completed_at.is_some_and(|t| t > day_ago))
+        .count();
+    let started_24h = app
+        .issues
+        .values()
+        .filter(|i| i.frontmatter.started_at.is_some_and(|t| t > day_ago))
+        .count();
+
+    // layout: top stats row, then agents, then recent
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(7), // stats row
+            Constraint::Min(3),    // agents
+            Constraint::Length(3), // recent
+        ])
+        .split(inner);
+
+    // top row: 3 columns for status/priority/health
+    let top_cols = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([
+            Constraint::Ratio(1, 3),
+            Constraint::Ratio(1, 3),
+            Constraint::Ratio(1, 3),
+        ])
+        .split(chunks[0]);
+
+    // status column
+    let status_lines = vec![
+        Line::from(Span::styled(
+            "Status",
+            Style::default().add_modifier(Modifier::BOLD),
+        )),
         Line::from(""),
         Line::from(vec![
-            Span::styled("  open:  ", Style::default().fg(Color::DarkGray)),
-            Span::raw(format!("{}", open_count)),
+            Span::styled("open:  ", Style::default().fg(Color::DarkGray)),
+            Span::raw(format!("{:>3}", open_count)),
         ]),
         Line::from(vec![
-            Span::styled("  doing: ", Style::default().fg(Color::DarkGray)),
+            Span::styled("doing: ", Style::default().fg(Color::DarkGray)),
             Span::styled(
-                format!("{}", doing_count),
+                format!("{:>3}", doing_count),
                 Style::default().fg(Color::Yellow),
             ),
         ]),
         Line::from(vec![
-            Span::styled("  done:  ", Style::default().fg(Color::DarkGray)),
-            Span::styled(format!("{}", done_count), Style::default().fg(Color::Green)),
+            Span::styled("done:  ", Style::default().fg(Color::DarkGray)),
+            Span::styled(
+                format!("{:>3}", done_count),
+                Style::default().fg(Color::Green),
+            ),
         ]),
         Line::from(vec![
-            Span::styled("  skip:  ", Style::default().fg(Color::DarkGray)),
+            Span::styled("skip:  ", Style::default().fg(Color::DarkGray)),
             Span::styled(
-                format!("{}", skip_count),
+                format!("{:>3}", skip_count),
                 Style::default().fg(Color::DarkGray),
             ),
         ]),
-        Line::from(""),
-        Line::from(Span::styled(
-            "  (placeholder — more stats coming)",
-            Style::default().fg(Color::DarkGray),
-        )),
     ];
+    f.render_widget(Paragraph::new(status_lines), top_cols[0]);
 
-    let paragraph = Paragraph::new(lines).block(block);
-    f.render_widget(paragraph, area);
+    // priority column
+    let priority_lines = vec![
+        Line::from(Span::styled(
+            "Priority",
+            Style::default().add_modifier(Modifier::BOLD),
+        )),
+        Line::from(""),
+        Line::from(vec![
+            Span::styled("P0: ", Style::default().fg(Color::DarkGray)),
+            Span::styled(format!("{:>3}", p0_count), Style::default().fg(Color::Red)),
+        ]),
+        Line::from(vec![
+            Span::styled("P1: ", Style::default().fg(Color::DarkGray)),
+            Span::styled(
+                format!("{:>3}", p1_count),
+                Style::default().fg(Color::Yellow),
+            ),
+        ]),
+        Line::from(vec![
+            Span::styled("P2: ", Style::default().fg(Color::DarkGray)),
+            Span::raw(format!("{:>3}", p2_count)),
+        ]),
+        Line::from(vec![
+            Span::styled("P3: ", Style::default().fg(Color::DarkGray)),
+            Span::styled(
+                format!("{:>3}", p3_count),
+                Style::default().fg(Color::DarkGray),
+            ),
+        ]),
+    ];
+    f.render_widget(Paragraph::new(priority_lines), top_cols[1]);
+
+    // health column
+    let mut health_lines = vec![
+        Line::from(Span::styled(
+            "Health",
+            Style::default().add_modifier(Modifier::BOLD),
+        )),
+        Line::from(""),
+        Line::from(vec![
+            Span::styled("ready:   ", Style::default().fg(Color::DarkGray)),
+            Span::styled(
+                format!("{:>3}", ready_count),
+                Style::default().fg(Color::Green),
+            ),
+        ]),
+        Line::from(vec![
+            Span::styled("blocked: ", Style::default().fg(Color::DarkGray)),
+            Span::styled(
+                format!("{:>3}", blocked_count),
+                Style::default().fg(Color::Yellow),
+            ),
+        ]),
+    ];
+    if stale_count > 0 {
+        health_lines.push(Line::from(vec![
+            Span::styled("stale:   ", Style::default().fg(Color::DarkGray)),
+            Span::styled(
+                format!("{:>3}", stale_count),
+                Style::default().fg(Color::Red),
+            ),
+            Span::styled(" (>24h)", Style::default().fg(Color::DarkGray)),
+        ]));
+    }
+    f.render_widget(Paragraph::new(health_lines), top_cols[2]);
+
+    // agents section
+    let mut agent_lines = vec![Line::from(Span::styled(
+        "Active Agents",
+        Style::default().add_modifier(Modifier::BOLD),
+    ))];
+    if active_agents.is_empty() {
+        agent_lines.push(Line::from(Span::styled(
+            "(none)",
+            Style::default().fg(Color::DarkGray),
+        )));
+    } else {
+        let max_show = 5;
+        for (owner, id, title) in active_agents.iter().take(max_show) {
+            let truncated_title: String = title.chars().take(30).collect();
+            agent_lines.push(Line::from(vec![
+                Span::styled(format!("{:<12}", owner), Style::default().fg(Color::Cyan)),
+                Span::styled(" → ", Style::default().fg(Color::DarkGray)),
+                Span::raw(format!("{} ", id)),
+                Span::styled(truncated_title, Style::default().fg(Color::DarkGray)),
+            ]));
+        }
+        if active_agents.len() > max_show {
+            agent_lines.push(Line::from(Span::styled(
+                format!("  (+{} more)", active_agents.len() - max_show),
+                Style::default().fg(Color::DarkGray),
+            )));
+        }
+    }
+    f.render_widget(Paragraph::new(agent_lines), chunks[1]);
+
+    // recent activity
+    let recent_lines = vec![
+        Line::from(Span::styled(
+            "Recent (24h)",
+            Style::default().add_modifier(Modifier::BOLD),
+        )),
+        Line::from(vec![
+            Span::styled("✓ ", Style::default().fg(Color::Green)),
+            Span::raw(format!("{} completed", completed_24h)),
+            Span::styled("    → ", Style::default().fg(Color::DarkGray)),
+            Span::raw(format!("{} started", started_24h)),
+        ]),
+    ];
+    f.render_widget(Paragraph::new(recent_lines), chunks[2]);
 }
 
 fn draw_issues_view(f: &mut Frame, area: Rect, app: &mut App) {

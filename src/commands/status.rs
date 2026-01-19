@@ -194,7 +194,10 @@ fn format_agent_line(agents: &AgentInfo) -> String {
             .duration_mins
             .map(|m| format!(" for {}", format_duration(m)))
             .unwrap_or_default();
-        return format!("{} ({} on {}{})", summary, agent.name, agent.issue_id, duration);
+        return format!(
+            "{} ({} on {}{})",
+            summary, agent.name, agent.issue_id, duration
+        );
     }
 
     // Multiple active agents - just show summary, details in multi-line or JSON
@@ -379,7 +382,12 @@ fn count_agent_worktrees(paths: &RepoPaths) -> usize {
     }
 
     std::fs::read_dir(&worktrees_dir)
-        .map(|entries| entries.filter_map(|e| e.ok()).filter(|e| e.path().is_dir()).count())
+        .map(|entries| {
+            entries
+                .filter_map(|e| e.ok())
+                .filter(|e| e.path().is_dir())
+                .count()
+        })
         .unwrap_or(0)
 }
 
