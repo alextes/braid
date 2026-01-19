@@ -48,16 +48,15 @@ fn format_show_output(issue: &Issue, issues: &HashMap<String, Issue>, json: bool
     }
 
     let derived = compute_derived(issue, issues);
-    if derived.is_ready {
-        let _ = writeln!(output, "State:    READY");
-    } else if derived.is_blocked {
-        let _ = writeln!(output, "State:    BLOCKED");
-        if !derived.open_deps.is_empty() {
-            let _ = writeln!(output, "  open:   {}", derived.open_deps.join(", "));
+    if derived.is_blocked {
+        let mut blockers = Vec::new();
+        for dep_id in &derived.open_deps {
+            blockers.push(format!("{} (open)", dep_id));
         }
-        if !derived.missing_deps.is_empty() {
-            let _ = writeln!(output, "  missing: {}", derived.missing_deps.join(", "));
+        for dep_id in &derived.missing_deps {
+            blockers.push(format!("{} (missing)", dep_id));
         }
+        let _ = writeln!(output, "Blocked:  {}", blockers.join(", "));
     }
 
     if !issue.frontmatter.acceptance.is_empty() {
@@ -220,9 +219,7 @@ mod tests {
         assert!(output.contains("Deps:     brd-aaaa, brd-missing"));
         assert!(output.contains("Tags:     visual, urgent"));
         assert!(output.contains("Owner:    agent-one"));
-        assert!(output.contains("State:    BLOCKED"));
-        assert!(output.contains("  open:   brd-aaaa"));
-        assert!(output.contains("  missing: brd-missing"));
+        assert!(output.contains("Blocked:  brd-aaaa (open), brd-missing (missing)"));
         assert!(output.contains("Acceptance:"));
         assert!(output.contains("  - do a thing"));
         assert!(output.contains("more details"));
