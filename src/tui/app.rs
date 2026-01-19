@@ -119,9 +119,15 @@ impl App {
     ) -> Result<()> {
         self.issues = load_all_issues(paths, &self.config)?;
 
-        // build sorted list (by priority)
+        // build sorted list: done/skip last, then by priority
         let mut all: Vec<&Issue> = self.issues.values().collect();
-        all.sort_by(|a, b| a.cmp_by_priority(b));
+        all.sort_by(|a, b| {
+            let a_resolved = matches!(a.status(), Status::Done | Status::Skip);
+            let b_resolved = matches!(b.status(), Status::Done | Status::Skip);
+            a_resolved
+                .cmp(&b_resolved)
+                .then_with(|| a.cmp_by_priority(b))
+        });
         self.sorted_issues = all.iter().map(|i| i.id().to_string()).collect();
 
         // clamp selection

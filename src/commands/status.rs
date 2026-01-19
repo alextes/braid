@@ -121,7 +121,10 @@ fn format_sync_line(sync: &SyncInfo) -> String {
                     upstream, ahead, behind, dirty_suffix
                 )
             } else {
-                format!("diverged (ahead {}, behind {}){}", ahead, behind, dirty_suffix)
+                format!(
+                    "diverged (ahead {}, behind {}){}",
+                    ahead, behind, dirty_suffix
+                )
             }
         }
         SyncState::NoUpstream => format!("no upstream{}", dirty_suffix),
