@@ -38,6 +38,7 @@ enum SyncState {
 struct SyncInfo {
     upstream: Option<String>,
     state: SyncState,
+    dirty: bool,
 }
 
 fn count_issues(issues: &HashMap<String, Issue>) -> IssueCounts {
@@ -73,41 +74,43 @@ fn format_issue_counts(counts: IssueCounts) -> String {
 }
 
 fn format_sync_line(sync: &SyncInfo) -> String {
+    let dirty_suffix = if sync.dirty { " (dirty)" } else { "" };
+
     match &sync.state {
         SyncState::UpToDate => {
             if let Some(upstream) = sync.upstream.as_deref() {
-                format!("up to date with {}", upstream)
+                format!("up to date with {}{}", upstream, dirty_suffix)
             } else {
-                "up to date".to_string()
+                format!("up to date{}", dirty_suffix)
             }
         }
         SyncState::Ahead(count) => {
             if let Some(upstream) = sync.upstream.as_deref() {
-                format!("ahead of {} by {}", upstream, count)
+                format!("ahead of {} by {}{}", upstream, count, dirty_suffix)
             } else {
-                format!("ahead by {}", count)
+                format!("ahead by {}{}", count, dirty_suffix)
             }
         }
         SyncState::Behind(count) => {
             if let Some(upstream) = sync.upstream.as_deref() {
-                format!("behind {} by {}", upstream, count)
+                format!("behind {} by {}{}", upstream, count, dirty_suffix)
             } else {
-                format!("behind by {}", count)
+                format!("behind by {}{}", count, dirty_suffix)
             }
         }
         SyncState::Diverged { ahead, behind } => {
             if let Some(upstream) = sync.upstream.as_deref() {
                 format!(
-                    "diverged from {} (ahead {}, behind {})",
-                    upstream, ahead, behind
+                    "diverged from {} (ahead {}, behind {}){}",
+                    upstream, ahead, behind, dirty_suffix
                 )
             } else {
-                format!("diverged (ahead {}, behind {})", ahead, behind)
+                format!("diverged (ahead {}, behind {}){}", ahead, behind, dirty_suffix)
             }
         }
-        SyncState::NoUpstream => "no upstream".to_string(),
+        SyncState::NoUpstream => format!("no upstream{}", dirty_suffix),
         SyncState::MissingWorktree => "issues worktree missing".to_string(),
-        SyncState::Unknown => "unknown".to_string(),
+        SyncState::Unknown => format!("unknown{}", dirty_suffix),
     }
 }
 
@@ -140,6 +143,7 @@ fn sync_to_json(sync: &SyncInfo) -> serde_json::Value {
         "upstream": sync.upstream,
         "ahead": ahead,
         "behind": behind,
+        "dirty": sync.dirty,
     })
 }
 
@@ -264,16 +268,25 @@ fn get_ahead_behind(upstream: &str, cwd: &Path) -> Option<(usize, usize)> {
     Some((ahead, behind))
 }
 
+fn is_working_tree_dirty(cwd: &Path) -> bool {
+    // Check for any uncommitted changes (staged or unstaged)
+    git_output(&["status", "--porcelain"], cwd)
+        .map(|s| !s.is_empty())
+        .unwrap_or(false)
+}
+
 fn get_sync_info(paths: &RepoPaths, branch: &str) -> SyncInfo {
     let issues_wt = paths.issues_worktree_dir();
     if !issues_wt.exists() {
         return SyncInfo {
             upstream: None,
             state: SyncState::MissingWorktree,
+            dirty: false,
         };
     }
 
     let upstream = get_upstream(branch, &issues_wt);
+    let dirty = is_working_tree_dirty(&issues_wt);
     let state = match upstream.as_deref() {
         None => SyncState::NoUpstream,
         Some(upstream) => match get_ahead_behind(upstream, &issues_wt) {
@@ -292,7 +305,11 @@ fn get_sync_info(paths: &RepoPaths, branch: &str) -> SyncInfo {
         },
     };
 
-    SyncInfo { upstream, state }
+    SyncInfo {
+        upstream,
+        state,
+        dirty,
+    }
 }
 
 pub fn cmd_status(cli: &Cli, paths: &RepoPaths) -> Result<()> {
@@ -357,6 +374,7 @@ mod tests {
         let sync = SyncInfo {
             upstream: Some("origin/braid-issues".to_string()),
             state: SyncState::UpToDate,
+            dirty: false,
         };
         let output = format_status_output(
             "local-sync",
@@ -374,6 +392,32 @@ mod tests {
     }
 
     #[test]
+    fn test_format_status_output_dirty() {
+        let counts = IssueCounts {
+            open: 1,
+            doing: 0,
+            done: 0,
+            skip: 0,
+        };
+        let sync = SyncInfo {
+            upstream: Some("origin/braid-issues".to_string()),
+            state: SyncState::UpToDate,
+            dirty: true,
+        };
+        let output = format_status_output(
+            "local-sync",
+            Some("braid-issues"),
+            "agent-one",
+            "brd",
+            counts,
+            Some(&sync),
+            false,
+        );
+
+        assert!(output.contains("Sync:     up to date with origin/braid-issues (dirty)"));
+    }
+
+    #[test]
     fn test_format_status_output_json() {
         let counts = IssueCounts {
             open: 0,
@@ -384,6 +428,7 @@ mod tests {
         let sync = SyncInfo {
             upstream: None,
             state: SyncState::NoUpstream,
+            dirty: false,
         };
         let output = format_status_output(
             "local-sync",
@@ -402,5 +447,34 @@ mod tests {
         assert_eq!(json["prefix"], "brd");
         assert_eq!(json["issues"]["doing"], 2);
         assert_eq!(json["sync"]["status"], "no-upstream");
+        assert_eq!(json["sync"]["dirty"], false);
+    }
+
+    #[test]
+    fn test_format_status_output_json_dirty() {
+        let counts = IssueCounts {
+            open: 1,
+            doing: 0,
+            done: 0,
+            skip: 0,
+        };
+        let sync = SyncInfo {
+            upstream: Some("origin/issues".to_string()),
+            state: SyncState::UpToDate,
+            dirty: true,
+        };
+        let output = format_status_output(
+            "local-sync",
+            Some("issues"),
+            "agent-one",
+            "brd",
+            counts,
+            Some(&sync),
+            true,
+        );
+        let json: serde_json::Value = serde_json::from_str(output.trim()).unwrap();
+
+        assert_eq!(json["sync"]["status"], "up-to-date");
+        assert_eq!(json["sync"]["dirty"], true);
     }
 }
