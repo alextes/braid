@@ -218,16 +218,26 @@ fn agents_to_json(agents: &AgentInfo) -> serde_json::Value {
     })
 }
 
-fn format_status_output(
-    mode: &str,
-    branch: Option<&str>,
-    agent: &str,
-    prefix: &str,
+struct StatusInfo<'a> {
+    mode: &'a str,
+    branch: Option<&'a str>,
+    agent: &'a str,
+    prefix: &'a str,
     counts: IssueCounts,
-    sync: Option<&SyncInfo>,
-    agents: &AgentInfo,
-    json: bool,
-) -> String {
+    sync: Option<&'a SyncInfo>,
+    agents: &'a AgentInfo,
+}
+
+fn format_status_output(info: &StatusInfo, json: bool) -> String {
+    let StatusInfo {
+        mode,
+        branch,
+        agent,
+        prefix,
+        counts,
+        sync,
+        agents,
+    } = info;
     if json {
         let mut root = serde_json::json!({
             "mode": mode,
@@ -284,7 +294,7 @@ fn format_status_output(
         output,
         "{:<width$}{}",
         "Issues:",
-        format_issue_counts(counts),
+        format_issue_counts(*counts),
         width = LABEL_WIDTH
     );
     let _ = writeln!(
@@ -474,16 +484,16 @@ pub fn cmd_status(cli: &Cli, paths: &RepoPaths) -> Result<()> {
         None => ("git-native", None, None),
     };
 
-    let output = format_status_output(
+    let info = StatusInfo {
         mode,
         branch,
-        &agent_id,
-        &config.id_prefix,
+        agent: &agent_id,
+        prefix: &config.id_prefix,
         counts,
-        sync.as_ref(),
-        &agents,
-        cli.json,
-    );
+        sync: sync.as_ref(),
+        agents: &agents,
+    };
+    let output = format_status_output(&info, cli.json);
     print!("{output}");
 
     Ok(())
@@ -508,16 +518,16 @@ mod tests {
             done: 3,
             skip: 0,
         };
-        let output = format_status_output(
-            "git-native",
-            None,
-            "agent-one",
-            "brd",
+        let info = StatusInfo {
+            mode: "git-native",
+            branch: None,
+            agent: "agent-one",
+            prefix: "brd",
             counts,
-            None,
-            &empty_agents(),
-            false,
-        );
+            sync: None,
+            agents: &empty_agents(),
+        };
+        let output = format_status_output(&info, false);
 
         assert!(output.contains("Mode:     git-native"));
         assert!(output.contains("Agent:    agent-one"));
@@ -540,16 +550,16 @@ mod tests {
             state: SyncState::UpToDate,
             dirty: false,
         };
-        let output = format_status_output(
-            "local-sync",
-            Some("braid-issues"),
-            "agent-one",
-            "brd",
+        let info = StatusInfo {
+            mode: "local-sync",
+            branch: Some("braid-issues"),
+            agent: "agent-one",
+            prefix: "brd",
             counts,
-            Some(&sync),
-            &empty_agents(),
-            false,
-        );
+            sync: Some(&sync),
+            agents: &empty_agents(),
+        };
+        let output = format_status_output(&info, false);
 
         assert!(output.contains("Mode:     local-sync (branch: braid-issues)"));
         assert!(output.contains("Issues:   1 open, 0 doing, 0 done, 1 skip"));
@@ -569,16 +579,16 @@ mod tests {
             state: SyncState::UpToDate,
             dirty: true,
         };
-        let output = format_status_output(
-            "local-sync",
-            Some("braid-issues"),
-            "agent-one",
-            "brd",
+        let info = StatusInfo {
+            mode: "local-sync",
+            branch: Some("braid-issues"),
+            agent: "agent-one",
+            prefix: "brd",
             counts,
-            Some(&sync),
-            &empty_agents(),
-            false,
-        );
+            sync: Some(&sync),
+            agents: &empty_agents(),
+        };
+        let output = format_status_output(&info, false);
 
         assert!(output.contains("Sync:     up to date with origin/braid-issues (dirty)"));
     }
@@ -600,16 +610,16 @@ mod tests {
                 duration_mins: Some(15),
             }],
         };
-        let output = format_status_output(
-            "git-native",
-            None,
-            "agent-one",
-            "brd",
+        let info = StatusInfo {
+            mode: "git-native",
+            branch: None,
+            agent: "agent-one",
+            prefix: "brd",
             counts,
-            None,
-            &agents,
-            false,
-        );
+            sync: None,
+            agents: &agents,
+        };
+        let output = format_status_output(&info, false);
 
         assert!(output.contains("Agents:   2 total, 1 active (agent-one on brd-abc1 for 15m)"));
     }
@@ -627,16 +637,16 @@ mod tests {
             state: SyncState::NoUpstream,
             dirty: false,
         };
-        let output = format_status_output(
-            "local-sync",
-            Some("braid-issues"),
-            "agent-one",
-            "brd",
+        let info = StatusInfo {
+            mode: "local-sync",
+            branch: Some("braid-issues"),
+            agent: "agent-one",
+            prefix: "brd",
             counts,
-            Some(&sync),
-            &empty_agents(),
-            true,
-        );
+            sync: Some(&sync),
+            agents: &empty_agents(),
+        };
+        let output = format_status_output(&info, true);
         let json: serde_json::Value = serde_json::from_str(output.trim()).unwrap();
 
         assert_eq!(json["mode"], "local-sync");
@@ -662,16 +672,16 @@ mod tests {
             state: SyncState::UpToDate,
             dirty: true,
         };
-        let output = format_status_output(
-            "local-sync",
-            Some("issues"),
-            "agent-one",
-            "brd",
+        let info = StatusInfo {
+            mode: "local-sync",
+            branch: Some("issues"),
+            agent: "agent-one",
+            prefix: "brd",
             counts,
-            Some(&sync),
-            &empty_agents(),
-            true,
-        );
+            sync: Some(&sync),
+            agents: &empty_agents(),
+        };
+        let output = format_status_output(&info, true);
         let json: serde_json::Value = serde_json::from_str(output.trim()).unwrap();
 
         assert_eq!(json["sync"]["status"], "up-to-date");
