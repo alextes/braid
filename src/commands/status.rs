@@ -2,8 +2,10 @@
 
 use std::collections::HashMap;
 use std::fmt::Write as _;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Command;
+
+use time::OffsetDateTime;
 
 use crate::cli::Cli;
 use crate::config::Config;
@@ -39,6 +41,20 @@ struct SyncInfo {
     upstream: Option<String>,
     state: SyncState,
     dirty: bool,
+}
+
+#[derive(Clone, Debug)]
+struct ActiveAgent {
+    name: String,
+    issue_id: String,
+    issue_title: String,
+    duration_mins: Option<i64>,
+}
+
+#[derive(Clone, Debug)]
+struct AgentInfo {
+    total: usize,
+    active: Vec<ActiveAgent>,
 }
 
 fn count_issues(issues: &HashMap<String, Issue>) -> IssueCounts {
@@ -147,6 +163,55 @@ fn sync_to_json(sync: &SyncInfo) -> serde_json::Value {
     })
 }
 
+fn format_duration(mins: i64) -> String {
+    if mins < 60 {
+        format!("{}m", mins)
+    } else if mins < 60 * 24 {
+        format!("{}h", mins / 60)
+    } else {
+        format!("{}d", mins / (60 * 24))
+    }
+}
+
+fn format_agent_line(agents: &AgentInfo) -> String {
+    if agents.total == 0 && agents.active.is_empty() {
+        return "none".to_string();
+    }
+
+    let active_count = agents.active.len();
+    let summary = format!("{} total, {} active", agents.total, active_count);
+
+    if active_count == 0 {
+        return summary;
+    }
+
+    if active_count == 1 {
+        let agent = &agents.active[0];
+        let duration = agent
+            .duration_mins
+            .map(|m| format!(" for {}", format_duration(m)))
+            .unwrap_or_default();
+        return format!("{} ({} on {}{})", summary, agent.name, agent.issue_id, duration);
+    }
+
+    // Multiple active agents - just show summary, details in multi-line or JSON
+    summary
+}
+
+fn agents_to_json(agents: &AgentInfo) -> serde_json::Value {
+    serde_json::json!({
+        "total": agents.total,
+        "active": agents.active.iter().map(|a| {
+            serde_json::json!({
+                "name": a.name,
+                "issue_id": a.issue_id,
+                "issue_title": a.issue_title,
+                "duration_mins": a.duration_mins,
+            })
+        }).collect::<Vec<_>>(),
+    })
+}
+
 fn format_status_output(
     mode: &str,
     branch: Option<&str>,
@@ -154,6 +219,7 @@ fn format_status_output(
     prefix: &str,
     counts: IssueCounts,
     sync: Option<&SyncInfo>,
+    agents: &AgentInfo,
     json: bool,
 ) -> String {
     if json {
@@ -167,6 +233,7 @@ fn format_status_output(
                 "done": counts.done,
                 "skip": counts.skip,
             },
+            "agents": agents_to_json(agents),
         });
 
         if let Some(branch) = branch {
@@ -212,6 +279,13 @@ fn format_status_output(
         "{:<width$}{}",
         "Issues:",
         format_issue_counts(counts),
+        width = LABEL_WIDTH
+    );
+    let _ = writeln!(
+        output,
+        "{:<width$}{}",
+        "Agents:",
+        format_agent_line(agents),
         width = LABEL_WIDTH
     );
 
@@ -275,6 +349,67 @@ fn is_working_tree_dirty(cwd: &Path) -> bool {
         .unwrap_or(false)
 }
 
+fn get_worktrees_dir(paths: &RepoPaths) -> Option<PathBuf> {
+    let home_dir = std::env::var("HOME").ok().map(PathBuf::from)?;
+    let braid_worktrees = home_dir.join(".braid").join("worktrees");
+
+    // Check if we're already inside a braid worktree (~/.braid/worktrees/<repo>/<agent>)
+    if paths.worktree_root.starts_with(&braid_worktrees) {
+        // Extract repo name from the path: ~/.braid/worktrees/<repo-name>/<agent-name>
+        let relative = paths.worktree_root.strip_prefix(&braid_worktrees).ok()?;
+        let repo_name = relative.components().next()?.as_os_str().to_str()?;
+        return Some(braid_worktrees.join(repo_name));
+    }
+
+    // Otherwise, use the worktree root's directory name as repo name
+    let repo_name = paths.worktree_root.file_name()?.to_str()?;
+    Some(braid_worktrees.join(repo_name))
+}
+
+fn count_agent_worktrees(paths: &RepoPaths) -> usize {
+    let Some(worktrees_dir) = get_worktrees_dir(paths) else {
+        return 0;
+    };
+
+    if !worktrees_dir.exists() {
+        return 0;
+    }
+
+    std::fs::read_dir(&worktrees_dir)
+        .map(|entries| entries.filter_map(|e| e.ok()).filter(|e| e.path().is_dir()).count())
+        .unwrap_or(0)
+}
+
+fn get_active_agents(issues: &HashMap<String, Issue>) -> Vec<ActiveAgent> {
+    let now = OffsetDateTime::now_utc();
+
+    issues
+        .values()
+        .filter(|issue| issue.status() == Status::Doing)
+        .filter_map(|issue| {
+            let name = issue.frontmatter.owner.clone()?;
+            let duration_mins = issue
+                .frontmatter
+                .started_at
+                .map(|started| (now - started).whole_minutes());
+
+            Some(ActiveAgent {
+                name,
+                issue_id: issue.id().to_string(),
+                issue_title: issue.title().to_string(),
+                duration_mins,
+            })
+        })
+        .collect()
+}
+
+fn get_agent_info(paths: &RepoPaths, issues: &HashMap<String, Issue>) -> AgentInfo {
+    AgentInfo {
+        total: count_agent_worktrees(paths),
+        active: get_active_agents(issues),
+    }
+}
+
 fn get_sync_info(paths: &RepoPaths, branch: &str) -> SyncInfo {
     let issues_wt = paths.issues_worktree_dir();
     if !issues_wt.exists() {
@@ -317,6 +452,7 @@ pub fn cmd_status(cli: &Cli, paths: &RepoPaths) -> Result<()> {
     let issues = load_all_issues(paths, &config)?;
     let counts = count_issues(&issues);
     let agent_id = repo::get_agent_id(&paths.worktree_root);
+    let agents = get_agent_info(paths, &issues);
 
     let (mode, branch, sync) = match config.issues_branch.as_deref() {
         Some(branch) => (
@@ -334,6 +470,7 @@ pub fn cmd_status(cli: &Cli, paths: &RepoPaths) -> Result<()> {
         &config.id_prefix,
         counts,
         sync.as_ref(),
+        &agents,
         cli.json,
     );
     print!("{output}");
@@ -345,6 +482,13 @@ pub fn cmd_status(cli: &Cli, paths: &RepoPaths) -> Result<()> {
 mod tests {
     use super::*;
 
+    fn empty_agents() -> AgentInfo {
+        AgentInfo {
+            total: 0,
+            active: vec![],
+        }
+    }
+
     #[test]
     fn test_format_status_output_git_native() {
         let counts = IssueCounts {
@@ -353,13 +497,22 @@ mod tests {
             done: 3,
             skip: 0,
         };
-        let output =
-            format_status_output("git-native", None, "agent-one", "brd", counts, None, false);
+        let output = format_status_output(
+            "git-native",
+            None,
+            "agent-one",
+            "brd",
+            counts,
+            None,
+            &empty_agents(),
+            false,
+        );
 
         assert!(output.contains("Mode:     git-native"));
         assert!(output.contains("Agent:    agent-one"));
         assert!(output.contains("Prefix:   brd"));
         assert!(output.contains("Issues:   2 open, 1 doing, 3 done"));
+        assert!(output.contains("Agents:   none"));
         assert!(!output.contains("Sync:"));
     }
 
@@ -383,6 +536,7 @@ mod tests {
             "brd",
             counts,
             Some(&sync),
+            &empty_agents(),
             false,
         );
 
@@ -411,10 +565,42 @@ mod tests {
             "brd",
             counts,
             Some(&sync),
+            &empty_agents(),
             false,
         );
 
         assert!(output.contains("Sync:     up to date with origin/braid-issues (dirty)"));
+    }
+
+    #[test]
+    fn test_format_status_output_with_agents() {
+        let counts = IssueCounts {
+            open: 1,
+            doing: 1,
+            done: 0,
+            skip: 0,
+        };
+        let agents = AgentInfo {
+            total: 2,
+            active: vec![ActiveAgent {
+                name: "agent-one".to_string(),
+                issue_id: "brd-abc1".to_string(),
+                issue_title: "test issue".to_string(),
+                duration_mins: Some(15),
+            }],
+        };
+        let output = format_status_output(
+            "git-native",
+            None,
+            "agent-one",
+            "brd",
+            counts,
+            None,
+            &agents,
+            false,
+        );
+
+        assert!(output.contains("Agents:   2 total, 1 active (agent-one on brd-abc1 for 15m)"));
     }
 
     #[test]
@@ -437,6 +623,7 @@ mod tests {
             "brd",
             counts,
             Some(&sync),
+            &empty_agents(),
             true,
         );
         let json: serde_json::Value = serde_json::from_str(output.trim()).unwrap();
@@ -448,6 +635,7 @@ mod tests {
         assert_eq!(json["issues"]["doing"], 2);
         assert_eq!(json["sync"]["status"], "no-upstream");
         assert_eq!(json["sync"]["dirty"], false);
+        assert_eq!(json["agents"]["total"], 0);
     }
 
     #[test]
@@ -470,11 +658,22 @@ mod tests {
             "brd",
             counts,
             Some(&sync),
+            &empty_agents(),
             true,
         );
         let json: serde_json::Value = serde_json::from_str(output.trim()).unwrap();
 
         assert_eq!(json["sync"]["status"], "up-to-date");
         assert_eq!(json["sync"]["dirty"], true);
+    }
+
+    #[test]
+    fn test_format_duration() {
+        assert_eq!(format_duration(5), "5m");
+        assert_eq!(format_duration(59), "59m");
+        assert_eq!(format_duration(60), "1h");
+        assert_eq!(format_duration(120), "2h");
+        assert_eq!(format_duration(60 * 24), "1d");
+        assert_eq!(format_duration(60 * 24 * 3), "3d");
     }
 }
