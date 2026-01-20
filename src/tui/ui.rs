@@ -66,14 +66,6 @@ fn draw_main(f: &mut Frame, area: Rect, app: &mut App) {
 }
 
 fn draw_dashboard(f: &mut Frame, area: Rect, app: &App) {
-    let block = Block::default()
-        .title(" Dashboard ")
-        .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::Yellow));
-
-    let inner = block.inner(area);
-    f.render_widget(block, area);
-
     // compute all stats
     let now = OffsetDateTime::now_utc();
     let day_ago = now - TimeDuration::hours(24);
@@ -99,6 +91,7 @@ fn draw_dashboard(f: &mut Frame, area: Rect, app: &App) {
         .values()
         .filter(|i| i.status() == Status::Skip)
         .count();
+    let total_count = open_count + doing_count + done_count + skip_count;
 
     // priority counts (open + doing only)
     let active_issues: Vec<_> = app
@@ -122,6 +115,7 @@ fn draw_dashboard(f: &mut Frame, area: Rect, app: &App) {
         .iter()
         .filter(|i| i.priority() == Priority::P3)
         .count();
+    let active_total = active_issues.len();
 
     // health: ready/blocked/stale
     let mut ready_count = 0;
@@ -172,12 +166,15 @@ fn draw_dashboard(f: &mut Frame, area: Rect, app: &App) {
     // layout: top stats row, then agents, then recent
     let chunks = Layout::default()
         .direction(Direction::Vertical)
+        .margin(1)
         .constraints([
-            Constraint::Length(7), // stats row
-            Constraint::Min(3),    // agents
-            Constraint::Length(3), // recent
+            Constraint::Length(8), // stats row (with borders)
+            Constraint::Length(1), // spacing
+            Constraint::Min(5),    // agents
+            Constraint::Length(1), // spacing
+            Constraint::Length(4), // recent
         ])
-        .split(inner);
+        .split(area);
 
     // top row: 3 columns for status/priority/health
     let top_cols = Layout::default()
@@ -189,89 +186,119 @@ fn draw_dashboard(f: &mut Frame, area: Rect, app: &App) {
         ])
         .split(chunks[0]);
 
-    // status column
+    // status box with bar
+    let status_block = Block::default()
+        .title(" Status ")
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::DarkGray));
+    let status_inner = status_block.inner(top_cols[0]);
+    f.render_widget(status_block, top_cols[0]);
+
+    let bar_width = status_inner.width.saturating_sub(2) as usize;
+    let status_bar = make_stacked_bar(
+        bar_width,
+        total_count,
+        &[
+            (done_count, Color::Green),
+            (doing_count, Color::Yellow),
+            (open_count, Color::White),
+            (skip_count, Color::DarkGray),
+        ],
+    );
     let status_lines = vec![
-        Line::from(Span::styled(
-            "Status",
-            Style::default().add_modifier(Modifier::BOLD),
-        )),
+        status_bar,
         Line::from(""),
         Line::from(vec![
-            Span::styled("open:  ", Style::default().fg(Color::DarkGray)),
-            Span::raw(format!("{:>3}", open_count)),
-        ]),
-        Line::from(vec![
-            Span::styled("doing: ", Style::default().fg(Color::DarkGray)),
+            Span::styled("open ", Style::default()),
+            Span::styled(format!("{:>3}", open_count), Style::default()),
+            Span::styled("  doing ", Style::default().fg(Color::Yellow)),
             Span::styled(
                 format!("{:>3}", doing_count),
                 Style::default().fg(Color::Yellow),
             ),
         ]),
         Line::from(vec![
-            Span::styled("done:  ", Style::default().fg(Color::DarkGray)),
+            Span::styled("done ", Style::default().fg(Color::Green)),
             Span::styled(
                 format!("{:>3}", done_count),
                 Style::default().fg(Color::Green),
             ),
-        ]),
-        Line::from(vec![
-            Span::styled("skip:  ", Style::default().fg(Color::DarkGray)),
+            Span::styled("  skip  ", Style::default().fg(Color::DarkGray)),
             Span::styled(
                 format!("{:>3}", skip_count),
                 Style::default().fg(Color::DarkGray),
             ),
         ]),
     ];
-    f.render_widget(Paragraph::new(status_lines), top_cols[0]);
+    f.render_widget(Paragraph::new(status_lines), status_inner);
 
-    // priority column
+    // priority box with bar
+    let priority_block = Block::default()
+        .title(" Priority ")
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::DarkGray));
+    let priority_inner = priority_block.inner(top_cols[1]);
+    f.render_widget(priority_block, top_cols[1]);
+
+    let priority_bar = make_stacked_bar(
+        bar_width,
+        active_total,
+        &[
+            (p0_count, Color::Red),
+            (p1_count, Color::Yellow),
+            (p2_count, Color::White),
+            (p3_count, Color::DarkGray),
+        ],
+    );
     let priority_lines = vec![
-        Line::from(Span::styled(
-            "Priority",
-            Style::default().add_modifier(Modifier::BOLD),
-        )),
+        priority_bar,
         Line::from(""),
         Line::from(vec![
-            Span::styled("P0: ", Style::default().fg(Color::DarkGray)),
+            Span::styled("P0 ", Style::default().fg(Color::Red)),
             Span::styled(format!("{:>3}", p0_count), Style::default().fg(Color::Red)),
-        ]),
-        Line::from(vec![
-            Span::styled("P1: ", Style::default().fg(Color::DarkGray)),
+            Span::styled("  P1 ", Style::default().fg(Color::Yellow)),
             Span::styled(
                 format!("{:>3}", p1_count),
                 Style::default().fg(Color::Yellow),
             ),
         ]),
         Line::from(vec![
-            Span::styled("P2: ", Style::default().fg(Color::DarkGray)),
-            Span::raw(format!("{:>3}", p2_count)),
-        ]),
-        Line::from(vec![
-            Span::styled("P3: ", Style::default().fg(Color::DarkGray)),
+            Span::styled("P2 ", Style::default()),
+            Span::styled(format!("{:>3}", p2_count), Style::default()),
+            Span::styled("  P3 ", Style::default().fg(Color::DarkGray)),
             Span::styled(
                 format!("{:>3}", p3_count),
                 Style::default().fg(Color::DarkGray),
             ),
         ]),
     ];
-    f.render_widget(Paragraph::new(priority_lines), top_cols[1]);
+    f.render_widget(Paragraph::new(priority_lines), priority_inner);
 
-    // health column
+    // health box
+    let health_block = Block::default()
+        .title(" Health ")
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::DarkGray));
+    let health_inner = health_block.inner(top_cols[2]);
+    f.render_widget(health_block, top_cols[2]);
+
+    let health_bar = make_stacked_bar(
+        bar_width,
+        ready_count + blocked_count,
+        &[(ready_count, Color::Green), (blocked_count, Color::Yellow)],
+    );
     let mut health_lines = vec![
-        Line::from(Span::styled(
-            "Health",
-            Style::default().add_modifier(Modifier::BOLD),
-        )),
+        health_bar,
         Line::from(""),
         Line::from(vec![
-            Span::styled("ready:   ", Style::default().fg(Color::DarkGray)),
+            Span::styled("ready   ", Style::default().fg(Color::Green)),
             Span::styled(
                 format!("{:>3}", ready_count),
                 Style::default().fg(Color::Green),
             ),
         ]),
         Line::from(vec![
-            Span::styled("blocked: ", Style::default().fg(Color::DarkGray)),
+            Span::styled("blocked ", Style::default().fg(Color::Yellow)),
             Span::styled(
                 format!("{:>3}", blocked_count),
                 Style::default().fg(Color::Yellow),
@@ -279,61 +306,117 @@ fn draw_dashboard(f: &mut Frame, area: Rect, app: &App) {
         ]),
     ];
     if stale_count > 0 {
-        health_lines.push(Line::from(vec![
-            Span::styled("stale:   ", Style::default().fg(Color::DarkGray)),
+        health_lines[3] = Line::from(vec![
+            Span::styled("blocked ", Style::default().fg(Color::Yellow)),
             Span::styled(
-                format!("{:>3}", stale_count),
-                Style::default().fg(Color::Red),
+                format!("{:>3}", blocked_count),
+                Style::default().fg(Color::Yellow),
             ),
-            Span::styled(" (>24h)", Style::default().fg(Color::DarkGray)),
-        ]));
+            Span::styled("  stale ", Style::default().fg(Color::Red)),
+            Span::styled(format!("{}", stale_count), Style::default().fg(Color::Red)),
+        ]);
     }
-    f.render_widget(Paragraph::new(health_lines), top_cols[2]);
+    f.render_widget(Paragraph::new(health_lines), health_inner);
 
-    // agents section
-    let mut agent_lines = vec![Line::from(Span::styled(
-        "Active Agents",
-        Style::default().add_modifier(Modifier::BOLD),
-    ))];
-    if active_agents.is_empty() {
-        agent_lines.push(Line::from(Span::styled(
+    // agents box
+    let agents_block = Block::default()
+        .title(" Active Agents ")
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::DarkGray));
+    let agents_inner = agents_block.inner(chunks[2]);
+    f.render_widget(agents_block, chunks[2]);
+
+    let agent_lines: Vec<Line> = if active_agents.is_empty() {
+        vec![Line::from(Span::styled(
             "(none)",
             Style::default().fg(Color::DarkGray),
-        )));
+        ))]
     } else {
-        let max_show = 5;
-        for (owner, id, title) in active_agents.iter().take(max_show) {
-            let truncated_title: String = title.chars().take(30).collect();
-            agent_lines.push(Line::from(vec![
-                Span::styled(format!("{:<12}", owner), Style::default().fg(Color::Cyan)),
-                Span::styled(" → ", Style::default().fg(Color::DarkGray)),
-                Span::raw(format!("{} ", id)),
-                Span::styled(truncated_title, Style::default().fg(Color::DarkGray)),
-            ]));
-        }
+        let max_show = agents_inner.height as usize;
+        let mut lines: Vec<Line> = active_agents
+            .iter()
+            .take(max_show)
+            .map(|(owner, id, title)| {
+                let max_title = agents_inner.width.saturating_sub(25) as usize;
+                let truncated_title: String = title.chars().take(max_title).collect();
+                Line::from(vec![
+                    Span::styled(format!("{:<12}", owner), Style::default().fg(Color::Cyan)),
+                    Span::styled(" → ", Style::default().fg(Color::DarkGray)),
+                    Span::raw(format!("{} ", id)),
+                    Span::styled(truncated_title, Style::default().fg(Color::DarkGray)),
+                ])
+            })
+            .collect();
         if active_agents.len() > max_show {
-            agent_lines.push(Line::from(Span::styled(
+            lines.push(Line::from(Span::styled(
                 format!("  (+{} more)", active_agents.len() - max_show),
                 Style::default().fg(Color::DarkGray),
             )));
         }
-    }
-    f.render_widget(Paragraph::new(agent_lines), chunks[1]);
+        lines
+    };
+    f.render_widget(Paragraph::new(agent_lines), agents_inner);
 
-    // recent activity
-    let recent_lines = vec![
-        Line::from(Span::styled(
-            "Recent (24h)",
-            Style::default().add_modifier(Modifier::BOLD),
-        )),
-        Line::from(vec![
-            Span::styled("✓ ", Style::default().fg(Color::Green)),
-            Span::raw(format!("{} completed", completed_24h)),
-            Span::styled("    → ", Style::default().fg(Color::DarkGray)),
-            Span::raw(format!("{} started", started_24h)),
-        ]),
-    ];
-    f.render_widget(Paragraph::new(recent_lines), chunks[2]);
+    // recent activity box
+    let recent_block = Block::default()
+        .title(" Recent (24h) ")
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::DarkGray));
+    let recent_inner = recent_block.inner(chunks[4]);
+    f.render_widget(recent_block, chunks[4]);
+
+    let recent_lines = vec![Line::from(vec![
+        Span::styled("✓ ", Style::default().fg(Color::Green)),
+        Span::styled(
+            format!("{}", completed_24h),
+            Style::default().fg(Color::Green),
+        ),
+        Span::raw(" completed"),
+        Span::styled("    → ", Style::default().fg(Color::DarkGray)),
+        Span::styled(
+            format!("{}", started_24h),
+            Style::default().fg(Color::Yellow),
+        ),
+        Span::raw(" started"),
+    ])];
+    f.render_widget(Paragraph::new(recent_lines), recent_inner);
+}
+
+/// Create a horizontal stacked bar from segments
+fn make_stacked_bar(width: usize, total: usize, segments: &[(usize, Color)]) -> Line<'static> {
+    if total == 0 || width == 0 {
+        return Line::from(Span::styled(
+            "░".repeat(width),
+            Style::default().fg(Color::DarkGray),
+        ));
+    }
+
+    let mut spans = Vec::new();
+    let mut used = 0;
+
+    for (count, color) in segments {
+        if *count == 0 {
+            continue;
+        }
+        let segment_width = (*count * width) / total;
+        if segment_width > 0 {
+            spans.push(Span::styled(
+                "█".repeat(segment_width),
+                Style::default().fg(*color),
+            ));
+            used += segment_width;
+        }
+    }
+
+    // fill remaining with dim
+    if used < width {
+        spans.push(Span::styled(
+            "░".repeat(width - used),
+            Style::default().fg(Color::DarkGray),
+        ));
+    }
+
+    Line::from(spans)
 }
 
 fn draw_issues_view(f: &mut Frame, area: Rect, app: &mut App) {
