@@ -95,248 +95,191 @@ pub fn cmd_set(cli: &Cli, paths: &RepoPaths, id: &str, field: &str, value: &str)
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::issue::{Issue, IssueType, Status};
-    use std::fs;
-    use tempfile::tempdir;
-
-    fn create_test_repo() -> (tempfile::TempDir, RepoPaths, Config) {
-        let dir = tempdir().unwrap();
-        let paths = RepoPaths {
-            worktree_root: dir.path().to_path_buf(),
-            git_common_dir: dir.path().join(".git"),
-            brd_common_dir: dir.path().join(".git/brd"),
-        };
-        fs::create_dir_all(&paths.brd_common_dir).unwrap();
-        fs::create_dir_all(paths.braid_dir().join("issues")).unwrap();
-        let config = Config::default();
-        config.save(&paths.config_path()).unwrap();
-        (dir, paths, config)
-    }
-
-    fn write_issue(paths: &RepoPaths, config: &Config, id: &str, priority: Priority) {
-        let mut issue = Issue::new(id.to_string(), format!("issue {}", id), priority, vec![]);
-        issue.frontmatter.status = Status::Open;
-        let issue_path = paths.issues_dir(config).join(format!("{}.md", id));
-        issue.save(&issue_path).unwrap();
-    }
-
-    fn make_cli() -> Cli {
-        Cli {
-            json: false,
-            repo: None,
-            no_color: true,
-            verbose: false,
-            command: crate::cli::Command::Doctor,
-        }
-    }
+    use crate::issue::{IssueType, Status};
+    use crate::test_utils::{TestRepo, test_cli};
 
     #[test]
     fn test_set_priority() {
-        let (_dir, paths, config) = create_test_repo();
-        write_issue(&paths, &config, "brd-aaaa", Priority::P3);
+        let repo = TestRepo::new().build();
+        repo.issue("brd-aaaa").priority(Priority::P3).create();
 
-        let cli = make_cli();
-        cmd_set(&cli, &paths, "brd-aaaa", "priority", "P1").unwrap();
+        cmd_set(&test_cli(), &repo.paths, "brd-aaaa", "priority", "P1").unwrap();
 
-        let issues = load_all_issues(&paths, &config).unwrap();
-        let issue = issues.get("brd-aaaa").unwrap();
-        assert_eq!(issue.priority(), Priority::P1);
+        let issues = load_all_issues(&repo.paths, &repo.config).unwrap();
+        assert_eq!(issues.get("brd-aaaa").unwrap().priority(), Priority::P1);
     }
 
     #[test]
     fn test_set_priority_short_field() {
-        let (_dir, paths, config) = create_test_repo();
-        write_issue(&paths, &config, "brd-bbbb", Priority::P2);
+        let repo = TestRepo::new().build();
+        repo.issue("brd-bbbb").priority(Priority::P2).create();
 
-        let cli = make_cli();
-        cmd_set(&cli, &paths, "brd-bbbb", "p", "P0").unwrap();
+        cmd_set(&test_cli(), &repo.paths, "brd-bbbb", "p", "P0").unwrap();
 
-        let issues = load_all_issues(&paths, &config).unwrap();
-        let issue = issues.get("brd-bbbb").unwrap();
-        assert_eq!(issue.priority(), Priority::P0);
+        let issues = load_all_issues(&repo.paths, &repo.config).unwrap();
+        assert_eq!(issues.get("brd-bbbb").unwrap().priority(), Priority::P0);
     }
 
     #[test]
     fn test_set_invalid_field() {
-        let (_dir, paths, config) = create_test_repo();
-        write_issue(&paths, &config, "brd-cccc", Priority::P2);
+        let repo = TestRepo::new().build();
+        repo.issue("brd-cccc").create();
 
-        let cli = make_cli();
-        let err = cmd_set(&cli, &paths, "brd-cccc", "unknown", "value").unwrap_err();
+        let err = cmd_set(&test_cli(), &repo.paths, "brd-cccc", "unknown", "value").unwrap_err();
         assert!(err.to_string().contains("unknown field"));
     }
 
     #[test]
     fn test_set_invalid_priority() {
-        let (_dir, paths, config) = create_test_repo();
-        write_issue(&paths, &config, "brd-dddd", Priority::P2);
+        let repo = TestRepo::new().build();
+        repo.issue("brd-dddd").create();
 
-        let cli = make_cli();
-        let err = cmd_set(&cli, &paths, "brd-dddd", "priority", "P9").unwrap_err();
+        let err = cmd_set(&test_cli(), &repo.paths, "brd-dddd", "priority", "P9").unwrap_err();
         assert!(err.to_string().contains("invalid priority"));
     }
 
     #[test]
     fn test_set_issue_not_found() {
-        let (_dir, paths, _config) = create_test_repo();
-        let cli = make_cli();
-        let err = cmd_set(&cli, &paths, "brd-missing", "priority", "P1").unwrap_err();
+        let repo = TestRepo::new().build();
+
+        let err = cmd_set(&test_cli(), &repo.paths, "brd-missing", "priority", "P1").unwrap_err();
         assert!(matches!(err, BrdError::IssueNotFound(_)));
     }
 
     #[test]
     fn test_set_status() {
-        let (_dir, paths, config) = create_test_repo();
-        write_issue(&paths, &config, "brd-stat", Priority::P2);
+        let repo = TestRepo::new().build();
+        repo.issue("brd-stat").create();
 
-        let cli = make_cli();
-        cmd_set(&cli, &paths, "brd-stat", "status", "done").unwrap();
+        cmd_set(&test_cli(), &repo.paths, "brd-stat", "status", "done").unwrap();
 
-        let issues = load_all_issues(&paths, &config).unwrap();
-        let issue = issues.get("brd-stat").unwrap();
-        assert_eq!(issue.status(), Status::Done);
+        let issues = load_all_issues(&repo.paths, &repo.config).unwrap();
+        assert_eq!(issues.get("brd-stat").unwrap().status(), Status::Done);
     }
 
     #[test]
     fn test_set_status_short() {
-        let (_dir, paths, config) = create_test_repo();
-        write_issue(&paths, &config, "brd-stat2", Priority::P2);
+        let repo = TestRepo::new().build();
+        repo.issue("brd-stat2").create();
 
-        let cli = make_cli();
-        cmd_set(&cli, &paths, "brd-stat2", "s", "doing").unwrap();
+        cmd_set(&test_cli(), &repo.paths, "brd-stat2", "s", "doing").unwrap();
 
-        let issues = load_all_issues(&paths, &config).unwrap();
-        let issue = issues.get("brd-stat2").unwrap();
-        assert_eq!(issue.status(), Status::Doing);
+        let issues = load_all_issues(&repo.paths, &repo.config).unwrap();
+        assert_eq!(issues.get("brd-stat2").unwrap().status(), Status::Doing);
     }
 
     #[test]
     fn test_set_type() {
-        let (_dir, paths, config) = create_test_repo();
-        write_issue(&paths, &config, "brd-type", Priority::P2);
+        let repo = TestRepo::new().build();
+        repo.issue("brd-type").create();
 
-        let cli = make_cli();
-        cmd_set(&cli, &paths, "brd-type", "type", "design").unwrap();
+        cmd_set(&test_cli(), &repo.paths, "brd-type", "type", "design").unwrap();
 
-        let issues = load_all_issues(&paths, &config).unwrap();
-        let issue = issues.get("brd-type").unwrap();
-        assert_eq!(issue.issue_type(), Some(IssueType::Design));
+        let issues = load_all_issues(&repo.paths, &repo.config).unwrap();
+        assert_eq!(
+            issues.get("brd-type").unwrap().issue_type(),
+            Some(IssueType::Design)
+        );
     }
 
     #[test]
     fn test_set_type_clear() {
-        let (_dir, paths, config) = create_test_repo();
-        let mut issue = Issue::new(
-            "brd-tclear".to_string(),
-            "test".to_string(),
-            Priority::P2,
-            vec![],
-        );
-        issue.frontmatter.issue_type = Some(IssueType::Design);
-        issue.frontmatter.status = Status::Open;
-        let issue_path = paths.issues_dir(&config).join("brd-tclear.md");
-        issue.save(&issue_path).unwrap();
+        let repo = TestRepo::new().build();
+        repo.issue("brd-tclear")
+            .issue_type(IssueType::Design)
+            .create();
 
-        let cli = make_cli();
-        cmd_set(&cli, &paths, "brd-tclear", "t", "-").unwrap();
+        cmd_set(&test_cli(), &repo.paths, "brd-tclear", "t", "-").unwrap();
 
-        let issues = load_all_issues(&paths, &config).unwrap();
-        let issue = issues.get("brd-tclear").unwrap();
-        assert_eq!(issue.issue_type(), None);
+        let issues = load_all_issues(&repo.paths, &repo.config).unwrap();
+        assert_eq!(issues.get("brd-tclear").unwrap().issue_type(), None);
     }
 
     #[test]
     fn test_set_owner() {
-        let (_dir, paths, config) = create_test_repo();
-        write_issue(&paths, &config, "brd-owner", Priority::P2);
+        let repo = TestRepo::new().build();
+        repo.issue("brd-owner").create();
 
-        let cli = make_cli();
-        cmd_set(&cli, &paths, "brd-owner", "owner", "alice").unwrap();
+        cmd_set(&test_cli(), &repo.paths, "brd-owner", "owner", "alice").unwrap();
 
-        let issues = load_all_issues(&paths, &config).unwrap();
-        let issue = issues.get("brd-owner").unwrap();
-        assert_eq!(issue.frontmatter.owner, Some("alice".to_string()));
+        let issues = load_all_issues(&repo.paths, &repo.config).unwrap();
+        assert_eq!(
+            issues.get("brd-owner").unwrap().frontmatter.owner,
+            Some("alice".to_string())
+        );
     }
 
     #[test]
     fn test_set_owner_clear() {
-        let (_dir, paths, config) = create_test_repo();
-        let mut issue = Issue::new(
-            "brd-oclear".to_string(),
-            "test".to_string(),
-            Priority::P2,
-            vec![],
-        );
-        issue.frontmatter.owner = Some("bob".to_string());
-        issue.frontmatter.status = Status::Open;
-        let issue_path = paths.issues_dir(&config).join("brd-oclear.md");
-        issue.save(&issue_path).unwrap();
+        let repo = TestRepo::new().build();
+        repo.issue("brd-oclear").owner("bob").create();
 
-        let cli = make_cli();
-        cmd_set(&cli, &paths, "brd-oclear", "o", "-").unwrap();
+        cmd_set(&test_cli(), &repo.paths, "brd-oclear", "o", "-").unwrap();
 
-        let issues = load_all_issues(&paths, &config).unwrap();
-        let issue = issues.get("brd-oclear").unwrap();
-        assert_eq!(issue.frontmatter.owner, None);
+        let issues = load_all_issues(&repo.paths, &repo.config).unwrap();
+        assert_eq!(issues.get("brd-oclear").unwrap().frontmatter.owner, None);
     }
 
     #[test]
     fn test_set_title() {
-        let (_dir, paths, config) = create_test_repo();
-        write_issue(&paths, &config, "brd-title", Priority::P2);
+        let repo = TestRepo::new().build();
+        repo.issue("brd-title").create();
 
-        let cli = make_cli();
-        cmd_set(&cli, &paths, "brd-title", "title", "new title here").unwrap();
+        cmd_set(
+            &test_cli(),
+            &repo.paths,
+            "brd-title",
+            "title",
+            "new title here",
+        )
+        .unwrap();
 
-        let issues = load_all_issues(&paths, &config).unwrap();
-        let issue = issues.get("brd-title").unwrap();
-        assert_eq!(issue.title(), "new title here");
+        let issues = load_all_issues(&repo.paths, &repo.config).unwrap();
+        assert_eq!(issues.get("brd-title").unwrap().title(), "new title here");
     }
 
     #[test]
     fn test_set_tag_add() {
-        let (_dir, paths, config) = create_test_repo();
-        write_issue(&paths, &config, "brd-tag1", Priority::P2);
+        let repo = TestRepo::new().build();
+        repo.issue("brd-tag1").create();
 
-        let cli = make_cli();
-        cmd_set(&cli, &paths, "brd-tag1", "tag", "+urgent").unwrap();
+        cmd_set(&test_cli(), &repo.paths, "brd-tag1", "tag", "+urgent").unwrap();
 
-        let issues = load_all_issues(&paths, &config).unwrap();
-        let issue = issues.get("brd-tag1").unwrap();
-        assert!(issue.tags().contains(&"urgent".to_string()));
+        let issues = load_all_issues(&repo.paths, &repo.config).unwrap();
+        assert!(
+            issues
+                .get("brd-tag1")
+                .unwrap()
+                .tags()
+                .contains(&"urgent".to_string())
+        );
     }
 
     #[test]
     fn test_set_tag_add_bare() {
-        let (_dir, paths, config) = create_test_repo();
-        write_issue(&paths, &config, "brd-tag2", Priority::P2);
+        let repo = TestRepo::new().build();
+        repo.issue("brd-tag2").create();
 
-        let cli = make_cli();
-        cmd_set(&cli, &paths, "brd-tag2", "tag", "bug").unwrap();
+        cmd_set(&test_cli(), &repo.paths, "brd-tag2", "tag", "bug").unwrap();
 
-        let issues = load_all_issues(&paths, &config).unwrap();
-        let issue = issues.get("brd-tag2").unwrap();
-        assert!(issue.tags().contains(&"bug".to_string()));
+        let issues = load_all_issues(&repo.paths, &repo.config).unwrap();
+        assert!(
+            issues
+                .get("brd-tag2")
+                .unwrap()
+                .tags()
+                .contains(&"bug".to_string())
+        );
     }
 
     #[test]
     fn test_set_tag_remove() {
-        let (_dir, paths, config) = create_test_repo();
-        let mut issue = Issue::new(
-            "brd-tag3".to_string(),
-            "test".to_string(),
-            Priority::P2,
-            vec![],
-        );
-        issue.frontmatter.tags = vec!["bug".to_string(), "urgent".to_string()];
-        issue.frontmatter.status = Status::Open;
-        let issue_path = paths.issues_dir(&config).join("brd-tag3.md");
-        issue.save(&issue_path).unwrap();
+        let repo = TestRepo::new().build();
+        repo.issue("brd-tag3").tags(&["bug", "urgent"]).create();
 
-        let cli = make_cli();
-        cmd_set(&cli, &paths, "brd-tag3", "tag", "-bug").unwrap();
+        cmd_set(&test_cli(), &repo.paths, "brd-tag3", "tag", "-bug").unwrap();
 
-        let issues = load_all_issues(&paths, &config).unwrap();
+        let issues = load_all_issues(&repo.paths, &repo.config).unwrap();
         let issue = issues.get("brd-tag3").unwrap();
         assert!(!issue.tags().contains(&"bug".to_string()));
         assert!(issue.tags().contains(&"urgent".to_string()));
@@ -344,23 +287,12 @@ mod tests {
 
     #[test]
     fn test_set_tag_no_duplicate() {
-        let (_dir, paths, config) = create_test_repo();
-        let mut issue = Issue::new(
-            "brd-tag4".to_string(),
-            "test".to_string(),
-            Priority::P2,
-            vec![],
-        );
-        issue.frontmatter.tags = vec!["bug".to_string()];
-        issue.frontmatter.status = Status::Open;
-        let issue_path = paths.issues_dir(&config).join("brd-tag4.md");
-        issue.save(&issue_path).unwrap();
+        let repo = TestRepo::new().build();
+        repo.issue("brd-tag4").tags(&["bug"]).create();
 
-        let cli = make_cli();
-        cmd_set(&cli, &paths, "brd-tag4", "tag", "+bug").unwrap();
+        cmd_set(&test_cli(), &repo.paths, "brd-tag4", "tag", "+bug").unwrap();
 
-        let issues = load_all_issues(&paths, &config).unwrap();
-        let issue = issues.get("brd-tag4").unwrap();
-        assert_eq!(issue.tags().len(), 1);
+        let issues = load_all_issues(&repo.paths, &repo.config).unwrap();
+        assert_eq!(issues.get("brd-tag4").unwrap().tags().len(), 1);
     }
 }
