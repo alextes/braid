@@ -4,11 +4,13 @@ note: this repo is braid itself, so we're dogfooding it.
 
 ## check, lint, test
 
-before committing anything, or when finishing a big chunk of work, consider running:
+**before any commit**, you MUST run all checks and they MUST pass:
 
-- `cargo clippy`
-- `cargo test`
-- `cargo fmt --all`
+```bash
+cargo fmt --all && cargo clippy && cargo test
+```
+
+do not commit if any of these fail. fix issues first, then commit.
 
 ## commits
 
