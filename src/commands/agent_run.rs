@@ -43,9 +43,6 @@ pub fn cmd_agent_spawn(
     let log_path = Session::log_path(&sessions_dir, &session_id);
     let state_path = Session::state_path(&sessions_dir, &session_id);
 
-    // create log file
-    let log_file = File::create(&log_path)?;
-
     // build the prompt
     let prompt = format!(
         "work on issue {}. run `brd show {}` to see details. \
@@ -68,11 +65,12 @@ pub fn cmd_agent_spawn(
         &prompt,
     ]);
     cmd.current_dir(&paths.worktree_root);
-    cmd.stdout(Stdio::from(log_file.try_clone()?));
-    cmd.stderr(Stdio::from(log_file));
 
     if foreground {
-        // run in foreground - wait and stream output
+        // foreground mode: inherit stdio so output goes to terminal
+        cmd.stdout(Stdio::inherit());
+        cmd.stderr(Stdio::inherit());
+
         let status = cmd.status()?;
 
         if cli.json {
@@ -92,6 +90,10 @@ pub fn cmd_agent_spawn(
             );
         }
     } else {
+        // background mode: redirect output to log file
+        let log_file = File::create(&log_path)?;
+        cmd.stdout(Stdio::from(log_file.try_clone()?));
+        cmd.stderr(Stdio::from(log_file));
         // run in background
         let child = cmd.spawn().map_err(|e| {
             if e.kind() == std::io::ErrorKind::NotFound {
