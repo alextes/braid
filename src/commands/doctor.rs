@@ -1,5 +1,7 @@
 //! brd doctor command.
 
+use std::time::Instant;
+
 use crate::cli::Cli;
 use crate::error::{BrdError, Result};
 use crate::migrate::{self, CURRENT_SCHEMA};
@@ -32,6 +34,7 @@ fn parse_frontmatter(content: &str) -> Result<(String, String)> {
 }
 
 pub fn cmd_doctor(cli: &Cli, paths: &RepoPaths) -> Result<()> {
+    let start = Instant::now();
     let mut checks: Vec<serde_json::Value> = Vec::new();
     let mut errors: Vec<serde_json::Value> = Vec::new();
 
@@ -341,32 +344,37 @@ pub fn cmd_doctor(cli: &Cli, paths: &RepoPaths) -> Result<()> {
     }
 
     let ok = errors.is_empty();
+    let elapsed_ms = start.elapsed().as_millis();
 
     if cli.json {
         let json = serde_json::json!({
             "ok": ok,
             "checks": checks,
-            "errors": errors
+            "errors": errors,
+            "took_ms": elapsed_ms
         });
         println!("{}", serde_json::to_string_pretty(&json).unwrap());
-    } else if !ok {
-        // Print any remaining errors that weren't printed inline
-        let mut has_other_errors = false;
-        for e in &errors {
-            if let Some(code) = e.get("code").and_then(|c| c.as_str()) {
-                // Skip errors already printed inline
-                if code == "missing_dep" || code == "cycle" {
-                    continue;
-                }
-                if !has_other_errors {
-                    println!();
-                    has_other_errors = true;
-                }
-                if let Some(msg) = e.get("message").and_then(|m| m.as_str()) {
-                    eprintln!("  error: {}", msg);
+    } else {
+        if !ok {
+            // Print any remaining errors that weren't printed inline
+            let mut has_other_errors = false;
+            for e in &errors {
+                if let Some(code) = e.get("code").and_then(|c| c.as_str()) {
+                    // Skip errors already printed inline
+                    if code == "missing_dep" || code == "cycle" {
+                        continue;
+                    }
+                    if !has_other_errors {
+                        println!();
+                        has_other_errors = true;
+                    }
+                    if let Some(msg) = e.get("message").and_then(|m| m.as_str()) {
+                        eprintln!("  error: {}", msg);
+                    }
                 }
             }
         }
+        println!("took: {}ms", elapsed_ms);
     }
 
     if ok {
