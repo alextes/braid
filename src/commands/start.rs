@@ -467,72 +467,28 @@ pub fn cmd_start(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::issue::Priority;
+    use crate::test_utils::{TestRepo, test_cli};
     use std::fs;
     use tempfile::tempdir;
 
-    fn create_test_repo() -> (tempfile::TempDir, RepoPaths, Config) {
-        let dir = tempdir().unwrap();
-        let paths = RepoPaths {
-            worktree_root: dir.path().to_path_buf(),
-            git_common_dir: dir.path().join(".git"),
-            brd_common_dir: dir.path().join(".git/brd"),
-        };
-        fs::create_dir_all(&paths.brd_common_dir).unwrap();
-        fs::create_dir_all(paths.braid_dir().join("issues")).unwrap();
-        let config = Config::default();
-        config.save(&paths.config_path()).unwrap();
-        fs::write(
-            paths.braid_dir().join("agent.toml"),
-            "agent_id = \"tester\"\n",
-        )
-        .unwrap();
-        (dir, paths, config)
-    }
-
-    fn write_issue(
-        paths: &RepoPaths,
-        config: &Config,
-        id: &str,
-        priority: crate::issue::Priority,
-        status: Status,
-        issue_type: Option<IssueType>,
-        owner: Option<&str>,
-    ) {
-        let mut issue = Issue::new(id.to_string(), format!("issue {}", id), priority, vec![]);
-        issue.frontmatter.status = status;
-        issue.frontmatter.issue_type = issue_type;
-        issue.frontmatter.owner = owner.map(|o| o.to_string());
-        let issue_path = paths.issues_dir(config).join(format!("{}.md", id));
-        issue.save(&issue_path).unwrap();
-    }
-
-    fn make_cli() -> Cli {
-        Cli {
-            json: false,
-            repo: None,
-            no_color: true,
-            verbose: false,
-            command: crate::cli::Command::Doctor,
-        }
-    }
-
     #[test]
     fn test_start_sets_status_and_owner() {
-        let (_dir, paths, config) = create_test_repo();
-        write_issue(
-            &paths,
-            &config,
-            "brd-aaaa",
-            crate::issue::Priority::P2,
-            Status::Open,
-            None,
-            None,
-        );
+        let repo = TestRepo::new().with_agent("tester").build();
+        repo.issue("brd-aaaa").create();
 
-        let cli = make_cli();
-        cmd_start(&cli, &paths, Some("brd-aaaa"), false, true, true, false).unwrap();
+        cmd_start(
+            &test_cli(),
+            &repo.paths,
+            Some("brd-aaaa"),
+            false,
+            true,
+            true,
+            false,
+        )
+        .unwrap();
 
-        let issues = load_all_issues(&paths, &config).unwrap();
+        let issues = load_all_issues(&repo.paths, &repo.config).unwrap();
         let issue = issues.get("brd-aaaa").unwrap();
         assert_eq!(issue.status(), Status::Doing);
         assert_eq!(issue.frontmatter.owner.as_deref(), Some("tester"));
@@ -540,30 +496,16 @@ mod tests {
 
     #[test]
     fn test_start_auto_picks_non_meta() {
-        let (_dir, paths, config) = create_test_repo();
-        write_issue(
-            &paths,
-            &config,
-            "brd-meta",
-            crate::issue::Priority::P0,
-            Status::Open,
-            Some(IssueType::Meta),
-            None,
-        );
-        write_issue(
-            &paths,
-            &config,
-            "brd-work",
-            crate::issue::Priority::P1,
-            Status::Open,
-            None,
-            None,
-        );
+        let repo = TestRepo::new().with_agent("tester").build();
+        repo.issue("brd-meta")
+            .priority(Priority::P0)
+            .issue_type(IssueType::Meta)
+            .create();
+        repo.issue("brd-work").priority(Priority::P1).create();
 
-        let cli = make_cli();
-        cmd_start(&cli, &paths, None, false, true, true, false).unwrap();
+        cmd_start(&test_cli(), &repo.paths, None, false, true, true, false).unwrap();
 
-        let issues = load_all_issues(&paths, &config).unwrap();
+        let issues = load_all_issues(&repo.paths, &repo.config).unwrap();
         let work = issues.get("brd-work").unwrap();
         let meta = issues.get("brd-meta").unwrap();
         assert_eq!(work.status(), Status::Doing);
@@ -573,83 +515,93 @@ mod tests {
 
     #[test]
     fn test_start_requires_force_for_doing_issue() {
-        let (_dir, paths, config) = create_test_repo();
-        write_issue(
-            &paths,
-            &config,
-            "brd-aaaa",
-            crate::issue::Priority::P2,
-            Status::Doing,
-            None,
-            Some("someone"),
-        );
+        let repo = TestRepo::new().with_agent("tester").build();
+        repo.issue("brd-aaaa")
+            .status(Status::Doing)
+            .owner("someone")
+            .create();
 
-        let cli = make_cli();
-        let err = cmd_start(&cli, &paths, Some("brd-aaaa"), false, true, true, false).unwrap_err();
+        let err = cmd_start(
+            &test_cli(),
+            &repo.paths,
+            Some("brd-aaaa"),
+            false,
+            true,
+            true,
+            false,
+        )
+        .unwrap_err();
         assert!(err.to_string().contains("already being worked on"));
 
-        let issues = load_all_issues(&paths, &config).unwrap();
-        let issue = issues.get("brd-aaaa").unwrap();
-        assert_eq!(issue.frontmatter.owner.as_deref(), Some("someone"));
+        let issues = load_all_issues(&repo.paths, &repo.config).unwrap();
+        assert_eq!(
+            issues.get("brd-aaaa").unwrap().frontmatter.owner.as_deref(),
+            Some("someone")
+        );
     }
 
     #[test]
     fn test_start_force_reassigns_owner() {
-        let (_dir, paths, config) = create_test_repo();
-        write_issue(
-            &paths,
-            &config,
-            "brd-aaaa",
-            crate::issue::Priority::P2,
-            Status::Doing,
-            None,
-            Some("someone"),
+        let repo = TestRepo::new().with_agent("tester").build();
+        repo.issue("brd-aaaa")
+            .status(Status::Doing)
+            .owner("someone")
+            .create();
+
+        cmd_start(
+            &test_cli(),
+            &repo.paths,
+            Some("brd-aaaa"),
+            true,
+            true,
+            true,
+            false,
+        )
+        .unwrap();
+
+        let issues = load_all_issues(&repo.paths, &repo.config).unwrap();
+        assert_eq!(
+            issues.get("brd-aaaa").unwrap().frontmatter.owner.as_deref(),
+            Some("tester")
         );
-
-        let cli = make_cli();
-        cmd_start(&cli, &paths, Some("brd-aaaa"), true, true, true, false).unwrap();
-
-        let issues = load_all_issues(&paths, &config).unwrap();
-        let issue = issues.get("brd-aaaa").unwrap();
-        assert_eq!(issue.frontmatter.owner.as_deref(), Some("tester"));
     }
 
     #[test]
     fn test_start_ambiguous_id() {
-        let (_dir, paths, config) = create_test_repo();
-        write_issue(
-            &paths,
-            &config,
-            "brd-aaaa",
-            crate::issue::Priority::P2,
-            Status::Open,
-            None,
-            None,
-        );
-        write_issue(
-            &paths,
-            &config,
-            "brd-aaab",
-            crate::issue::Priority::P2,
-            Status::Open,
-            None,
-            None,
-        );
+        let repo = TestRepo::new().with_agent("tester").build();
+        repo.issue("brd-aaaa").create();
+        repo.issue("brd-aaab").create();
 
-        let cli = make_cli();
-        let err = cmd_start(&cli, &paths, Some("aaa"), false, true, true, false).unwrap_err();
+        let err = cmd_start(
+            &test_cli(),
+            &repo.paths,
+            Some("aaa"),
+            false,
+            true,
+            true,
+            false,
+        )
+        .unwrap_err();
         assert!(matches!(err, BrdError::AmbiguousId(_, _)));
     }
 
     #[test]
     fn test_start_issue_not_found() {
-        let (_dir, paths, _config) = create_test_repo();
-        let cli = make_cli();
-        let err =
-            cmd_start(&cli, &paths, Some("brd-missing"), false, true, true, false).unwrap_err();
+        let repo = TestRepo::new().with_agent("tester").build();
+        let err = cmd_start(
+            &test_cli(),
+            &repo.paths,
+            Some("brd-missing"),
+            false,
+            true,
+            true,
+            false,
+        )
+        .unwrap_err();
         assert!(matches!(err, BrdError::IssueNotFound(_)));
     }
 
+    // Git-specific tests need actual git repos
     fn create_git_repo() -> (tempfile::TempDir, RepoPaths) {
         let dir = tempdir().unwrap();
         git::test::run_ok(dir.path(), &["init"]);
@@ -671,7 +623,7 @@ mod tests {
     #[test]
     fn test_sync_with_main_no_origin_skips() {
         let (_dir, paths) = create_git_repo();
-        let cli = make_cli();
+        let cli = test_cli();
 
         // No origin remote - should skip sync without error
         let result = sync_with_main(&paths, &cli, false);
@@ -681,7 +633,7 @@ mod tests {
     #[test]
     fn test_sync_with_main_dirty_without_stash_shows_options() {
         let (_dir, paths) = create_git_repo();
-        let cli = make_cli();
+        let cli = test_cli();
 
         // Add an origin remote
         git::test::run_ok(
@@ -703,7 +655,7 @@ mod tests {
     #[test]
     fn test_sync_with_main_braid_changes_allowed() {
         let (_dir, paths) = create_git_repo();
-        let cli = make_cli();
+        let cli = test_cli();
 
         // Create .braid directory with uncommitted changes
         fs::create_dir_all(paths.worktree_root.join(".braid")).unwrap();
@@ -717,7 +669,7 @@ mod tests {
     #[test]
     fn test_sync_with_main_stash_flag_preserves_changes() {
         let (_dir, paths) = create_git_repo();
-        let cli = make_cli();
+        let cli = test_cli();
 
         // Add origin remote (fetch will fail but stash should still work)
         git::test::run_ok(

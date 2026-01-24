@@ -200,101 +200,19 @@ fn add_dep_checked(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::fs;
-    use tempfile::tempdir;
-
-    fn create_test_repo() -> (tempfile::TempDir, RepoPaths, Config) {
-        let dir = tempdir().unwrap();
-        let paths = RepoPaths {
-            worktree_root: dir.path().to_path_buf(),
-            git_common_dir: dir.path().join(".git"),
-            brd_common_dir: dir.path().join(".git/brd"),
-        };
-        fs::create_dir_all(&paths.brd_common_dir).unwrap();
-        fs::create_dir_all(paths.braid_dir().join("issues")).unwrap();
-        let config = Config::default();
-        config.save(&paths.config_path()).unwrap();
-        (dir, paths, config)
-    }
-
-    fn write_issue(
-        paths: &RepoPaths,
-        config: &Config,
-        id: &str,
-        status: Status,
-        owner: Option<&str>,
-    ) {
-        let mut issue = crate::issue::Issue::new(
-            id.to_string(),
-            format!("issue {}", id),
-            crate::issue::Priority::P2,
-            vec![],
-        );
-        issue.frontmatter.status = status;
-        issue.frontmatter.owner = owner.map(|o| o.to_string());
-        let issue_path = paths.issues_dir(config).join(format!("{}.md", id));
-        issue.save(&issue_path).unwrap();
-    }
-
-    fn make_cli() -> Cli {
-        Cli {
-            json: false,
-            repo: None,
-            no_color: true,
-            verbose: false,
-            command: crate::cli::Command::Doctor,
-        }
-    }
-
-    fn write_design_issue(paths: &RepoPaths, config: &Config, id: &str) {
-        let mut issue = crate::issue::Issue::new(
-            id.to_string(),
-            format!("design {}", id),
-            crate::issue::Priority::P2,
-            vec![],
-        );
-        issue.frontmatter.issue_type = Some(IssueType::Design);
-        let issue_path = paths.issues_dir(config).join(format!("{}.md", id));
-        issue.save(&issue_path).unwrap();
-    }
-
-    fn write_design_issue_with_deps(
-        paths: &RepoPaths,
-        config: &Config,
-        id: &str,
-        deps: Vec<String>,
-    ) {
-        let mut issue = crate::issue::Issue::new(
-            id.to_string(),
-            format!("design {}", id),
-            crate::issue::Priority::P2,
-            deps,
-        );
-        issue.frontmatter.issue_type = Some(IssueType::Design);
-        let issue_path = paths.issues_dir(config).join(format!("{}.md", id));
-        issue.save(&issue_path).unwrap();
-    }
-
-    fn write_issue_with_deps(paths: &RepoPaths, config: &Config, id: &str, deps: Vec<String>) {
-        let issue = crate::issue::Issue::new(
-            id.to_string(),
-            format!("issue {}", id),
-            crate::issue::Priority::P2,
-            deps,
-        );
-        let issue_path = paths.issues_dir(config).join(format!("{}.md", id));
-        issue.save(&issue_path).unwrap();
-    }
+    use crate::test_utils::{TestRepo, test_cli};
 
     #[test]
     fn test_done_sets_status_and_clears_owner() {
-        let (_dir, paths, config) = create_test_repo();
-        write_issue(&paths, &config, "brd-aaaa", Status::Doing, Some("tester"));
+        let repo = TestRepo::new().build();
+        repo.issue("brd-aaaa")
+            .status(Status::Doing)
+            .owner("tester")
+            .create();
 
-        let cli = make_cli();
-        cmd_done(&cli, &paths, "brd-aaaa", false, &[], true).unwrap();
+        cmd_done(&test_cli(), &repo.paths, "brd-aaaa", false, &[], true).unwrap();
 
-        let issues = load_all_issues(&paths, &config).unwrap();
+        let issues = load_all_issues(&repo.paths, &repo.config).unwrap();
         let issue = issues.get("brd-aaaa").unwrap();
         assert_eq!(issue.status(), Status::Done);
         assert!(issue.frontmatter.owner.is_none());
@@ -302,56 +220,56 @@ mod tests {
 
     #[test]
     fn test_done_issue_not_found() {
-        let (_dir, paths, _config) = create_test_repo();
-        let cli = make_cli();
-        let err = cmd_done(&cli, &paths, "brd-missing", false, &[], true).unwrap_err();
+        let repo = TestRepo::new().build();
+        let err = cmd_done(&test_cli(), &repo.paths, "brd-missing", false, &[], true).unwrap_err();
         assert!(matches!(err, BrdError::IssueNotFound(_)));
     }
 
     #[test]
     fn test_done_ambiguous_id() {
-        let (_dir, paths, config) = create_test_repo();
-        write_issue(&paths, &config, "brd-aaaa", Status::Open, None);
-        write_issue(&paths, &config, "brd-aaab", Status::Open, None);
+        let repo = TestRepo::new().build();
+        repo.issue("brd-aaaa").create();
+        repo.issue("brd-aaab").create();
 
-        let cli = make_cli();
-        let err = cmd_done(&cli, &paths, "aaa", false, &[], true).unwrap_err();
+        let err = cmd_done(&test_cli(), &repo.paths, "aaa", false, &[], true).unwrap_err();
         assert!(matches!(err, BrdError::AmbiguousId(_, _)));
     }
 
     #[test]
     fn test_done_design_requires_result() {
-        let (_dir, paths, config) = create_test_repo();
-        write_design_issue(&paths, &config, "brd-design");
+        let repo = TestRepo::new().build();
+        repo.issue("brd-design")
+            .issue_type(IssueType::Design)
+            .create();
 
-        let cli = make_cli();
-        let err = cmd_done(&cli, &paths, "brd-design", false, &[], true).unwrap_err();
+        let err = cmd_done(&test_cli(), &repo.paths, "brd-design", false, &[], true).unwrap_err();
         assert!(err.to_string().contains("design issues require --result"));
     }
 
     #[test]
     fn test_done_design_with_force() {
-        let (_dir, paths, config) = create_test_repo();
-        write_design_issue(&paths, &config, "brd-design");
+        let repo = TestRepo::new().build();
+        repo.issue("brd-design")
+            .issue_type(IssueType::Design)
+            .create();
 
-        let cli = make_cli();
-        cmd_done(&cli, &paths, "brd-design", true, &[], true).unwrap();
+        cmd_done(&test_cli(), &repo.paths, "brd-design", true, &[], true).unwrap();
 
-        let issues = load_all_issues(&paths, &config).unwrap();
-        let issue = issues.get("brd-design").unwrap();
-        assert_eq!(issue.status(), Status::Done);
+        let issues = load_all_issues(&repo.paths, &repo.config).unwrap();
+        assert_eq!(issues.get("brd-design").unwrap().status(), Status::Done);
     }
 
     #[test]
     fn test_done_design_with_result() {
-        let (_dir, paths, config) = create_test_repo();
-        write_design_issue(&paths, &config, "brd-design");
-        write_issue(&paths, &config, "brd-impl", Status::Open, None);
+        let repo = TestRepo::new().build();
+        repo.issue("brd-design")
+            .issue_type(IssueType::Design)
+            .create();
+        repo.issue("brd-impl").create();
 
-        let cli = make_cli();
         cmd_done(
-            &cli,
-            &paths,
+            &test_cli(),
+            &repo.paths,
             "brd-design",
             false,
             &["brd-impl".to_string()],
@@ -359,20 +277,20 @@ mod tests {
         )
         .unwrap();
 
-        let issues = load_all_issues(&paths, &config).unwrap();
-        let issue = issues.get("brd-design").unwrap();
-        assert_eq!(issue.status(), Status::Done);
+        let issues = load_all_issues(&repo.paths, &repo.config).unwrap();
+        assert_eq!(issues.get("brd-design").unwrap().status(), Status::Done);
     }
 
     #[test]
     fn test_done_design_result_not_found() {
-        let (_dir, paths, config) = create_test_repo();
-        write_design_issue(&paths, &config, "brd-design");
+        let repo = TestRepo::new().build();
+        repo.issue("brd-design")
+            .issue_type(IssueType::Design)
+            .create();
 
-        let cli = make_cli();
         let err = cmd_done(
-            &cli,
-            &paths,
+            &test_cli(),
+            &repo.paths,
             "brd-design",
             false,
             &["brd-missing".to_string()],
@@ -384,20 +302,16 @@ mod tests {
 
     #[test]
     fn test_done_design_replaces_dependents() {
-        let (_dir, paths, config) = create_test_repo();
-        write_design_issue(&paths, &config, "brd-design");
-        write_issue(&paths, &config, "brd-impl", Status::Open, None);
-        write_issue_with_deps(
-            &paths,
-            &config,
-            "brd-dependent",
-            vec!["brd-design".to_string()],
-        );
+        let repo = TestRepo::new().build();
+        repo.issue("brd-design")
+            .issue_type(IssueType::Design)
+            .create();
+        repo.issue("brd-impl").create();
+        repo.issue("brd-dependent").deps(&["brd-design"]).create();
 
-        let cli = make_cli();
         cmd_done(
-            &cli,
-            &paths,
+            &test_cli(),
+            &repo.paths,
             "brd-design",
             false,
             &["brd-impl".to_string()],
@@ -405,7 +319,7 @@ mod tests {
         )
         .unwrap();
 
-        let issues = load_all_issues(&paths, &config).unwrap();
+        let issues = load_all_issues(&repo.paths, &repo.config).unwrap();
         let dependent = issues.get("brd-dependent").unwrap();
         assert!(dependent.deps().contains(&"brd-impl".to_string()));
         assert!(!dependent.deps().contains(&"brd-design".to_string()));
@@ -413,26 +327,18 @@ mod tests {
 
     #[test]
     fn test_done_design_transfers_deps_to_results() {
-        let (_dir, paths, config) = create_test_repo();
-        write_issue(&paths, &config, "brd-upstream", Status::Open, None);
-        write_issue(&paths, &config, "brd-existing", Status::Open, None);
-        write_design_issue_with_deps(
-            &paths,
-            &config,
-            "brd-design",
-            vec!["brd-upstream".to_string()],
-        );
-        write_issue_with_deps(
-            &paths,
-            &config,
-            "brd-impl",
-            vec!["brd-existing".to_string()],
-        );
+        let repo = TestRepo::new().build();
+        repo.issue("brd-upstream").create();
+        repo.issue("brd-existing").create();
+        repo.issue("brd-design")
+            .issue_type(IssueType::Design)
+            .deps(&["brd-upstream"])
+            .create();
+        repo.issue("brd-impl").deps(&["brd-existing"]).create();
 
-        let cli = make_cli();
         cmd_done(
-            &cli,
-            &paths,
+            &test_cli(),
+            &repo.paths,
             "brd-design",
             false,
             &["brd-impl".to_string()],
@@ -440,7 +346,7 @@ mod tests {
         )
         .unwrap();
 
-        let issues = load_all_issues(&paths, &config).unwrap();
+        let issues = load_all_issues(&repo.paths, &repo.config).unwrap();
         let impl_issue = issues.get("brd-impl").unwrap();
         assert!(impl_issue.deps().contains(&"brd-existing".to_string()));
         assert!(impl_issue.deps().contains(&"brd-upstream".to_string()));
@@ -450,16 +356,17 @@ mod tests {
     fn test_done_design_multiple_results_that_are_also_dependents() {
         // Scenario: design issue has two impl issues that both depend on it
         // Closing with --result for both should NOT create cross-deps between them
-        let (_dir, paths, config) = create_test_repo();
-        write_design_issue(&paths, &config, "brd-design");
-        write_issue_with_deps(&paths, &config, "brd-impl1", vec!["brd-design".to_string()]);
-        write_issue_with_deps(&paths, &config, "brd-impl2", vec!["brd-design".to_string()]);
+        let repo = TestRepo::new().build();
+        repo.issue("brd-design")
+            .issue_type(IssueType::Design)
+            .create();
+        repo.issue("brd-impl1").deps(&["brd-design"]).create();
+        repo.issue("brd-impl2").deps(&["brd-design"]).create();
 
-        let cli = make_cli();
         // This should succeed - impl1 and impl2 are parallel, not dependent on each other
         cmd_done(
-            &cli,
-            &paths,
+            &test_cli(),
+            &repo.paths,
             "brd-design",
             false,
             &["brd-impl1".to_string(), "brd-impl2".to_string()],
@@ -467,7 +374,7 @@ mod tests {
         )
         .unwrap();
 
-        let issues = load_all_issues(&paths, &config).unwrap();
+        let issues = load_all_issues(&repo.paths, &repo.config).unwrap();
         let impl1 = issues.get("brd-impl1").unwrap();
         let impl2 = issues.get("brd-impl2").unwrap();
 
@@ -484,29 +391,24 @@ mod tests {
         assert!(!impl1.deps().contains(&"brd-design".to_string()));
         assert!(!impl2.deps().contains(&"brd-design".to_string()));
         // Design issue should be done
-        let design = issues.get("brd-design").unwrap();
-        assert_eq!(design.status(), Status::Done);
+        assert_eq!(issues.get("brd-design").unwrap().status(), Status::Done);
     }
 
     #[test]
     fn test_done_design_results_and_external_dependent() {
         // Scenario: design has two impl issues that depend on it, PLUS an external issue
         // that also depends on the design. The external should depend on both results.
-        let (_dir, paths, config) = create_test_repo();
-        write_design_issue(&paths, &config, "brd-design");
-        write_issue_with_deps(&paths, &config, "brd-impl1", vec!["brd-design".to_string()]);
-        write_issue_with_deps(&paths, &config, "brd-impl2", vec!["brd-design".to_string()]);
-        write_issue_with_deps(
-            &paths,
-            &config,
-            "brd-external",
-            vec!["brd-design".to_string()],
-        );
+        let repo = TestRepo::new().build();
+        repo.issue("brd-design")
+            .issue_type(IssueType::Design)
+            .create();
+        repo.issue("brd-impl1").deps(&["brd-design"]).create();
+        repo.issue("brd-impl2").deps(&["brd-design"]).create();
+        repo.issue("brd-external").deps(&["brd-design"]).create();
 
-        let cli = make_cli();
         cmd_done(
-            &cli,
-            &paths,
+            &test_cli(),
+            &repo.paths,
             "brd-design",
             false,
             &["brd-impl1".to_string(), "brd-impl2".to_string()],
@@ -514,7 +416,7 @@ mod tests {
         )
         .unwrap();
 
-        let issues = load_all_issues(&paths, &config).unwrap();
+        let issues = load_all_issues(&repo.paths, &repo.config).unwrap();
 
         // impl1 and impl2 should have no deps (design dep removed, no cross-deps)
         let impl1 = issues.get("brd-impl1").unwrap();
@@ -540,25 +442,16 @@ mod tests {
 
     #[test]
     fn test_done_design_rejects_cycles() {
-        let (_dir, paths, config) = create_test_repo();
-        write_design_issue(&paths, &config, "brd-design");
-        write_issue_with_deps(
-            &paths,
-            &config,
-            "brd-dependent",
-            vec!["brd-design".to_string()],
-        );
-        write_issue_with_deps(
-            &paths,
-            &config,
-            "brd-impl",
-            vec!["brd-dependent".to_string()],
-        );
+        let repo = TestRepo::new().build();
+        repo.issue("brd-design")
+            .issue_type(IssueType::Design)
+            .create();
+        repo.issue("brd-dependent").deps(&["brd-design"]).create();
+        repo.issue("brd-impl").deps(&["brd-dependent"]).create();
 
-        let cli = make_cli();
         let err = cmd_done(
-            &cli,
-            &paths,
+            &test_cli(),
+            &repo.paths,
             "brd-design",
             false,
             &["brd-impl".to_string()],
@@ -567,10 +460,9 @@ mod tests {
         .unwrap_err();
         assert!(err.to_string().contains("cycle"));
 
-        let issues = load_all_issues(&paths, &config).unwrap();
+        let issues = load_all_issues(&repo.paths, &repo.config).unwrap();
         let dependent = issues.get("brd-dependent").unwrap();
         assert!(dependent.deps().contains(&"brd-design".to_string()));
-        let design = issues.get("brd-design").unwrap();
-        assert_eq!(design.status(), Status::Open);
+        assert_eq!(issues.get("brd-design").unwrap().status(), Status::Open);
     }
 }

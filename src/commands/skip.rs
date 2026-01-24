@@ -43,61 +43,19 @@ pub fn cmd_skip(cli: &Cli, paths: &RepoPaths, id: &str) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::fs;
-    use tempfile::tempdir;
-
-    fn create_test_repo() -> (tempfile::TempDir, RepoPaths, Config) {
-        let dir = tempdir().unwrap();
-        let paths = RepoPaths {
-            worktree_root: dir.path().to_path_buf(),
-            git_common_dir: dir.path().join(".git"),
-            brd_common_dir: dir.path().join(".git/brd"),
-        };
-        fs::create_dir_all(&paths.brd_common_dir).unwrap();
-        fs::create_dir_all(paths.braid_dir().join("issues")).unwrap();
-        let config = Config::default();
-        config.save(&paths.config_path()).unwrap();
-        (dir, paths, config)
-    }
-
-    fn write_issue(
-        paths: &RepoPaths,
-        config: &Config,
-        id: &str,
-        status: Status,
-        owner: Option<&str>,
-    ) {
-        let mut issue = crate::issue::Issue::new(
-            id.to_string(),
-            format!("issue {}", id),
-            crate::issue::Priority::P2,
-            vec![],
-        );
-        issue.frontmatter.status = status;
-        issue.frontmatter.owner = owner.map(|o| o.to_string());
-        let issue_path = paths.issues_dir(config).join(format!("{}.md", id));
-        issue.save(&issue_path).unwrap();
-    }
-
-    fn make_cli() -> Cli {
-        Cli {
-            json: false,
-            repo: None,
-            no_color: true,
-            verbose: false,
-            command: crate::cli::Command::Doctor,
-        }
-    }
+    use crate::test_utils::{TestRepo, test_cli};
 
     #[test]
     fn test_skip_sets_status_and_clears_owner() {
-        let (_dir, paths, config) = create_test_repo();
-        write_issue(&paths, &config, "brd-aaaa", Status::Doing, Some("tester"));
+        let repo = TestRepo::new().build();
+        repo.issue("brd-aaaa")
+            .status(Status::Doing)
+            .owner("tester")
+            .create();
 
-        let cli = make_cli();
-        cmd_skip(&cli, &paths, "brd-aaaa").unwrap();
+        cmd_skip(&test_cli(), &repo.paths, "brd-aaaa").unwrap();
 
-        let issues = load_all_issues(&paths, &config).unwrap();
+        let issues = load_all_issues(&repo.paths, &repo.config).unwrap();
         let issue = issues.get("brd-aaaa").unwrap();
         assert_eq!(issue.status(), Status::Skip);
         assert!(issue.frontmatter.owner.is_none());
@@ -105,20 +63,18 @@ mod tests {
 
     #[test]
     fn test_skip_issue_not_found() {
-        let (_dir, paths, _config) = create_test_repo();
-        let cli = make_cli();
-        let err = cmd_skip(&cli, &paths, "brd-missing").unwrap_err();
+        let repo = TestRepo::new().build();
+        let err = cmd_skip(&test_cli(), &repo.paths, "brd-missing").unwrap_err();
         assert!(matches!(err, BrdError::IssueNotFound(_)));
     }
 
     #[test]
     fn test_skip_ambiguous_id() {
-        let (_dir, paths, config) = create_test_repo();
-        write_issue(&paths, &config, "brd-aaaa", Status::Open, None);
-        write_issue(&paths, &config, "brd-aaab", Status::Open, None);
+        let repo = TestRepo::new().build();
+        repo.issue("brd-aaaa").create();
+        repo.issue("brd-aaab").create();
 
-        let cli = make_cli();
-        let err = cmd_skip(&cli, &paths, "aaa").unwrap_err();
+        let err = cmd_skip(&test_cli(), &repo.paths, "aaa").unwrap_err();
         assert!(matches!(err, BrdError::AmbiguousId(_, _)));
     }
 }

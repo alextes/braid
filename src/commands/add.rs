@@ -54,55 +54,7 @@ pub fn cmd_add(cli: &Cli, paths: &RepoPaths, args: &AddArgs) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::fs;
-    use tempfile::tempdir;
-
-    fn create_test_repo() -> (tempfile::TempDir, RepoPaths) {
-        let dir = tempdir().unwrap();
-        let paths = RepoPaths {
-            worktree_root: dir.path().to_path_buf(),
-            git_common_dir: dir.path().join(".git"),
-            brd_common_dir: dir.path().join(".git/brd"),
-        };
-        fs::create_dir_all(&paths.brd_common_dir).unwrap();
-        fs::create_dir_all(paths.braid_dir().join("issues")).unwrap();
-        let config = Config::default();
-        config.save(&paths.config_path()).unwrap();
-        (dir, paths)
-    }
-
-    fn create_issue_file(paths: &RepoPaths, id: &str) {
-        let config = Config::default();
-        let content = format!(
-            r#"---
-schema_version: 4
-id: {}
-title: Existing Issue
-priority: P2
-status: open
-deps: []
-tags: []
-owner: ~
-created_at: 2024-01-01T00:00:00Z
-updated_at: 2024-01-01T00:00:00Z
-acceptance: []
----
-"#,
-            id
-        );
-        let issue_path = paths.issues_dir(&config).join(format!("{}.md", id));
-        fs::write(issue_path, content).unwrap();
-    }
-
-    fn make_cli() -> Cli {
-        Cli {
-            json: false,
-            repo: None,
-            no_color: true,
-            verbose: false,
-            command: crate::cli::Command::Doctor,
-        }
-    }
+    use crate::test_utils::{TestRepo, test_cli};
 
     fn make_args(title: &str) -> AddArgs {
         AddArgs {
@@ -122,16 +74,13 @@ acceptance: []
 
     #[test]
     fn test_add_minimal() {
-        let (_dir, paths) = create_test_repo();
-        let cli = make_cli();
+        let repo = TestRepo::new().build();
         let args = make_args("Test issue");
 
-        let result = cmd_add(&cli, &paths, &args);
+        let result = cmd_add(&test_cli(), &repo.paths, &args);
         assert!(result.is_ok());
 
-        // Verify issue was created
-        let config = Config::default();
-        let issues = load_all_issues(&paths, &config).unwrap();
+        let issues = load_all_issues(&repo.paths, &repo.config).unwrap();
         assert_eq!(issues.len(), 1);
 
         let issue = issues.values().next().unwrap();
@@ -141,10 +90,9 @@ acceptance: []
 
     #[test]
     fn test_add_with_all_options() {
-        let (_dir, paths) = create_test_repo();
-        create_issue_file(&paths, "brd-dep1");
+        let repo = TestRepo::new().build();
+        repo.issue("brd-dep1").create();
 
-        let cli = make_cli();
         let args = AddArgs {
             title: "Full issue".to_string(),
             priority: "P0".to_string(),
@@ -155,12 +103,10 @@ acceptance: []
             body: Some("This is the body".to_string()),
         };
 
-        let result = cmd_add(&cli, &paths, &args);
+        let result = cmd_add(&test_cli(), &repo.paths, &args);
         assert!(result.is_ok());
 
-        let config = Config::default();
-        let issues = load_all_issues(&paths, &config).unwrap();
-        // 2 issues: the dep and the new one
+        let issues = load_all_issues(&repo.paths, &repo.config).unwrap();
         assert_eq!(issues.len(), 2);
 
         let new_issue = issues.values().find(|i| i.title() == "Full issue").unwrap();
@@ -179,44 +125,37 @@ acceptance: []
 
     #[test]
     fn test_add_priority_p0() {
-        let (_dir, paths) = create_test_repo();
-        let cli = make_cli();
+        let repo = TestRepo::new().build();
         let mut args = make_args("P0 issue");
         args.priority = "P0".to_string();
 
-        let result = cmd_add(&cli, &paths, &args);
+        let result = cmd_add(&test_cli(), &repo.paths, &args);
         assert!(result.is_ok());
 
-        let config = Config::default();
-        let issues = load_all_issues(&paths, &config).unwrap();
-        let issue = issues.values().next().unwrap();
-        assert_eq!(issue.priority(), Priority::P0);
+        let issues = load_all_issues(&repo.paths, &repo.config).unwrap();
+        assert_eq!(issues.values().next().unwrap().priority(), Priority::P0);
     }
 
     #[test]
     fn test_add_priority_p3() {
-        let (_dir, paths) = create_test_repo();
-        let cli = make_cli();
+        let repo = TestRepo::new().build();
         let mut args = make_args("P3 issue");
         args.priority = "P3".to_string();
 
-        let result = cmd_add(&cli, &paths, &args);
+        let result = cmd_add(&test_cli(), &repo.paths, &args);
         assert!(result.is_ok());
 
-        let config = Config::default();
-        let issues = load_all_issues(&paths, &config).unwrap();
-        let issue = issues.values().next().unwrap();
-        assert_eq!(issue.priority(), Priority::P3);
+        let issues = load_all_issues(&repo.paths, &repo.config).unwrap();
+        assert_eq!(issues.values().next().unwrap().priority(), Priority::P3);
     }
 
     #[test]
     fn test_add_invalid_priority() {
-        let (_dir, paths) = create_test_repo();
-        let cli = make_cli();
+        let repo = TestRepo::new().build();
         let mut args = make_args("Bad priority");
         args.priority = "P5".to_string();
 
-        let result = cmd_add(&cli, &paths, &args);
+        let result = cmd_add(&test_cli(), &repo.paths, &args);
         assert!(result.is_err());
     }
 
@@ -226,44 +165,43 @@ acceptance: []
 
     #[test]
     fn test_add_type_design() {
-        let (_dir, paths) = create_test_repo();
-        let cli = make_cli();
+        let repo = TestRepo::new().build();
         let mut args = make_args("Design issue");
         args.r#type = Some("design".to_string());
 
-        let result = cmd_add(&cli, &paths, &args);
+        let result = cmd_add(&test_cli(), &repo.paths, &args);
         assert!(result.is_ok());
 
-        let config = Config::default();
-        let issues = load_all_issues(&paths, &config).unwrap();
-        let issue = issues.values().next().unwrap();
-        assert_eq!(issue.issue_type(), Some(IssueType::Design));
+        let issues = load_all_issues(&repo.paths, &repo.config).unwrap();
+        assert_eq!(
+            issues.values().next().unwrap().issue_type(),
+            Some(IssueType::Design)
+        );
     }
 
     #[test]
     fn test_add_type_meta() {
-        let (_dir, paths) = create_test_repo();
-        let cli = make_cli();
+        let repo = TestRepo::new().build();
         let mut args = make_args("Meta issue");
         args.r#type = Some("meta".to_string());
 
-        let result = cmd_add(&cli, &paths, &args);
+        let result = cmd_add(&test_cli(), &repo.paths, &args);
         assert!(result.is_ok());
 
-        let config = Config::default();
-        let issues = load_all_issues(&paths, &config).unwrap();
-        let issue = issues.values().next().unwrap();
-        assert_eq!(issue.issue_type(), Some(IssueType::Meta));
+        let issues = load_all_issues(&repo.paths, &repo.config).unwrap();
+        assert_eq!(
+            issues.values().next().unwrap().issue_type(),
+            Some(IssueType::Meta)
+        );
     }
 
     #[test]
     fn test_add_invalid_type() {
-        let (_dir, paths) = create_test_repo();
-        let cli = make_cli();
+        let repo = TestRepo::new().build();
         let mut args = make_args("Bad type");
         args.r#type = Some("invalid".to_string());
 
-        let result = cmd_add(&cli, &paths, &args);
+        let result = cmd_add(&test_cli(), &repo.paths, &args);
         assert!(result.is_err());
     }
 
@@ -273,18 +211,16 @@ acceptance: []
 
     #[test]
     fn test_add_with_dep() {
-        let (_dir, paths) = create_test_repo();
-        create_issue_file(&paths, "brd-parent");
+        let repo = TestRepo::new().build();
+        repo.issue("brd-parent").create();
 
-        let cli = make_cli();
         let mut args = make_args("Child issue");
         args.dep = vec!["brd-parent".to_string()];
 
-        let result = cmd_add(&cli, &paths, &args);
+        let result = cmd_add(&test_cli(), &repo.paths, &args);
         assert!(result.is_ok());
 
-        let config = Config::default();
-        let issues = load_all_issues(&paths, &config).unwrap();
+        let issues = load_all_issues(&repo.paths, &repo.config).unwrap();
         let child = issues
             .values()
             .find(|i| i.title() == "Child issue")
@@ -294,19 +230,17 @@ acceptance: []
 
     #[test]
     fn test_add_with_multiple_deps() {
-        let (_dir, paths) = create_test_repo();
-        create_issue_file(&paths, "brd-dep1");
-        create_issue_file(&paths, "brd-dep2");
+        let repo = TestRepo::new().build();
+        repo.issue("brd-dep1").create();
+        repo.issue("brd-dep2").create();
 
-        let cli = make_cli();
         let mut args = make_args("Multi dep issue");
         args.dep = vec!["brd-dep1".to_string(), "brd-dep2".to_string()];
 
-        let result = cmd_add(&cli, &paths, &args);
+        let result = cmd_add(&test_cli(), &repo.paths, &args);
         assert!(result.is_ok());
 
-        let config = Config::default();
-        let issues = load_all_issues(&paths, &config).unwrap();
+        let issues = load_all_issues(&repo.paths, &repo.config).unwrap();
         let issue = issues
             .values()
             .find(|i| i.title() == "Multi dep issue")
@@ -317,18 +251,16 @@ acceptance: []
 
     #[test]
     fn test_add_with_partial_dep_id() {
-        let (_dir, paths) = create_test_repo();
-        create_issue_file(&paths, "brd-abcd");
+        let repo = TestRepo::new().build();
+        repo.issue("brd-abcd").create();
 
-        let cli = make_cli();
         let mut args = make_args("Partial dep issue");
         args.dep = vec!["abcd".to_string()]; // partial ID
 
-        let result = cmd_add(&cli, &paths, &args);
+        let result = cmd_add(&test_cli(), &repo.paths, &args);
         assert!(result.is_ok());
 
-        let config = Config::default();
-        let issues = load_all_issues(&paths, &config).unwrap();
+        let issues = load_all_issues(&repo.paths, &repo.config).unwrap();
         let issue = issues
             .values()
             .find(|i| i.title() == "Partial dep issue")
@@ -338,12 +270,11 @@ acceptance: []
 
     #[test]
     fn test_add_with_nonexistent_dep() {
-        let (_dir, paths) = create_test_repo();
-        let cli = make_cli();
+        let repo = TestRepo::new().build();
         let mut args = make_args("Bad dep issue");
         args.dep = vec!["nonexistent".to_string()];
 
-        let result = cmd_add(&cli, &paths, &args);
+        let result = cmd_add(&test_cli(), &repo.paths, &args);
         assert!(result.is_err());
     }
 
@@ -353,43 +284,37 @@ acceptance: []
 
     #[test]
     fn test_add_generates_unique_ids() {
-        let (_dir, paths) = create_test_repo();
-        let cli = make_cli();
+        let repo = TestRepo::new().build();
 
-        // Add multiple issues
         for i in 0..5 {
             let args = make_args(&format!("Issue {}", i));
-            let result = cmd_add(&cli, &paths, &args);
+            let result = cmd_add(&test_cli(), &repo.paths, &args);
             assert!(result.is_ok());
         }
 
-        let config = Config::default();
-        let issues = load_all_issues(&paths, &config).unwrap();
+        let issues = load_all_issues(&repo.paths, &repo.config).unwrap();
         assert_eq!(issues.len(), 5);
 
-        // All IDs should be unique
         let ids: std::collections::HashSet<_> = issues.keys().collect();
         assert_eq!(ids.len(), 5);
     }
 
     #[test]
     fn test_add_uses_config_prefix() {
-        let (_dir, paths) = create_test_repo();
+        let repo = TestRepo::new().build();
 
-        // Create config with custom prefix
+        // Override config with custom prefix
         let config = Config {
             id_prefix: "test".to_string(),
             ..Default::default()
         };
-        config.save(&paths.config_path()).unwrap();
+        config.save(&repo.paths.config_path()).unwrap();
 
-        let cli = make_cli();
         let args = make_args("Custom prefix issue");
-
-        let result = cmd_add(&cli, &paths, &args);
+        let result = cmd_add(&test_cli(), &repo.paths, &args);
         assert!(result.is_ok());
 
-        let issues = load_all_issues(&paths, &config).unwrap();
+        let issues = load_all_issues(&repo.paths, &config).unwrap();
         let id = issues.keys().next().unwrap();
         assert!(id.starts_with("test-"));
     }
@@ -400,16 +325,14 @@ acceptance: []
 
     #[test]
     fn test_add_with_tags() {
-        let (_dir, paths) = create_test_repo();
-        let cli = make_cli();
+        let repo = TestRepo::new().build();
         let mut args = make_args("Tagged issue");
         args.tag = vec!["bug".to_string(), "frontend".to_string()];
 
-        let result = cmd_add(&cli, &paths, &args);
+        let result = cmd_add(&test_cli(), &repo.paths, &args);
         assert!(result.is_ok());
 
-        let config = Config::default();
-        let issues = load_all_issues(&paths, &config).unwrap();
+        let issues = load_all_issues(&repo.paths, &repo.config).unwrap();
         let issue = issues.values().next().unwrap();
         assert!(issue.tags().contains(&"bug".to_string()));
         assert!(issue.tags().contains(&"frontend".to_string()));
@@ -417,19 +340,17 @@ acceptance: []
 
     #[test]
     fn test_add_with_acceptance_criteria() {
-        let (_dir, paths) = create_test_repo();
-        let cli = make_cli();
+        let repo = TestRepo::new().build();
         let mut args = make_args("AC issue");
         args.ac = vec![
             "Users can log in".to_string(),
             "Error messages are shown".to_string(),
         ];
 
-        let result = cmd_add(&cli, &paths, &args);
+        let result = cmd_add(&test_cli(), &repo.paths, &args);
         assert!(result.is_ok());
 
-        let config = Config::default();
-        let issues = load_all_issues(&paths, &config).unwrap();
+        let issues = load_all_issues(&repo.paths, &repo.config).unwrap();
         let issue = issues.values().next().unwrap();
         assert_eq!(issue.frontmatter.acceptance.len(), 2);
         assert!(
@@ -446,31 +367,27 @@ acceptance: []
 
     #[test]
     fn test_add_with_body() {
-        let (_dir, paths) = create_test_repo();
-        let cli = make_cli();
+        let repo = TestRepo::new().build();
         let mut args = make_args("Body issue");
         args.body = Some("This is the issue body\nwith multiple lines".to_string());
 
-        let result = cmd_add(&cli, &paths, &args);
+        let result = cmd_add(&test_cli(), &repo.paths, &args);
         assert!(result.is_ok());
 
-        let config = Config::default();
-        let issues = load_all_issues(&paths, &config).unwrap();
+        let issues = load_all_issues(&repo.paths, &repo.config).unwrap();
         let issue = issues.values().next().unwrap();
         assert!(issue.body.contains("multiple lines"));
     }
 
     #[test]
     fn test_add_without_body() {
-        let (_dir, paths) = create_test_repo();
-        let cli = make_cli();
+        let repo = TestRepo::new().build();
         let args = make_args("No body issue");
 
-        let result = cmd_add(&cli, &paths, &args);
+        let result = cmd_add(&test_cli(), &repo.paths, &args);
         assert!(result.is_ok());
 
-        let config = Config::default();
-        let issues = load_all_issues(&paths, &config).unwrap();
+        let issues = load_all_issues(&repo.paths, &repo.config).unwrap();
         let issue = issues.values().next().unwrap();
         assert!(issue.body.is_empty());
     }

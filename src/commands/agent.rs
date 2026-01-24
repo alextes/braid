@@ -734,15 +734,7 @@ mod tests {
         (dir, repo_path, paths, base_branch)
     }
 
-    fn make_cli() -> Cli {
-        Cli {
-            json: false,
-            repo: None,
-            no_color: true,
-            verbose: false,
-            command: crate::cli::Command::Doctor,
-        }
-    }
+    use crate::test_utils::test_cli;
 
     #[test]
     fn test_agent_init_creates_worktree_and_branch() {
@@ -752,8 +744,7 @@ mod tests {
         let home_dir = tempdir().unwrap();
         let _env = EnvGuard::set("HOME", home_dir.path().to_str().unwrap());
 
-        let cli = make_cli();
-        cmd_agent_init(&cli, &paths, "agent-one", Some(&base_branch)).unwrap();
+        cmd_agent_init(&test_cli(), &paths, "agent-one", Some(&base_branch)).unwrap();
 
         let worktree_path = home_dir
             .path()
@@ -779,7 +770,7 @@ mod tests {
         let home_dir = tempdir().unwrap();
         let _env = EnvGuard::set("HOME", home_dir.path().to_str().unwrap());
 
-        let cli = make_cli();
+        let cli = test_cli();
         let err = cmd_agent_init(&cli, &paths, "bad name", Some(&base_branch)).unwrap_err();
         assert!(err.to_string().contains("invalid agent name"));
     }
@@ -800,7 +791,7 @@ mod tests {
             .join("agent-one");
         std::fs::create_dir_all(&worktree_path).unwrap();
 
-        let cli = make_cli();
+        let cli = test_cli();
         let err = cmd_agent_init(&cli, &paths, "agent-one", Some(&base_branch)).unwrap_err();
         assert!(err.to_string().contains("directory already exists"));
     }
@@ -1090,7 +1081,7 @@ mod tests {
         let home_dir = tempdir().unwrap();
         let _env = EnvGuard::set("HOME", home_dir.path().to_str().unwrap());
 
-        let cli = make_cli();
+        let cli = test_cli();
         // Don't specify base - should use current branch (develop)
         cmd_agent_init(&cli, &paths, "agent-dev", None).unwrap();
 
@@ -1133,7 +1124,7 @@ mod tests {
         let home_dir = tempdir().unwrap();
         let _env = EnvGuard::set("HOME", home_dir.path().to_str().unwrap());
 
-        let cli = make_cli();
+        let cli = test_cli();
         let result = cmd_agent_init(&cli, &paths, "agent_with_underscores", Some(&base_branch));
         assert!(result.is_ok());
 
@@ -1151,7 +1142,7 @@ mod tests {
         let home_dir = tempdir().unwrap();
         let _env = EnvGuard::set("HOME", home_dir.path().to_str().unwrap());
 
-        let cli = make_cli();
+        let cli = test_cli();
 
         // Test various invalid names
         let invalid_names = ["agent@one", "agent/one", "agent.one", "agent:one"];
@@ -1186,7 +1177,7 @@ mod tests {
         let home_dir = tempdir().unwrap();
         let _env = EnvGuard::set("HOME", home_dir.path().to_str().unwrap());
 
-        let cli = make_cli();
+        let cli = test_cli();
         let result = cmd_agent_init(&cli, &paths, "sync-agent", Some(&base_branch));
         assert!(result.is_ok());
 
@@ -1252,7 +1243,7 @@ mod tests {
     #[test]
     fn test_agent_branch_rejects_dirty_worktree() {
         let (_dir, repo_path, paths) = create_repo_with_issue();
-        let cli = make_cli();
+        let cli = test_cli();
 
         // Create uncommitted changes
         std::fs::write(repo_path.join("dirty.txt"), "uncommitted").unwrap();
@@ -1264,7 +1255,7 @@ mod tests {
     #[test]
     fn test_agent_branch_rejects_nonexistent_issue() {
         let (_dir, _repo_path, paths) = create_repo_with_issue();
-        let cli = make_cli();
+        let cli = test_cli();
 
         let err = cmd_agent_branch(&cli, &paths, "tst-9999").unwrap_err();
         assert!(
@@ -1277,7 +1268,7 @@ mod tests {
     #[test]
     fn test_agent_branch_creates_branch_git_native() {
         let (_dir, repo_path, paths) = create_repo_with_issue();
-        let cli = make_cli();
+        let cli = test_cli();
 
         let result = cmd_agent_branch(&cli, &paths, "tst-0001");
         assert!(result.is_ok(), "cmd_agent_branch failed: {:?}", result);
@@ -1290,7 +1281,7 @@ mod tests {
     #[test]
     fn test_agent_branch_rejects_duplicate_branch() {
         let (_dir, repo_path, paths) = create_repo_with_issue();
-        let cli = make_cli();
+        let cli = test_cli();
 
         // Create the branch first
         git_ok(&repo_path, &["branch", "pr/test-agent/tst-0001"]);
@@ -1306,7 +1297,7 @@ mod tests {
     #[test]
     fn test_agent_pr_rejects_main_branch() {
         let (_dir, repo_path, paths) = create_repo_with_issue();
-        let cli = make_cli();
+        let cli = test_cli();
 
         // Ensure we're on main (the default branch might be "master" on some systems)
         let current = git_output(&repo_path, &["rev-parse", "--abbrev-ref", "HEAD"]);
@@ -1325,7 +1316,7 @@ mod tests {
     #[test]
     fn test_agent_pr_rejects_invalid_branch_format() {
         let (_dir, repo_path, paths) = create_repo_with_issue();
-        let cli = make_cli();
+        let cli = test_cli();
 
         // Create a branch that doesn't match the expected format
         git_ok(&repo_path, &["checkout", "-b", "random-branch"]);
@@ -1337,7 +1328,7 @@ mod tests {
     #[test]
     fn test_agent_pr_extracts_issue_from_branch() {
         let (_dir, repo_path, paths) = create_repo_with_issue();
-        let cli = make_cli();
+        let cli = test_cli();
 
         // Create proper feature branch
         git_ok(&repo_path, &["checkout", "-b", "pr/test-agent/tst-0001"]);
