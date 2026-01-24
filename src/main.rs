@@ -1,10 +1,11 @@
 use braid::cli::{AgentAction, Cli, Command, ConfigAction, DepAction};
 use braid::commands::{
-    cmd_add, cmd_agent_branch, cmd_agent_init, cmd_agent_pr, cmd_agents_inject, cmd_agents_show,
-    cmd_commit, cmd_completions, cmd_config_auto_sync, cmd_config_external_repo,
-    cmd_config_issues_branch, cmd_config_show, cmd_dep_add, cmd_dep_rm, cmd_doctor, cmd_done,
-    cmd_edit, cmd_init, cmd_ls, cmd_merge, cmd_migrate, cmd_ready, cmd_rm, cmd_search, cmd_set,
-    cmd_show, cmd_skip, cmd_start, cmd_status, cmd_sync, cmd_tui,
+    cmd_add, cmd_agent_branch, cmd_agent_init, cmd_agent_kill, cmd_agent_logs, cmd_agent_pr,
+    cmd_agent_ps, cmd_agent_send, cmd_agent_spawn, cmd_agents_inject, cmd_agents_show, cmd_commit,
+    cmd_completions, cmd_config_auto_sync, cmd_config_external_repo, cmd_config_issues_branch,
+    cmd_config_show, cmd_dep_add, cmd_dep_rm, cmd_doctor, cmd_done, cmd_edit, cmd_init, cmd_ls,
+    cmd_merge, cmd_migrate, cmd_ready, cmd_rm, cmd_search, cmd_set, cmd_show, cmd_skip, cmd_start,
+    cmd_status, cmd_sync, cmd_tui,
 };
 use braid::config::Config;
 use braid::error::{BrdError, Result};
@@ -126,6 +127,30 @@ fn run(cli: &Cli) -> Result<()> {
             AgentAction::Merge => cmd_merge(cli, &paths),
             AgentAction::Inject { file } => cmd_agents_inject(&paths, file.as_deref()),
             AgentAction::Instructions => cmd_agents_show(),
+            AgentAction::Spawn {
+                id,
+                budget,
+                foreground,
+                worktree,
+                model,
+            } => cmd_agent_spawn(
+                cli,
+                &paths,
+                id,
+                *budget,
+                *foreground,
+                *worktree,
+                model.as_deref(),
+            ),
+            AgentAction::Ps { all } => cmd_agent_ps(cli, &paths, *all),
+            AgentAction::Logs {
+                session,
+                follow,
+                tail,
+                raw,
+            } => cmd_agent_logs(cli, &paths, session, *follow, *tail, *raw),
+            AgentAction::Send { session, message } => cmd_agent_send(cli, &paths, session, message),
+            AgentAction::Kill { session, force } => cmd_agent_kill(cli, &paths, session, *force),
         },
         Command::Doctor => cmd_doctor(cli, &paths),
         Command::Completions { .. } => unreachable!(),

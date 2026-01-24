@@ -2,6 +2,7 @@
 
 mod add;
 mod agent;
+mod agent_run;
 mod commit;
 mod completions;
 mod config;
@@ -38,6 +39,9 @@ pub use agent::{
     cmd_agents_show,
     extract_mode,
     generate_block,
+};
+pub use agent_run::{
+    cmd_agent_kill, cmd_agent_logs, cmd_agent_ps, cmd_agent_send, cmd_agent_spawn,
 };
 pub use commit::cmd_commit;
 pub use completions::cmd_completions;

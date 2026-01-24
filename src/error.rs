@@ -12,6 +12,7 @@ pub enum ExitCode {
     AmbiguousId = 13,
     ClaimConflict = 14,
     InvalidGraph = 15,
+    SessionNotFound = 19,
     ParseError = 16,
     NotInitialized = 17,
     AlreadyInitialized = 18,
@@ -46,6 +47,9 @@ pub enum BrdError {
     #[error("invalid graph: cycle detected")]
     InvalidGraph,
 
+    #[error("session not found: {0}")]
+    SessionNotFound(String),
+
     #[error("parse error in {0}: {1}")]
     ParseError(String, String),
 
@@ -54,6 +58,9 @@ pub enum BrdError {
 
     #[error("io error: {0}")]
     Io(#[from] std::io::Error),
+
+    #[error("json error: {0}")]
+    Json(#[from] serde_json::Error),
 
     #[error("{0}")]
     Other(String),
@@ -69,9 +76,11 @@ impl BrdError {
             BrdError::AmbiguousId(_, _) => ExitCode::AmbiguousId,
             BrdError::ClaimConflict(_, _) => ExitCode::ClaimConflict,
             BrdError::InvalidGraph => ExitCode::InvalidGraph,
+            BrdError::SessionNotFound(_) => ExitCode::SessionNotFound,
             BrdError::ParseError(_, _) => ExitCode::ParseError,
             BrdError::AlreadyInitialized => ExitCode::AlreadyInitialized,
             BrdError::Io(_) => ExitCode::GenericFailure,
+            BrdError::Json(_) => ExitCode::GenericFailure,
             BrdError::Other(_) => ExitCode::GenericFailure,
         }
     }
@@ -85,9 +94,11 @@ impl BrdError {
             BrdError::AmbiguousId(_, _) => "ambiguous_id",
             BrdError::ClaimConflict(_, _) => "claim_conflict",
             BrdError::InvalidGraph => "invalid_graph",
+            BrdError::SessionNotFound(_) => "session_not_found",
             BrdError::ParseError(_, _) => "parse_error",
             BrdError::AlreadyInitialized => "already_initialized",
             BrdError::Io(_) => "io_error",
+            BrdError::Json(_) => "json_error",
             BrdError::Other(_) => "error",
         }
     }

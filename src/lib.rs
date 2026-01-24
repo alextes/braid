@@ -8,6 +8,7 @@ pub mod issue;
 pub mod lock;
 pub mod migrate;
 pub mod repo;
+pub mod session;
 #[cfg(test)]
 pub mod test_utils;
 pub mod tui;

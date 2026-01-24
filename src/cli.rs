@@ -295,6 +295,72 @@ pub enum AgentAction {
 
     /// print the AGENTS.md instructions block to stdout
     Instructions,
+
+    /// spawn a claude agent to work on an issue
+    Spawn {
+        /// issue ID to work on
+        id: String,
+
+        /// max budget in USD
+        #[arg(long, default_value = "1.0")]
+        budget: f64,
+
+        /// run in foreground with streaming output
+        #[arg(long)]
+        foreground: bool,
+
+        /// create/use a worktree for this agent
+        #[arg(long)]
+        worktree: bool,
+
+        /// claude model to use
+        #[arg(long)]
+        model: Option<String>,
+    },
+
+    /// list running agent sessions
+    Ps {
+        /// show all sessions including completed
+        #[arg(long)]
+        all: bool,
+    },
+
+    /// view agent session output
+    Logs {
+        /// session ID (e.g., agent-1)
+        session: String,
+
+        /// follow output in real-time
+        #[arg(long, short)]
+        follow: bool,
+
+        /// show last N events
+        #[arg(long)]
+        tail: Option<usize>,
+
+        /// show raw JSON events
+        #[arg(long)]
+        raw: bool,
+    },
+
+    /// send input to a waiting agent
+    Send {
+        /// session ID (e.g., agent-1)
+        session: String,
+
+        /// message to send
+        message: String,
+    },
+
+    /// terminate a running agent
+    Kill {
+        /// session ID (e.g., agent-1)
+        session: String,
+
+        /// use SIGKILL instead of SIGTERM
+        #[arg(long)]
+        force: bool,
+    },
 }
 
 #[derive(Subcommand)]
