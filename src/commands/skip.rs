@@ -47,7 +47,7 @@ mod tests {
 
     #[test]
     fn test_skip_sets_status_and_clears_owner() {
-        let repo = TestRepo::new().build();
+        let repo = TestRepo::builder().build();
         repo.issue("brd-aaaa")
             .status(Status::Doing)
             .owner("tester")
@@ -63,14 +63,14 @@ mod tests {
 
     #[test]
     fn test_skip_issue_not_found() {
-        let repo = TestRepo::new().build();
+        let repo = TestRepo::builder().build();
         let err = cmd_skip(&test_cli(), &repo.paths, "brd-missing").unwrap_err();
         assert!(matches!(err, BrdError::IssueNotFound(_)));
     }
 
     #[test]
     fn test_skip_ambiguous_id() {
-        let repo = TestRepo::new().build();
+        let repo = TestRepo::builder().build();
         repo.issue("brd-aaaa").create();
         repo.issue("brd-aaab").create();
 

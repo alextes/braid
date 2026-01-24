@@ -74,7 +74,7 @@ mod tests {
 
     #[test]
     fn test_add_minimal() {
-        let repo = TestRepo::new().build();
+        let repo = TestRepo::builder().build();
         let args = make_args("Test issue");
 
         let result = cmd_add(&test_cli(), &repo.paths, &args);
@@ -90,7 +90,7 @@ mod tests {
 
     #[test]
     fn test_add_with_all_options() {
-        let repo = TestRepo::new().build();
+        let repo = TestRepo::builder().build();
         repo.issue("brd-dep1").create();
 
         let args = AddArgs {
@@ -125,7 +125,7 @@ mod tests {
 
     #[test]
     fn test_add_priority_p0() {
-        let repo = TestRepo::new().build();
+        let repo = TestRepo::builder().build();
         let mut args = make_args("P0 issue");
         args.priority = "P0".to_string();
 
@@ -138,7 +138,7 @@ mod tests {
 
     #[test]
     fn test_add_priority_p3() {
-        let repo = TestRepo::new().build();
+        let repo = TestRepo::builder().build();
         let mut args = make_args("P3 issue");
         args.priority = "P3".to_string();
 
@@ -151,7 +151,7 @@ mod tests {
 
     #[test]
     fn test_add_invalid_priority() {
-        let repo = TestRepo::new().build();
+        let repo = TestRepo::builder().build();
         let mut args = make_args("Bad priority");
         args.priority = "P5".to_string();
 
@@ -165,7 +165,7 @@ mod tests {
 
     #[test]
     fn test_add_type_design() {
-        let repo = TestRepo::new().build();
+        let repo = TestRepo::builder().build();
         let mut args = make_args("Design issue");
         args.r#type = Some("design".to_string());
 
@@ -181,7 +181,7 @@ mod tests {
 
     #[test]
     fn test_add_type_meta() {
-        let repo = TestRepo::new().build();
+        let repo = TestRepo::builder().build();
         let mut args = make_args("Meta issue");
         args.r#type = Some("meta".to_string());
 
@@ -197,7 +197,7 @@ mod tests {
 
     #[test]
     fn test_add_invalid_type() {
-        let repo = TestRepo::new().build();
+        let repo = TestRepo::builder().build();
         let mut args = make_args("Bad type");
         args.r#type = Some("invalid".to_string());
 
@@ -211,7 +211,7 @@ mod tests {
 
     #[test]
     fn test_add_with_dep() {
-        let repo = TestRepo::new().build();
+        let repo = TestRepo::builder().build();
         repo.issue("brd-parent").create();
 
         let mut args = make_args("Child issue");
@@ -230,7 +230,7 @@ mod tests {
 
     #[test]
     fn test_add_with_multiple_deps() {
-        let repo = TestRepo::new().build();
+        let repo = TestRepo::builder().build();
         repo.issue("brd-dep1").create();
         repo.issue("brd-dep2").create();
 
@@ -251,7 +251,7 @@ mod tests {
 
     #[test]
     fn test_add_with_partial_dep_id() {
-        let repo = TestRepo::new().build();
+        let repo = TestRepo::builder().build();
         repo.issue("brd-abcd").create();
 
         let mut args = make_args("Partial dep issue");
@@ -270,7 +270,7 @@ mod tests {
 
     #[test]
     fn test_add_with_nonexistent_dep() {
-        let repo = TestRepo::new().build();
+        let repo = TestRepo::builder().build();
         let mut args = make_args("Bad dep issue");
         args.dep = vec!["nonexistent".to_string()];
 
@@ -284,7 +284,7 @@ mod tests {
 
     #[test]
     fn test_add_generates_unique_ids() {
-        let repo = TestRepo::new().build();
+        let repo = TestRepo::builder().build();
 
         for i in 0..5 {
             let args = make_args(&format!("Issue {}", i));
@@ -301,7 +301,7 @@ mod tests {
 
     #[test]
     fn test_add_uses_config_prefix() {
-        let repo = TestRepo::new().build();
+        let repo = TestRepo::builder().build();
 
         // Override config with custom prefix
         let config = Config {
@@ -325,7 +325,7 @@ mod tests {
 
     #[test]
     fn test_add_with_tags() {
-        let repo = TestRepo::new().build();
+        let repo = TestRepo::builder().build();
         let mut args = make_args("Tagged issue");
         args.tag = vec!["bug".to_string(), "frontend".to_string()];
 
@@ -340,7 +340,7 @@ mod tests {
 
     #[test]
     fn test_add_with_acceptance_criteria() {
-        let repo = TestRepo::new().build();
+        let repo = TestRepo::builder().build();
         let mut args = make_args("AC issue");
         args.ac = vec![
             "Users can log in".to_string(),
@@ -367,7 +367,7 @@ mod tests {
 
     #[test]
     fn test_add_with_body() {
-        let repo = TestRepo::new().build();
+        let repo = TestRepo::builder().build();
         let mut args = make_args("Body issue");
         args.body = Some("This is the issue body\nwith multiple lines".to_string());
 
@@ -381,7 +381,7 @@ mod tests {
 
     #[test]
     fn test_add_without_body() {
-        let repo = TestRepo::new().build();
+        let repo = TestRepo::builder().build();
         let args = make_args("No body issue");
 
         let result = cmd_add(&test_cli(), &repo.paths, &args);

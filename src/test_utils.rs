@@ -19,7 +19,8 @@ pub struct TestRepo {
 }
 
 impl TestRepo {
-    pub fn new() -> TestRepoBuilder {
+    /// create a builder for configuring the test repo
+    pub fn builder() -> TestRepoBuilder {
         TestRepoBuilder::default()
     }
 
@@ -31,7 +32,7 @@ impl TestRepo {
 
 impl Default for TestRepo {
     fn default() -> Self {
-        Self::new().build()
+        Self::builder().build()
     }
 }
 
@@ -186,7 +187,7 @@ mod tests {
 
     #[test]
     fn test_repo_creates_directories() {
-        let repo = TestRepo::new().build();
+        let repo = TestRepo::builder().build();
         assert!(repo.paths.brd_common_dir.exists());
         assert!(repo.paths.braid_dir().join("issues").exists());
         assert!(repo.paths.config_path().exists());
@@ -194,7 +195,7 @@ mod tests {
 
     #[test]
     fn test_repo_with_agent() {
-        let repo = TestRepo::new().with_agent("tester").build();
+        let repo = TestRepo::builder().with_agent("tester").build();
         let agent_toml = repo.paths.braid_dir().join("agent.toml");
         assert!(agent_toml.exists());
         let content = fs::read_to_string(agent_toml).unwrap();
@@ -203,7 +204,7 @@ mod tests {
 
     #[test]
     fn test_issue_builder() {
-        let repo = TestRepo::new().build();
+        let repo = TestRepo::builder().build();
         let issue = repo
             .issue("brd-test")
             .status(Status::Doing)
@@ -219,7 +220,7 @@ mod tests {
 
     #[test]
     fn test_issue_builder_with_deps() {
-        let repo = TestRepo::new().build();
+        let repo = TestRepo::builder().build();
         repo.issue("brd-dep1").create();
         let issue = repo.issue("brd-child").deps(&["brd-dep1"]).create();
 

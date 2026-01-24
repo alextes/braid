@@ -204,7 +204,7 @@ mod tests {
 
     #[test]
     fn test_done_sets_status_and_clears_owner() {
-        let repo = TestRepo::new().build();
+        let repo = TestRepo::builder().build();
         repo.issue("brd-aaaa")
             .status(Status::Doing)
             .owner("tester")
@@ -220,14 +220,14 @@ mod tests {
 
     #[test]
     fn test_done_issue_not_found() {
-        let repo = TestRepo::new().build();
+        let repo = TestRepo::builder().build();
         let err = cmd_done(&test_cli(), &repo.paths, "brd-missing", false, &[], true).unwrap_err();
         assert!(matches!(err, BrdError::IssueNotFound(_)));
     }
 
     #[test]
     fn test_done_ambiguous_id() {
-        let repo = TestRepo::new().build();
+        let repo = TestRepo::builder().build();
         repo.issue("brd-aaaa").create();
         repo.issue("brd-aaab").create();
 
@@ -237,7 +237,7 @@ mod tests {
 
     #[test]
     fn test_done_design_requires_result() {
-        let repo = TestRepo::new().build();
+        let repo = TestRepo::builder().build();
         repo.issue("brd-design")
             .issue_type(IssueType::Design)
             .create();
@@ -248,7 +248,7 @@ mod tests {
 
     #[test]
     fn test_done_design_with_force() {
-        let repo = TestRepo::new().build();
+        let repo = TestRepo::builder().build();
         repo.issue("brd-design")
             .issue_type(IssueType::Design)
             .create();
@@ -261,7 +261,7 @@ mod tests {
 
     #[test]
     fn test_done_design_with_result() {
-        let repo = TestRepo::new().build();
+        let repo = TestRepo::builder().build();
         repo.issue("brd-design")
             .issue_type(IssueType::Design)
             .create();
@@ -283,7 +283,7 @@ mod tests {
 
     #[test]
     fn test_done_design_result_not_found() {
-        let repo = TestRepo::new().build();
+        let repo = TestRepo::builder().build();
         repo.issue("brd-design")
             .issue_type(IssueType::Design)
             .create();
@@ -302,7 +302,7 @@ mod tests {
 
     #[test]
     fn test_done_design_replaces_dependents() {
-        let repo = TestRepo::new().build();
+        let repo = TestRepo::builder().build();
         repo.issue("brd-design")
             .issue_type(IssueType::Design)
             .create();
@@ -327,7 +327,7 @@ mod tests {
 
     #[test]
     fn test_done_design_transfers_deps_to_results() {
-        let repo = TestRepo::new().build();
+        let repo = TestRepo::builder().build();
         repo.issue("brd-upstream").create();
         repo.issue("brd-existing").create();
         repo.issue("brd-design")
@@ -356,7 +356,7 @@ mod tests {
     fn test_done_design_multiple_results_that_are_also_dependents() {
         // Scenario: design issue has two impl issues that both depend on it
         // Closing with --result for both should NOT create cross-deps between them
-        let repo = TestRepo::new().build();
+        let repo = TestRepo::builder().build();
         repo.issue("brd-design")
             .issue_type(IssueType::Design)
             .create();
@@ -398,7 +398,7 @@ mod tests {
     fn test_done_design_results_and_external_dependent() {
         // Scenario: design has two impl issues that depend on it, PLUS an external issue
         // that also depends on the design. The external should depend on both results.
-        let repo = TestRepo::new().build();
+        let repo = TestRepo::builder().build();
         repo.issue("brd-design")
             .issue_type(IssueType::Design)
             .create();
@@ -442,7 +442,7 @@ mod tests {
 
     #[test]
     fn test_done_design_rejects_cycles() {
-        let repo = TestRepo::new().build();
+        let repo = TestRepo::builder().build();
         repo.issue("brd-design")
             .issue_type(IssueType::Design)
             .create();

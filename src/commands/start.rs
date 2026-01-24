@@ -474,7 +474,7 @@ mod tests {
 
     #[test]
     fn test_start_sets_status_and_owner() {
-        let repo = TestRepo::new().with_agent("tester").build();
+        let repo = TestRepo::builder().with_agent("tester").build();
         repo.issue("brd-aaaa").create();
 
         cmd_start(
@@ -496,7 +496,7 @@ mod tests {
 
     #[test]
     fn test_start_auto_picks_non_meta() {
-        let repo = TestRepo::new().with_agent("tester").build();
+        let repo = TestRepo::builder().with_agent("tester").build();
         repo.issue("brd-meta")
             .priority(Priority::P0)
             .issue_type(IssueType::Meta)
@@ -515,7 +515,7 @@ mod tests {
 
     #[test]
     fn test_start_requires_force_for_doing_issue() {
-        let repo = TestRepo::new().with_agent("tester").build();
+        let repo = TestRepo::builder().with_agent("tester").build();
         repo.issue("brd-aaaa")
             .status(Status::Doing)
             .owner("someone")
@@ -542,7 +542,7 @@ mod tests {
 
     #[test]
     fn test_start_force_reassigns_owner() {
-        let repo = TestRepo::new().with_agent("tester").build();
+        let repo = TestRepo::builder().with_agent("tester").build();
         repo.issue("brd-aaaa")
             .status(Status::Doing)
             .owner("someone")
@@ -568,7 +568,7 @@ mod tests {
 
     #[test]
     fn test_start_ambiguous_id() {
-        let repo = TestRepo::new().with_agent("tester").build();
+        let repo = TestRepo::builder().with_agent("tester").build();
         repo.issue("brd-aaaa").create();
         repo.issue("brd-aaab").create();
 
@@ -587,7 +587,7 @@ mod tests {
 
     #[test]
     fn test_start_issue_not_found() {
-        let repo = TestRepo::new().with_agent("tester").build();
+        let repo = TestRepo::builder().with_agent("tester").build();
         let err = cmd_start(
             &test_cli(),
             &repo.paths,

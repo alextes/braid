@@ -90,7 +90,7 @@ mod tests {
 
     #[test]
     fn test_dep_add_self_dependency_rejected() {
-        let repo = TestRepo::new().build();
+        let repo = TestRepo::builder().build();
         repo.issue("issue-a").create();
 
         let result = cmd_dep_add(&test_cli(), &repo.paths, "issue-a", "issue-a");
@@ -101,7 +101,7 @@ mod tests {
 
     #[test]
     fn test_dep_add_cycle_rejected_with_message() {
-        let repo = TestRepo::new().build();
+        let repo = TestRepo::builder().build();
         // a -> b exists, adding b -> a would create cycle
         repo.issue("issue-a").deps(&["issue-b"]).create();
         repo.issue("issue-b").create();
@@ -116,7 +116,7 @@ mod tests {
 
     #[test]
     fn test_dep_add_indirect_cycle_rejected() {
-        let repo = TestRepo::new().build();
+        let repo = TestRepo::builder().build();
         // a -> b -> c exists, adding c -> a would create cycle
         repo.issue("issue-a").deps(&["issue-b"]).create();
         repo.issue("issue-b").deps(&["issue-c"]).create();
@@ -130,7 +130,7 @@ mod tests {
 
     #[test]
     fn test_dep_add_success() {
-        let repo = TestRepo::new().build();
+        let repo = TestRepo::builder().build();
         repo.issue("issue-a").create();
         repo.issue("issue-b").create();
 
@@ -143,7 +143,7 @@ mod tests {
 
     #[test]
     fn test_dep_add_idempotent() {
-        let repo = TestRepo::new().build();
+        let repo = TestRepo::builder().build();
         repo.issue("issue-a").deps(&["issue-b"]).create();
         repo.issue("issue-b").create();
 
@@ -163,7 +163,7 @@ mod tests {
 
     #[test]
     fn test_dep_add_partial_id_resolution() {
-        let repo = TestRepo::new().build();
+        let repo = TestRepo::builder().build();
         repo.issue("brd-abc1").create();
         repo.issue("brd-xyz9").create();
 
@@ -177,7 +177,7 @@ mod tests {
 
     #[test]
     fn test_dep_add_child_not_found() {
-        let repo = TestRepo::new().build();
+        let repo = TestRepo::builder().build();
         repo.issue("issue-b").create();
 
         let result = cmd_dep_add(&test_cli(), &repo.paths, "nonexistent", "issue-b");
@@ -187,7 +187,7 @@ mod tests {
 
     #[test]
     fn test_dep_add_parent_not_found() {
-        let repo = TestRepo::new().build();
+        let repo = TestRepo::builder().build();
         repo.issue("issue-a").create();
 
         let result = cmd_dep_add(&test_cli(), &repo.paths, "issue-a", "nonexistent");
@@ -201,7 +201,7 @@ mod tests {
 
     #[test]
     fn test_dep_rm_existing() {
-        let repo = TestRepo::new().build();
+        let repo = TestRepo::builder().build();
         repo.issue("issue-a").deps(&["issue-b"]).create();
         repo.issue("issue-b").create();
 
@@ -214,7 +214,7 @@ mod tests {
 
     #[test]
     fn test_dep_rm_nonexistent_noop() {
-        let repo = TestRepo::new().build();
+        let repo = TestRepo::builder().build();
         repo.issue("issue-a").create();
         repo.issue("issue-b").create();
 
@@ -226,7 +226,7 @@ mod tests {
 
     #[test]
     fn test_dep_rm_partial_id_resolution() {
-        let repo = TestRepo::new().build();
+        let repo = TestRepo::builder().build();
         repo.issue("brd-abc1").deps(&["brd-xyz9"]).create();
         repo.issue("brd-xyz9").create();
 
@@ -240,7 +240,7 @@ mod tests {
 
     #[test]
     fn test_dep_rm_child_not_found() {
-        let repo = TestRepo::new().build();
+        let repo = TestRepo::builder().build();
         repo.issue("issue-b").create();
 
         let result = cmd_dep_rm(&test_cli(), &repo.paths, "nonexistent", "issue-b");
@@ -250,7 +250,7 @@ mod tests {
 
     #[test]
     fn test_dep_rm_preserves_other_deps() {
-        let repo = TestRepo::new().build();
+        let repo = TestRepo::builder().build();
         repo.issue("issue-a").deps(&["issue-b", "issue-c"]).create();
         repo.issue("issue-b").create();
         repo.issue("issue-c").create();

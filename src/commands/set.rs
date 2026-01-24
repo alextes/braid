@@ -100,7 +100,7 @@ mod tests {
 
     #[test]
     fn test_set_priority() {
-        let repo = TestRepo::new().build();
+        let repo = TestRepo::builder().build();
         repo.issue("brd-aaaa").priority(Priority::P3).create();
 
         cmd_set(&test_cli(), &repo.paths, "brd-aaaa", "priority", "P1").unwrap();
@@ -111,7 +111,7 @@ mod tests {
 
     #[test]
     fn test_set_priority_short_field() {
-        let repo = TestRepo::new().build();
+        let repo = TestRepo::builder().build();
         repo.issue("brd-bbbb").priority(Priority::P2).create();
 
         cmd_set(&test_cli(), &repo.paths, "brd-bbbb", "p", "P0").unwrap();
@@ -122,7 +122,7 @@ mod tests {
 
     #[test]
     fn test_set_invalid_field() {
-        let repo = TestRepo::new().build();
+        let repo = TestRepo::builder().build();
         repo.issue("brd-cccc").create();
 
         let err = cmd_set(&test_cli(), &repo.paths, "brd-cccc", "unknown", "value").unwrap_err();
@@ -131,7 +131,7 @@ mod tests {
 
     #[test]
     fn test_set_invalid_priority() {
-        let repo = TestRepo::new().build();
+        let repo = TestRepo::builder().build();
         repo.issue("brd-dddd").create();
 
         let err = cmd_set(&test_cli(), &repo.paths, "brd-dddd", "priority", "P9").unwrap_err();
@@ -140,7 +140,7 @@ mod tests {
 
     #[test]
     fn test_set_issue_not_found() {
-        let repo = TestRepo::new().build();
+        let repo = TestRepo::builder().build();
 
         let err = cmd_set(&test_cli(), &repo.paths, "brd-missing", "priority", "P1").unwrap_err();
         assert!(matches!(err, BrdError::IssueNotFound(_)));
@@ -148,7 +148,7 @@ mod tests {
 
     #[test]
     fn test_set_status() {
-        let repo = TestRepo::new().build();
+        let repo = TestRepo::builder().build();
         repo.issue("brd-stat").create();
 
         cmd_set(&test_cli(), &repo.paths, "brd-stat", "status", "done").unwrap();
@@ -159,7 +159,7 @@ mod tests {
 
     #[test]
     fn test_set_status_short() {
-        let repo = TestRepo::new().build();
+        let repo = TestRepo::builder().build();
         repo.issue("brd-stat2").create();
 
         cmd_set(&test_cli(), &repo.paths, "brd-stat2", "s", "doing").unwrap();
@@ -170,7 +170,7 @@ mod tests {
 
     #[test]
     fn test_set_type() {
-        let repo = TestRepo::new().build();
+        let repo = TestRepo::builder().build();
         repo.issue("brd-type").create();
 
         cmd_set(&test_cli(), &repo.paths, "brd-type", "type", "design").unwrap();
@@ -184,7 +184,7 @@ mod tests {
 
     #[test]
     fn test_set_type_clear() {
-        let repo = TestRepo::new().build();
+        let repo = TestRepo::builder().build();
         repo.issue("brd-tclear")
             .issue_type(IssueType::Design)
             .create();
@@ -197,7 +197,7 @@ mod tests {
 
     #[test]
     fn test_set_owner() {
-        let repo = TestRepo::new().build();
+        let repo = TestRepo::builder().build();
         repo.issue("brd-owner").create();
 
         cmd_set(&test_cli(), &repo.paths, "brd-owner", "owner", "alice").unwrap();
@@ -211,7 +211,7 @@ mod tests {
 
     #[test]
     fn test_set_owner_clear() {
-        let repo = TestRepo::new().build();
+        let repo = TestRepo::builder().build();
         repo.issue("brd-oclear").owner("bob").create();
 
         cmd_set(&test_cli(), &repo.paths, "brd-oclear", "o", "-").unwrap();
@@ -222,7 +222,7 @@ mod tests {
 
     #[test]
     fn test_set_title() {
-        let repo = TestRepo::new().build();
+        let repo = TestRepo::builder().build();
         repo.issue("brd-title").create();
 
         cmd_set(
@@ -240,7 +240,7 @@ mod tests {
 
     #[test]
     fn test_set_tag_add() {
-        let repo = TestRepo::new().build();
+        let repo = TestRepo::builder().build();
         repo.issue("brd-tag1").create();
 
         cmd_set(&test_cli(), &repo.paths, "brd-tag1", "tag", "+urgent").unwrap();
@@ -257,7 +257,7 @@ mod tests {
 
     #[test]
     fn test_set_tag_add_bare() {
-        let repo = TestRepo::new().build();
+        let repo = TestRepo::builder().build();
         repo.issue("brd-tag2").create();
 
         cmd_set(&test_cli(), &repo.paths, "brd-tag2", "tag", "bug").unwrap();
@@ -274,7 +274,7 @@ mod tests {
 
     #[test]
     fn test_set_tag_remove() {
-        let repo = TestRepo::new().build();
+        let repo = TestRepo::builder().build();
         repo.issue("brd-tag3").tags(&["bug", "urgent"]).create();
 
         cmd_set(&test_cli(), &repo.paths, "brd-tag3", "tag", "-bug").unwrap();
@@ -287,7 +287,7 @@ mod tests {
 
     #[test]
     fn test_set_tag_no_duplicate() {
-        let repo = TestRepo::new().build();
+        let repo = TestRepo::builder().build();
         repo.issue("brd-tag4").tags(&["bug"]).create();
 
         cmd_set(&test_cli(), &repo.paths, "brd-tag4", "tag", "+bug").unwrap();
