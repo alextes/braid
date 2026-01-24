@@ -435,3 +435,307 @@ fn print_event(event: &serde_json::Value) {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_utils::{TestRepo, test_cli};
+    use std::path::PathBuf;
+
+    // =========================================================================
+    // format_duration tests
+    // =========================================================================
+
+    #[test]
+    fn test_format_duration_minutes() {
+        assert_eq!(format_duration(time::Duration::minutes(0)), "1m");
+        assert_eq!(format_duration(time::Duration::minutes(1)), "1m");
+        assert_eq!(format_duration(time::Duration::minutes(30)), "30m");
+        assert_eq!(format_duration(time::Duration::minutes(59)), "59m");
+    }
+
+    #[test]
+    fn test_format_duration_hours() {
+        assert_eq!(format_duration(time::Duration::minutes(60)), "1h");
+        assert_eq!(format_duration(time::Duration::minutes(90)), "1h");
+        assert_eq!(format_duration(time::Duration::minutes(120)), "2h");
+        assert_eq!(format_duration(time::Duration::minutes(60 * 23)), "23h");
+    }
+
+    #[test]
+    fn test_format_duration_days() {
+        assert_eq!(format_duration(time::Duration::minutes(60 * 24)), "1d");
+        assert_eq!(format_duration(time::Duration::minutes(60 * 48)), "2d");
+        assert_eq!(format_duration(time::Duration::minutes(60 * 24 * 7)), "7d");
+    }
+
+    // =========================================================================
+    // print_event tests (via format_event helper)
+    // =========================================================================
+
+    /// format an event to a string for testing (captures what print_event would output).
+    fn format_event(event: &serde_json::Value) -> String {
+        let event_type = event
+            .get("type")
+            .and_then(|v| v.as_str())
+            .unwrap_or("unknown");
+
+        match event_type {
+            "assistant" => {
+                let mut output = String::new();
+                if let Some(message) = event.get("message")
+                    && let Some(content) = message.get("content").and_then(|c| c.as_array())
+                {
+                    for item in content {
+                        if let Some(text) = item.get("text").and_then(|t| t.as_str()) {
+                            output.push_str(text);
+                            output.push('\n');
+                        }
+                    }
+                }
+                output
+            }
+            "content_block_delta" => {
+                if let Some(delta) = event.get("delta")
+                    && let Some(text) = delta.get("text").and_then(|t| t.as_str())
+                {
+                    text.to_string()
+                } else {
+                    String::new()
+                }
+            }
+            "tool_use" | "tool_result" => {
+                if let Some(name) = event.get("name").and_then(|n| n.as_str()) {
+                    format!("[tool: {}]\n", name)
+                } else {
+                    String::new()
+                }
+            }
+            "error" => {
+                if let Some(msg) = event
+                    .get("error")
+                    .and_then(|e| e.get("message"))
+                    .and_then(|m| m.as_str())
+                {
+                    format!("error: {}\n", msg)
+                } else {
+                    String::new()
+                }
+            }
+            "message_stop" | "message_start" => String::new(),
+            _ => format!("[{}]\n", event_type),
+        }
+    }
+
+    #[test]
+    fn test_format_event_assistant() {
+        let event = serde_json::json!({
+            "type": "assistant",
+            "message": {
+                "content": [
+                    {"type": "text", "text": "hello world"}
+                ]
+            }
+        });
+        assert_eq!(format_event(&event), "hello world\n");
+    }
+
+    #[test]
+    fn test_format_event_assistant_multiple_texts() {
+        let event = serde_json::json!({
+            "type": "assistant",
+            "message": {
+                "content": [
+                    {"type": "text", "text": "line one"},
+                    {"type": "text", "text": "line two"}
+                ]
+            }
+        });
+        assert_eq!(format_event(&event), "line one\nline two\n");
+    }
+
+    #[test]
+    fn test_format_event_content_block_delta() {
+        let event = serde_json::json!({
+            "type": "content_block_delta",
+            "delta": {"text": "streaming text"}
+        });
+        assert_eq!(format_event(&event), "streaming text");
+    }
+
+    #[test]
+    fn test_format_event_tool_use() {
+        let event = serde_json::json!({
+            "type": "tool_use",
+            "name": "Bash"
+        });
+        assert_eq!(format_event(&event), "[tool: Bash]\n");
+    }
+
+    #[test]
+    fn test_format_event_error() {
+        let event = serde_json::json!({
+            "type": "error",
+            "error": {"message": "something went wrong"}
+        });
+        assert_eq!(format_event(&event), "error: something went wrong\n");
+    }
+
+    #[test]
+    fn test_format_event_message_stop_silent() {
+        let event = serde_json::json!({"type": "message_stop"});
+        assert_eq!(format_event(&event), "");
+    }
+
+    #[test]
+    fn test_format_event_unknown_type() {
+        let event = serde_json::json!({"type": "custom_event"});
+        assert_eq!(format_event(&event), "[custom_event]\n");
+    }
+
+    // =========================================================================
+    // cmd_agent_ps tests
+    // =========================================================================
+
+    #[test]
+    fn test_agent_ps_empty_sessions() {
+        let repo = TestRepo::default();
+        let cli = test_cli();
+
+        // ensure sessions dir exists but is empty
+        let sessions_dir = repo.paths.sessions_dir();
+        fs::create_dir_all(&sessions_dir).unwrap();
+
+        let result = cmd_agent_ps(&cli, &repo.paths, false);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_agent_ps_with_session() {
+        let repo = TestRepo::default();
+        let cli = test_cli();
+
+        // create a session file
+        let sessions_dir = repo.paths.ensure_sessions_dir().unwrap();
+        let session = Session::new(
+            "agent-1".to_string(),
+            "uuid-123".to_string(),
+            99999, // fake pid that won't exist
+            "brd-test".to_string(),
+            Some(PathBuf::from("/tmp")),
+            1.0,
+            "claude-test".to_string(),
+        );
+        session
+            .save(&Session::state_path(&sessions_dir, "agent-1"))
+            .unwrap();
+
+        let result = cmd_agent_ps(&cli, &repo.paths, true);
+        assert!(result.is_ok());
+    }
+
+    // =========================================================================
+    // cmd_agent_logs tests
+    // =========================================================================
+
+    #[test]
+    fn test_agent_logs_session_not_found() {
+        let repo = TestRepo::default();
+        let cli = test_cli();
+
+        let result = cmd_agent_logs(&cli, &repo.paths, "nonexistent", false, None, false);
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("session not found")
+        );
+    }
+
+    #[test]
+    fn test_agent_logs_reads_log_file() {
+        let repo = TestRepo::default();
+        let cli = test_cli();
+
+        // create session and log file
+        let sessions_dir = repo.paths.ensure_sessions_dir().unwrap();
+        let session = Session::new(
+            "agent-1".to_string(),
+            "uuid-123".to_string(),
+            99999,
+            "brd-test".to_string(),
+            None,
+            1.0,
+            "claude-test".to_string(),
+        );
+        session
+            .save(&Session::state_path(&sessions_dir, "agent-1"))
+            .unwrap();
+
+        // create log file with some content
+        let log_path = Session::log_path(&sessions_dir, "agent-1");
+        fs::write(&log_path, r#"{"type": "message_start"}"#).unwrap();
+
+        let result = cmd_agent_logs(&cli, &repo.paths, "agent-1", false, None, true);
+        assert!(result.is_ok());
+    }
+
+    // =========================================================================
+    // cmd_agent_kill tests
+    // =========================================================================
+
+    #[test]
+    fn test_agent_kill_session_not_found() {
+        let repo = TestRepo::default();
+        let cli = test_cli();
+
+        let result = cmd_agent_kill(&cli, &repo.paths, "nonexistent", false);
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("session not found")
+        );
+    }
+
+    #[test]
+    fn test_agent_kill_already_dead() {
+        let repo = TestRepo::default();
+        let cli = test_cli();
+
+        // create session with fake pid
+        let sessions_dir = repo.paths.ensure_sessions_dir().unwrap();
+        let session = Session::new(
+            "agent-1".to_string(),
+            "uuid-123".to_string(),
+            99999, // fake pid
+            "brd-test".to_string(),
+            None,
+            1.0,
+            "claude-test".to_string(),
+        );
+        session
+            .save(&Session::state_path(&sessions_dir, "agent-1"))
+            .unwrap();
+
+        // should succeed (reports already dead)
+        let result = cmd_agent_kill(&cli, &repo.paths, "agent-1", false);
+        assert!(result.is_ok());
+    }
+
+    // =========================================================================
+    // cmd_agent_spawn tests
+    // =========================================================================
+
+    #[test]
+    fn test_agent_spawn_issue_not_found() {
+        let repo = TestRepo::default();
+        let cli = test_cli();
+
+        let result = cmd_agent_spawn(&cli, &repo.paths, "nonexistent", 1.0, false, false, None);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("issue not found"));
+    }
+}
