@@ -6,6 +6,8 @@ priority: P2
 status: open
 type: design
 deps: []
+tags:
+- agent
 owner: null
 created_at: 2026-01-17T10:18:09.269942Z
 ---

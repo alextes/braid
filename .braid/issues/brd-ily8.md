@@ -5,6 +5,8 @@ title: brd mode external-repo --init to create and initialize external repo
 priority: P3
 status: open
 deps: []
+tags:
+- cli
 owner: null
 created_at: 2025-12-30T15:40:32.253103Z
 ---

@@ -6,6 +6,8 @@ priority: P3
 status: open
 deps:
 - brd-ily8
+tags:
+- integration
 owner: null
 created_at: 2025-12-30T15:40:40.861126Z
 ---

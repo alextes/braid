@@ -3,11 +3,15 @@ schema_version: 8
 id: brd-fait
 title: Agent Grid TUI - Headless JSON Approach
 priority: P2
-status: open
+status: done
 type: design
 deps: []
+tags:
+- tui
 owner: null
 created_at: 2026-01-17T09:59:31.778931Z
+started_at: 2026-01-24T15:01:52.487636Z
+completed_at: 2026-01-24T19:16:40.204674Z
 ---
 
 ## Context

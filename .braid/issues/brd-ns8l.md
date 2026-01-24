@@ -6,6 +6,8 @@ priority: P3
 status: open
 type: design
 deps: []
+tags:
+- integration
 owner: null
 created_at: 2026-01-04T17:05:14.799101Z
 ---

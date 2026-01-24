@@ -6,6 +6,8 @@ priority: P2
 status: open
 type: design
 deps: []
+tags:
+- ux
 owner: null
 created_at: 2026-01-18T20:36:28.54195Z
 ---

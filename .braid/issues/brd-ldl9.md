@@ -3,11 +3,15 @@ schema_version: 8
 id: brd-ldl9
 title: TUI for live agent monitoring and interaction
 priority: P2
-status: open
+status: done
 type: design
 deps: []
+tags:
+- tui
 owner: null
 created_at: 2026-01-08T15:03:42.290274Z
+started_at: 2026-01-22T21:05:20.439327Z
+completed_at: 2026-01-22T21:25:10.655341Z
 ---
 
 explore a TUI interface for live viewing of issue progress.
