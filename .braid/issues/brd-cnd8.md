@@ -6,6 +6,9 @@ priority: P2
 status: open
 deps:
 - brd-xnxw
+tags:
+- tui
+- agent
 owner: null
 created_at: 2026-01-18T14:18:27.121773Z
 ---

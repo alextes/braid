@@ -7,6 +7,8 @@ status: open
 type: design
 deps:
 - brd-qas3
+tags:
+- agent
 owner: null
 created_at: 2026-01-04T23:31:02.736303Z
 ---

@@ -6,6 +6,8 @@ priority: P2
 status: open
 type: design
 deps: []
+tags:
+- tui
 owner: null
 created_at: 2026-01-17T10:36:01.360526Z
 ---

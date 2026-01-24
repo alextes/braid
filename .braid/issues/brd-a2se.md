@@ -6,6 +6,8 @@ priority: P3
 status: open
 type: design
 deps: []
+tags:
+- cli
 owner: null
 created_at: 2025-12-27T13:45:21.834025Z
 acceptance:
