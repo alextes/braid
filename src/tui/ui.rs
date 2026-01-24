@@ -9,7 +9,7 @@ use ratatui::{
 };
 use time::{Duration as TimeDuration, OffsetDateTime};
 
-use crate::graph::compute_derived;
+use crate::graph::{compute_derived, get_dependents};
 use crate::issue::{Priority, Status};
 
 use super::app::{App, InputMode, View};
@@ -459,6 +459,9 @@ fn draw_issue_list(f: &mut Frame, area: Rect, app: &mut App) {
                 .collect();
             filter_parts.push(statuses.join(""));
         }
+        if app.ready_filter {
+            filter_parts.push("READY".to_string());
+        }
         format!(
             " Issues ({}/{}) [{}] ",
             visible.len(),
@@ -475,8 +478,8 @@ fn draw_issue_list(f: &mut Frame, area: Rect, app: &mut App) {
         .border_style(border_style);
 
     // calculate available width for title
-    // area - borders(2) - status(1) - id(8) - priority(2) - age(4) - owner(12) - spaces(6)
-    let title_width = area.width.saturating_sub(35) as usize;
+    // area - borders(2) - status(1) - ready(2) - id(8) - priority(2) - age(4) - owner(12) - spaces(6)
+    let title_width = area.width.saturating_sub(37) as usize;
     let view_height = block.inner(area).height as usize;
     let now = OffsetDateTime::now_utc();
 
@@ -485,12 +488,14 @@ fn draw_issue_list(f: &mut Frame, area: Rect, app: &mut App) {
         .enumerate()
         .map(|(i, id)| {
             let issue = app.issues.get(id).unwrap();
+            let derived = compute_derived(issue, &app.issues);
             let status_char = match issue.status() {
                 crate::issue::Status::Open => ' ',
                 crate::issue::Status::Doing => '→',
                 crate::issue::Status::Done => '✓',
                 crate::issue::Status::Skip => '⊘',
             };
+            let ready_char = if derived.is_ready { "◉" } else { " " };
             let age = format_age(issue.frontmatter.created_at);
             let owner = issue
                 .frontmatter
@@ -514,8 +519,9 @@ fn draw_issue_list(f: &mut Frame, area: Rect, app: &mut App) {
             };
 
             let text = format!(
-                "{} {} {} {:>4} {:<10} {}",
+                "{}{} {} {} {:>4} {:<10} {}",
                 status_char,
+                ready_char,
                 id,
                 issue.priority(),
                 age,
@@ -719,6 +725,36 @@ fn draw_detail(f: &mut Frame, area: Rect, app: &App) {
         }
     }
 
+    // dependents (reverse deps - issues that depend on this one)
+    let dependents = get_dependents(issue.id(), &app.issues);
+    if !dependents.is_empty() {
+        lines.push(Line::from(""));
+        lines.push(Line::from(Span::styled(
+            "Dependents:",
+            Style::default().fg(Color::DarkGray),
+        )));
+        for dep_id in &dependents {
+            let status_info = app
+                .issues
+                .get(dep_id)
+                .map(|d| {
+                    let status_str = d.status().to_string();
+                    let style = match d.status() {
+                        crate::issue::Status::Done => Style::default().fg(Color::Green),
+                        crate::issue::Status::Doing => Style::default().fg(Color::Yellow),
+                        crate::issue::Status::Open => Style::default(),
+                        crate::issue::Status::Skip => Style::default().fg(Color::DarkGray),
+                    };
+                    (status_str, style)
+                })
+                .unwrap_or_else(|| ("missing".to_string(), Style::default().fg(Color::Red)));
+            lines.push(Line::from(vec![
+                Span::raw(format!("  - {} ", dep_id)),
+                Span::styled(format!("({})", status_info.0), status_info.1),
+            ]));
+        }
+    }
+
     // acceptance
     if !issue.frontmatter.acceptance.is_empty() {
         lines.push(Line::from(""));
@@ -790,6 +826,7 @@ fn draw_help(f: &mut Frame, area: Rect) {
             Style::default().add_modifier(Modifier::BOLD),
         )),
         Line::from("  /          enter filter mode"),
+        Line::from("  R          toggle ready filter"),
         Line::from("  enter      confirm filter"),
         Line::from("  esc        clear filter"),
         Line::from(""),

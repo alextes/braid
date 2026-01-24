@@ -213,6 +213,7 @@ fn handle_key_event(app: &mut App, paths: &RepoPaths, key: KeyEvent) -> Result<b
 
         // filter
         KeyCode::Char('/') => app.start_filter(),
+        KeyCode::Char('R') => app.toggle_ready_filter(),
         KeyCode::Esc => {
             if app.has_filter() {
                 app.clear_filter();

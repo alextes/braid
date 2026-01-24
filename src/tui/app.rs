@@ -78,6 +78,8 @@ pub struct App {
     pub status_filter: HashSet<Status>,
     /// file to open in external editor (set by 'e' key, handled by main loop)
     pub editor_file: Option<std::path::PathBuf>,
+    /// filter to show only ready issues
+    pub ready_filter: bool,
 }
 
 impl App {
@@ -101,6 +103,7 @@ impl App {
             filter_query: String::new(),
             status_filter: HashSet::new(),
             editor_file: None,
+            ready_filter: false,
         };
         app.reload_issues(paths)?;
         Ok(app)
@@ -157,6 +160,13 @@ impl App {
                 let Some(issue) = self.issues.get(*id) else {
                     return false;
                 };
+                // check ready filter
+                if self.ready_filter {
+                    let derived = compute_derived(issue, &self.issues);
+                    if !derived.is_ready {
+                        return false;
+                    }
+                }
                 // check status filter (empty means show all)
                 if !self.status_filter.is_empty() && !self.status_filter.contains(&issue.status()) {
                     return false;
@@ -182,7 +192,7 @@ impl App {
 
     /// returns true if a filter is currently active.
     pub fn has_filter(&self) -> bool {
-        !self.filter_query.is_empty() || !self.status_filter.is_empty()
+        !self.filter_query.is_empty() || !self.status_filter.is_empty() || self.ready_filter
     }
 
     /// get the visible issues list (filtered or unfiltered).
@@ -198,8 +208,20 @@ impl App {
     pub fn clear_filter(&mut self) {
         self.filter_query.clear();
         self.status_filter.clear();
+        self.ready_filter = false;
         self.apply_filter();
         self.message = Some("filter cleared".to_string());
+    }
+
+    /// toggle the ready filter.
+    pub fn toggle_ready_filter(&mut self) {
+        self.ready_filter = !self.ready_filter;
+        self.apply_filter();
+        if self.ready_filter {
+            self.message = Some("showing ready issues".to_string());
+        } else {
+            self.message = Some("showing all issues".to_string());
+        }
     }
 
     /// start filter input mode.
