@@ -40,7 +40,7 @@ enum SyncState {
 struct SyncInfo {
     upstream: Option<String>,
     state: SyncState,
-    dirty: bool,
+    dirty_count: usize,
 }
 
 #[derive(Clone, Debug)]
@@ -90,7 +90,11 @@ fn format_issue_counts(counts: IssueCounts) -> String {
 }
 
 fn format_sync_line(sync: &SyncInfo) -> String {
-    let dirty_suffix = if sync.dirty { " (dirty)" } else { "" };
+    let dirty_suffix = if sync.dirty_count > 0 {
+        format!(" ({} dirty)", sync.dirty_count)
+    } else {
+        String::new()
+    };
 
     match &sync.state {
         SyncState::UpToDate => {
@@ -162,7 +166,7 @@ fn sync_to_json(sync: &SyncInfo) -> serde_json::Value {
         "upstream": sync.upstream,
         "ahead": ahead,
         "behind": behind,
-        "dirty": sync.dirty,
+        "dirty_count": sync.dirty_count,
     })
 }
 
@@ -358,11 +362,11 @@ fn get_ahead_behind(upstream: &str, cwd: &Path) -> Option<(usize, usize)> {
     Some((ahead, behind))
 }
 
-fn is_working_tree_dirty(cwd: &Path) -> bool {
-    // Check for any uncommitted changes (staged or unstaged)
+fn count_dirty_files(cwd: &Path) -> usize {
+    // Count uncommitted changes (staged or unstaged)
     git_output(&["status", "--porcelain"], cwd)
-        .map(|s| !s.is_empty())
-        .unwrap_or(false)
+        .map(|s| s.lines().count())
+        .unwrap_or(0)
 }
 
 fn get_worktrees_dir(paths: &RepoPaths) -> Option<PathBuf> {
@@ -437,12 +441,12 @@ fn get_sync_info(paths: &RepoPaths, branch: &str) -> SyncInfo {
         return SyncInfo {
             upstream: None,
             state: SyncState::MissingWorktree,
-            dirty: false,
+            dirty_count: 0,
         };
     }
 
     let upstream = get_upstream(branch, &issues_wt);
-    let dirty = is_working_tree_dirty(&issues_wt);
+    let dirty_count = count_dirty_files(&issues_wt);
     let state = match upstream.as_deref() {
         None => SyncState::NoUpstream,
         Some(upstream) => match get_ahead_behind(upstream, &issues_wt) {
@@ -464,7 +468,7 @@ fn get_sync_info(paths: &RepoPaths, branch: &str) -> SyncInfo {
     SyncInfo {
         upstream,
         state,
-        dirty,
+        dirty_count,
     }
 }
 
@@ -548,7 +552,7 @@ mod tests {
         let sync = SyncInfo {
             upstream: Some("origin/braid-issues".to_string()),
             state: SyncState::UpToDate,
-            dirty: false,
+            dirty_count: 0,
         };
         let info = StatusInfo {
             mode: "local-sync",
@@ -577,7 +581,7 @@ mod tests {
         let sync = SyncInfo {
             upstream: Some("origin/braid-issues".to_string()),
             state: SyncState::UpToDate,
-            dirty: true,
+            dirty_count: 3,
         };
         let info = StatusInfo {
             mode: "local-sync",
@@ -590,7 +594,7 @@ mod tests {
         };
         let output = format_status_output(&info, false);
 
-        assert!(output.contains("Sync:     up to date with origin/braid-issues (dirty)"));
+        assert!(output.contains("Sync:     up to date with origin/braid-issues (3 dirty)"));
     }
 
     #[test]
@@ -635,7 +639,7 @@ mod tests {
         let sync = SyncInfo {
             upstream: None,
             state: SyncState::NoUpstream,
-            dirty: false,
+            dirty_count: 0,
         };
         let info = StatusInfo {
             mode: "local-sync",
@@ -655,7 +659,7 @@ mod tests {
         assert_eq!(json["prefix"], "brd");
         assert_eq!(json["issues"]["doing"], 2);
         assert_eq!(json["sync"]["status"], "no-upstream");
-        assert_eq!(json["sync"]["dirty"], false);
+        assert_eq!(json["sync"]["dirty_count"], 0);
         assert_eq!(json["agents"]["total"], 0);
     }
 
@@ -670,7 +674,7 @@ mod tests {
         let sync = SyncInfo {
             upstream: Some("origin/issues".to_string()),
             state: SyncState::UpToDate,
-            dirty: true,
+            dirty_count: 5,
         };
         let info = StatusInfo {
             mode: "local-sync",
@@ -685,7 +689,7 @@ mod tests {
         let json: serde_json::Value = serde_json::from_str(output.trim()).unwrap();
 
         assert_eq!(json["sync"]["status"], "up-to-date");
-        assert_eq!(json["sync"]["dirty"], true);
+        assert_eq!(json["sync"]["dirty_count"], 5);
     }
 
     #[test]
