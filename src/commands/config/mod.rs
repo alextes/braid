@@ -223,6 +223,13 @@ mod tests {
             .output()
             .unwrap();
 
+        // ensure branch is named "main" (CI may default to "master")
+        Command::new("git")
+            .args(["branch", "-M", "main"])
+            .current_dir(dir.path())
+            .output()
+            .unwrap();
+
         dir
     }
 
