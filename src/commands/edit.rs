@@ -3,13 +3,23 @@
 use crate::cli::Cli;
 use crate::config::Config;
 use crate::error::{BrdError, Result};
+use crate::is_interactive;
 use crate::issue::Status;
 use crate::repo::{self, RepoPaths};
 
 use super::{load_all_issues, resolve_issue_id};
 
 /// Open an issue in $EDITOR.
-pub fn cmd_edit(cli: &Cli, paths: &RepoPaths, id: Option<&str>) -> Result<()> {
+pub fn cmd_edit(cli: &Cli, paths: &RepoPaths, id: Option<&str>, force: bool) -> Result<()> {
+    // check for interactive terminal
+    if !force && !is_interactive() {
+        return Err(BrdError::Other(
+            "brd edit requires an interactive terminal.\n\
+             hint: read the issue file directly at .braid/issues/<id>.md\n\
+             hint: use --force to override this check"
+                .to_string(),
+        ));
+    }
     let config = Config::load(&paths.config_path())?;
     let issues = load_all_issues(paths, &config)?;
 

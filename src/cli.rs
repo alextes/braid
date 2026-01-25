@@ -84,6 +84,10 @@ pub enum Command {
     Edit {
         /// issue ID (optional - opens current "doing" issue if omitted)
         id: Option<String>,
+
+        /// force interactive mode even without a TTY (for AI agents)
+        #[arg(long)]
+        force: bool,
     },
 
     /// quickly update issue fields
@@ -173,7 +177,11 @@ pub enum Command {
     },
 
     /// interactive TUI for issue management
-    Tui,
+    Tui {
+        /// force interactive mode even without a TTY
+        #[arg(long)]
+        force: bool,
+    },
 
     /// migrate issues to current schema version
     Migrate {

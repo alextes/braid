@@ -5,6 +5,7 @@ use std::io::{self, BufRead, Write};
 use crate::cli::{Cli, InitArgs};
 use crate::config::Config;
 use crate::error::{BrdError, Result};
+use crate::is_interactive;
 use crate::repo::git_rev_parse;
 
 /// Workflow configuration determined from init prompts.
@@ -159,8 +160,8 @@ fn determine_workflow_config(
         });
     }
 
-    // if non-interactive or json mode, use defaults (issues_branch, auto-sync on)
-    if args.non_interactive || cli.json {
+    // if non-interactive, json mode, or no TTY, use defaults (issues_branch, auto-sync on)
+    if args.non_interactive || cli.json || !is_interactive() {
         return Ok(WorkflowConfig {
             issues_branch: Some("braid-issues".to_string()),
             auto_pull: true,
