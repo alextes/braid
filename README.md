@@ -70,16 +70,18 @@ brd start
 ### issue management
 
 - `brd init` — initialize braid in current repo
-- `brd add "<title>" [-p P0-P3] [-b "<body>"] [--dep <id>]` — create a new issue
+- `brd add "<title>" [-p P0-P3] [-b "<body>"] [--dep <id>] [--tag <tag>]` — create a new issue
 - `brd ls [--status open|doing|done|skip] [-p P0-P3] [--ready] [--blocked]` — list issues
 - `brd show <id> [--context]` — show issue details (with `--context`: include deps and dependents)
 - `brd set <id> <field> <value>` — quickly update a field (priority, status, type, owner, title, tag)
 - `brd edit <id>` — open issue in $EDITOR
+- `brd rm <id>` — delete an issue
 
 ### workflow
 
 - `brd start [<id>]` — start working on an issue (auto-syncs, commits, and pushes the claim)
 - `brd done <id>` — mark issue as done
+- `brd skip <id>` — mark issue as skipped (won't do)
 - `brd ready` — list issues ready to work on
 
 ### dependencies
@@ -188,3 +190,41 @@ brd config auto-sync off
 ```
 
 see [docs/workflow-modes.md](docs/workflow-modes.md) for details.
+
+## issue types
+
+beyond regular issues, braid supports two special types for structuring complex projects:
+
+### design issues
+
+design issues (`--type design`) require human collaboration before closing. use them for:
+
+- architecture decisions that need discussion
+- trade-off analysis between approaches
+- features that need human sign-off
+
+agents should research and write up options, but wait for human approval before marking done.
+
+```bash
+brd add "decide on auth strategy" --type design
+```
+
+### meta issues
+
+meta issues (`--type meta`) track groups of related work. they show progress as "done/total" in `brd ls` and are typically not worked on directly — instead, work on the child issues.
+
+```bash
+brd add "user authentication epic" --type meta
+brd add "implement login endpoint" --dep <meta-id>
+brd add "implement logout endpoint" --dep <meta-id>
+```
+
+## tags
+
+tag issues to categorize and filter them. tags starting with `#bug` render in red.
+
+```bash
+brd add "fix login crash" --tag bug
+brd add "refactor auth module" --tag tech-debt --tag auth
+brd ls --tag bug
+```
