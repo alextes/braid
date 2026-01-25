@@ -75,7 +75,7 @@ push commits to main and **wait for CI to pass** before tagging:
 git push origin main
 ```
 
-check CI status at https://github.com/alextes/braid/actions — do not proceed until the check-lint-test workflow passes.
+check CI status with `hub ci-status -v` or at https://github.com/alextes/braid/actions — do not proceed until all checks pass.
 
 ## 8. tag and push
 
