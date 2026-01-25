@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0]
+
+### Added
+- **agent runtime commands**: new `brd agent spawn|ps|logs|send|kill` for managing headless claude agents
+- `brd set` command for quick field updates (priority, status, owner, title, type, tags)
+- `brd start --stash` flag to automatically stash uncommitted changes
+- `brd agent inject --file` flag to inject blocks into custom files
+- `brd doctor` now checks CLAUDE.md and CLAUDE.local.md for braid block
+- `brd doctor` shows timing output for each check
+- `brd status` shows dirty file count and agent session info
+- `brd show` displays issue type in output
+- TUI dashboard view with ready indicators and dependents
+- TUI view switching with `1`/`2` keys (issues/dashboard)
+- TUI sorts done/skip issues last
+- issue timestamps now use `started_at` and `completed_at` instead of `updated_at`
+- `brd ls` shows hint when done/skip issues are truncated
+
+### Changed
+- **BREAKING**: issue status `todo` renamed to `open`
+- AGENTS.md instructions now require running checks before every commit
+- inline dep status in `brd show` output (removed separate Blocked field)
+- TUI simplified to single live issue list
+
+### Fixed
+- `brd agent spawn --foreground` now streams output to terminal
+- clippy lint for TestRepo::new() renamed to builder()
+
+### Refactored
+- split config.rs (1,620 lines) into focused subcommand modules
+- shared test utilities module for consistent test setup
+- migrated remaining test modules to TestRepo utilities
+
 ## [0.7.0] - 2026-01-04
 
 ### Changed
