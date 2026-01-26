@@ -54,7 +54,8 @@ fn draw_header(f: &mut Frame, area: Rect, app: &App) {
 
 fn draw_footer(f: &mut Frame, area: Rect, app: &App) {
     let msg = app.message.as_deref().unwrap_or("");
-    let help = "[1]dashboard [2]issues [Tab]toggle details [a]dd [e]dit [s]tart [d]one [/]filter [?]help [q]uit";
+    let help =
+        "[1]dashboard [2]issues [3]agents [Tab]toggle details [a]dd [e]dit [s]tart [d]one [/]filter [?]help [q]uit";
     let text = if msg.is_empty() {
         help.to_string()
     } else {
@@ -68,6 +69,7 @@ fn draw_main(f: &mut Frame, area: Rect, app: &mut App) {
     match app.view {
         View::Dashboard => draw_dashboard(f, area, app),
         View::Issues => draw_issues_view(f, area, app),
+        View::Agents => draw_agents_view(f, area, app),
     }
 }
 
@@ -423,6 +425,83 @@ fn make_stacked_bar(width: usize, total: usize, segments: &[(usize, Color)]) -> 
     }
 
     Line::from(spans)
+}
+
+fn draw_agents_view(f: &mut Frame, area: Rect, app: &App) {
+    let block = Block::default()
+        .title(" Agents ")
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::Yellow));
+
+    if app.worktrees.is_empty() {
+        let text = vec![
+            Line::from(""),
+            Line::from(Span::styled(
+                "  No agent worktrees found",
+                Style::default().fg(Color::DarkGray),
+            )),
+            Line::from(""),
+            Line::from(Span::styled(
+                "  Worktrees are discovered from ~/.braid/worktrees/<repo>/*/",
+                Style::default().fg(Color::DarkGray),
+            )),
+            Line::from(""),
+            Line::from(Span::styled(
+                "  Use 'brd agent init <name>' to create a new agent worktree",
+                Style::default().fg(Color::DarkGray),
+            )),
+        ];
+        let paragraph = Paragraph::new(text).block(block);
+        f.render_widget(paragraph, area);
+        return;
+    }
+
+    // build list items
+    let items: Vec<ListItem> = app
+        .worktrees
+        .iter()
+        .enumerate()
+        .map(|(i, wt)| {
+            let mut spans = Vec::new();
+
+            // selection indicator
+            if i == app.worktree_selected {
+                spans.push(Span::styled("▶ ", Style::default().fg(Color::Yellow)));
+            } else {
+                spans.push(Span::raw("  "));
+            }
+
+            // name
+            spans.push(Span::styled(
+                &wt.name,
+                if i == app.worktree_selected {
+                    Style::default()
+                        .fg(Color::White)
+                        .add_modifier(Modifier::BOLD)
+                } else {
+                    Style::default().fg(Color::White)
+                },
+            ));
+
+            // branch
+            if let Some(ref branch) = wt.branch {
+                spans.push(Span::styled(
+                    format!("  ({})", branch),
+                    Style::default().fg(Color::Cyan),
+                ));
+            }
+
+            // dirty indicator
+            if wt.is_dirty {
+                spans.push(Span::styled(" *", Style::default().fg(Color::Yellow)));
+            }
+
+            ListItem::new(Line::from(spans))
+        })
+        .collect();
+
+    let list = List::new(items).block(block);
+    f.render_widget(list, area);
 }
 
 fn draw_issues_view(f: &mut Frame, area: Rect, app: &mut App) {
@@ -1008,6 +1087,7 @@ fn draw_help(f: &mut Frame, area: Rect) {
         )),
         Line::from("  1          dashboard"),
         Line::from("  2          issues"),
+        Line::from("  3          agents"),
         Line::from("  Tab        toggle details pane"),
         Line::from("  enter      open dep / view details (pane hidden)"),
         Line::from(""),

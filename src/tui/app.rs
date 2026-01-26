@@ -1,6 +1,7 @@
 //! TUI application state and logic.
 
 use std::collections::{HashMap, HashSet};
+use std::path::PathBuf;
 
 use ratatui::text::Text;
 
@@ -13,6 +14,19 @@ use crate::repo::RepoPaths;
 
 use super::diff_panel::DiffPanelState;
 
+/// Information about an agent worktree.
+#[derive(Debug, Clone)]
+pub struct WorktreeInfo {
+    /// worktree name (directory name)
+    pub name: String,
+    /// full path to worktree
+    pub path: PathBuf,
+    /// current branch name
+    pub branch: Option<String>,
+    /// whether the worktree has uncommitted changes
+    pub is_dirty: bool,
+}
+
 /// which view is currently active.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum View {
@@ -21,6 +35,8 @@ pub enum View {
     /// issue list (default)
     #[default]
     Issues,
+    /// agent worktrees view
+    Agents,
 }
 
 /// input mode for creating/editing issues.
@@ -94,6 +110,10 @@ pub struct App {
     pub diff_content: Option<Text<'static>>,
     /// file path for the diff being displayed
     pub diff_file_path: Option<String>,
+    /// list of agent worktrees
+    pub worktrees: Vec<WorktreeInfo>,
+    /// selected worktree index in agents view
+    pub worktree_selected: usize,
 }
 
 impl App {
@@ -123,8 +143,11 @@ impl App {
             diff_panel_state: None,
             diff_content: None,
             diff_file_path: None,
+            worktrees: Vec::new(),
+            worktree_selected: 0,
         };
         app.reload_issues(paths)?;
+        app.reload_worktrees();
         Ok(app)
     }
 
@@ -167,6 +190,15 @@ impl App {
             self.message = Some("refreshed".to_string());
         }
         Ok(())
+    }
+
+    /// reload worktrees from ~/.braid/worktrees/<repo>/*/.
+    pub fn reload_worktrees(&mut self) {
+        self.worktrees = discover_worktrees();
+        // clamp selection
+        if self.worktree_selected >= self.worktrees.len() && !self.worktrees.is_empty() {
+            self.worktree_selected = self.worktrees.len() - 1;
+        }
     }
 
     /// apply the current filter to the issues list.
@@ -710,6 +742,65 @@ fn get_agent_id(worktree_root: &std::path::Path) -> String {
         return id.clone();
     }
     std::env::var("USER").unwrap_or_else(|_| "unknown".to_string())
+}
+
+/// discover agent worktrees from ~/.braid/worktrees/<repo>/*/.
+fn discover_worktrees() -> Vec<WorktreeInfo> {
+    let mut worktrees = Vec::new();
+
+    // get home directory
+    let Ok(home) = std::env::var("HOME") else {
+        return worktrees;
+    };
+
+    let worktrees_base = PathBuf::from(home).join(".braid/worktrees");
+    if !worktrees_base.exists() {
+        return worktrees;
+    }
+
+    // iterate over repos
+    let Ok(repos) = std::fs::read_dir(&worktrees_base) else {
+        return worktrees;
+    };
+
+    for repo_entry in repos.flatten() {
+        let repo_path = repo_entry.path();
+        if !repo_path.is_dir() {
+            continue;
+        }
+
+        // iterate over worktrees within this repo
+        let Ok(wt_entries) = std::fs::read_dir(&repo_path) else {
+            continue;
+        };
+
+        for wt_entry in wt_entries.flatten() {
+            let wt_path = wt_entry.path();
+            if !wt_path.is_dir() {
+                continue;
+            }
+
+            let name = wt_entry.file_name().to_string_lossy().to_string();
+
+            // get branch name
+            let branch = crate::git::current_branch(&wt_path).ok();
+
+            // check if dirty
+            let is_dirty = crate::git::is_clean(&wt_path).map(|c| !c).unwrap_or(false);
+
+            worktrees.push(WorktreeInfo {
+                name,
+                path: wt_path,
+                branch,
+                is_dirty,
+            });
+        }
+    }
+
+    // sort by name
+    worktrees.sort_by(|a, b| a.name.cmp(&b.name));
+
+    worktrees
 }
 
 #[cfg(test)]

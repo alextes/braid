@@ -237,6 +237,10 @@ fn handle_key_event(app: &mut App, paths: &RepoPaths, key: KeyEvent) -> Result<b
         // views
         KeyCode::Char('1') => app.view = crate::tui::app::View::Dashboard,
         KeyCode::Char('2') => app.view = crate::tui::app::View::Issues,
+        KeyCode::Char('3') => {
+            app.reload_worktrees();
+            app.view = crate::tui::app::View::Agents;
+        }
 
         // filter
         KeyCode::Char('/') => app.start_filter(),
