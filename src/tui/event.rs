@@ -29,6 +29,18 @@ fn handle_key_event(app: &mut App, paths: &RepoPaths, key: KeyEvent) -> Result<b
         return Ok(false);
     }
 
+    // handle detail overlay mode
+    if app.show_detail_overlay {
+        if key.code == KeyCode::Esc
+            || key.code == KeyCode::Char('q')
+            || key.code == KeyCode::Enter
+            || key.code == KeyCode::Tab
+        {
+            app.hide_detail_overlay();
+        }
+        return Ok(false);
+    }
+
     // handle input modes
     match &app.input_mode {
         InputMode::Title(current) => {
@@ -205,7 +217,16 @@ fn handle_key_event(app: &mut App, paths: &RepoPaths, key: KeyEvent) -> Result<b
                 app.message = Some(format!("error: {}", e));
             }
         }
-        KeyCode::Enter => app.open_selected_dependency(),
+        KeyCode::Enter => {
+            if !app.show_details {
+                // when details pane is hidden, show full-screen overlay
+                app.show_detail_overlay();
+            } else {
+                // when details pane is visible, open selected dependency
+                app.open_selected_dependency();
+            }
+        }
+        KeyCode::Tab => app.toggle_details(),
 
         // views
         KeyCode::Char('1') => app.view = crate::tui::app::View::Dashboard,
@@ -533,5 +554,81 @@ mod tests {
 
         handle_key_event(&mut app, &env.paths, key(KeyCode::Enter)).expect("open dep failed");
         assert_eq!(app.selected_issue_id(), Some("brd-dep2"));
+    }
+
+    #[test]
+    fn test_tab_toggles_details_pane() {
+        let env = TestEnv::new();
+        env.add_issue("brd-aaaa", "issue", Priority::P1, Status::Open);
+        let mut app = env.app();
+
+        // default: details shown
+        assert!(app.show_details);
+
+        // toggle off
+        handle_key_event(&mut app, &env.paths, key(KeyCode::Tab)).expect("tab failed");
+        assert!(!app.show_details);
+
+        // toggle on
+        handle_key_event(&mut app, &env.paths, key(KeyCode::Tab)).expect("tab failed");
+        assert!(app.show_details);
+    }
+
+    #[test]
+    fn test_enter_shows_overlay_when_details_hidden() {
+        let env = TestEnv::new();
+        env.add_issue("brd-aaaa", "issue", Priority::P1, Status::Open);
+        let mut app = env.app();
+
+        // hide details pane
+        app.show_details = false;
+
+        // press enter should show overlay
+        handle_key_event(&mut app, &env.paths, key(KeyCode::Enter)).expect("enter failed");
+        assert!(app.show_detail_overlay);
+    }
+
+    #[test]
+    fn test_detail_overlay_closes_on_esc() {
+        let env = TestEnv::new();
+        env.add_issue("brd-aaaa", "issue", Priority::P1, Status::Open);
+        let mut app = env.app();
+
+        app.show_detail_overlay = true;
+
+        handle_key_event(&mut app, &env.paths, key(KeyCode::Esc)).expect("esc failed");
+        assert!(!app.show_detail_overlay);
+    }
+
+    #[test]
+    fn test_detail_overlay_closes_on_tab() {
+        let env = TestEnv::new();
+        env.add_issue("brd-aaaa", "issue", Priority::P1, Status::Open);
+        let mut app = env.app();
+
+        app.show_detail_overlay = true;
+
+        handle_key_event(&mut app, &env.paths, key(KeyCode::Tab)).expect("tab failed");
+        assert!(!app.show_detail_overlay);
+    }
+
+    #[test]
+    fn test_detail_overlay_ignores_navigation() {
+        let env = TestEnv::new();
+        env.add_issue("brd-aaaa", "first", Priority::P1, Status::Open);
+        env.add_issue("brd-bbbb", "second", Priority::P2, Status::Open);
+        let mut app = env.app();
+
+        app.show_detail_overlay = true;
+        let initial_selected = app.selected;
+
+        // navigation keys should be ignored
+        handle_key_event(&mut app, &env.paths, key(KeyCode::Down)).expect("down failed");
+        assert!(app.show_detail_overlay);
+        assert_eq!(app.selected, initial_selected);
+
+        handle_key_event(&mut app, &env.paths, key(KeyCode::Char('j'))).expect("j failed");
+        assert!(app.show_detail_overlay);
+        assert_eq!(app.selected, initial_selected);
     }
 }

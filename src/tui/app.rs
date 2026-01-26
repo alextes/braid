@@ -80,6 +80,10 @@ pub struct App {
     pub editor_file: Option<std::path::PathBuf>,
     /// filter to show only ready issues
     pub ready_filter: bool,
+    /// whether to show the details pane
+    pub show_details: bool,
+    /// whether to show the detail overlay (full-screen view)
+    pub show_detail_overlay: bool,
 }
 
 impl App {
@@ -104,6 +108,8 @@ impl App {
             status_filter: HashSet::new(),
             editor_file: None,
             ready_filter: false,
+            show_details: true,
+            show_detail_overlay: false,
         };
         app.reload_issues(paths)?;
         Ok(app)
@@ -299,6 +305,26 @@ impl App {
     /// toggle help display.
     pub fn toggle_help(&mut self) {
         self.show_help = !self.show_help;
+    }
+
+    /// toggle details pane visibility.
+    pub fn toggle_details(&mut self) {
+        self.show_details = !self.show_details;
+        self.message = Some(if self.show_details {
+            "details pane shown".to_string()
+        } else {
+            "details pane hidden".to_string()
+        });
+    }
+
+    /// show the detail overlay (full-screen detail view).
+    pub fn show_detail_overlay(&mut self) {
+        self.show_detail_overlay = true;
+    }
+
+    /// hide the detail overlay.
+    pub fn hide_detail_overlay(&mut self) {
+        self.show_detail_overlay = false;
     }
 
     /// move selection to previous dependency.
@@ -919,6 +945,42 @@ mod tests {
         app.apply_filter();
         assert_eq!(app.visible_issues().len(), 1);
         assert_eq!(app.visible_issues()[0], "brd-aaaa");
+    }
+
+    #[test]
+    fn test_toggle_details() {
+        let env = TestEnv::new();
+        let mut app = env.app();
+
+        // default: details pane is shown
+        assert!(app.show_details);
+
+        // toggle off
+        app.toggle_details();
+        assert!(!app.show_details);
+        assert_eq!(app.message.as_deref(), Some("details pane hidden"));
+
+        // toggle on
+        app.toggle_details();
+        assert!(app.show_details);
+        assert_eq!(app.message.as_deref(), Some("details pane shown"));
+    }
+
+    #[test]
+    fn test_detail_overlay() {
+        let env = TestEnv::new();
+        let mut app = env.app();
+
+        // default: overlay is hidden
+        assert!(!app.show_detail_overlay);
+
+        // show overlay
+        app.show_detail_overlay();
+        assert!(app.show_detail_overlay);
+
+        // hide overlay
+        app.hide_detail_overlay();
+        assert!(!app.show_detail_overlay);
     }
 
     #[test]

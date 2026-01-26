@@ -48,7 +48,7 @@ fn draw_header(f: &mut Frame, area: Rect, app: &App) {
 
 fn draw_footer(f: &mut Frame, area: Rect, app: &App) {
     let msg = app.message.as_deref().unwrap_or("");
-    let help = "[1]dashboard [2]issues [a]dd [e]dit [s]tart [d]one [/]filter [?]help [q]uit";
+    let help = "[1]dashboard [2]issues [Tab]toggle details [a]dd [e]dit [s]tart [d]one [/]filter [?]help [q]uit";
     let text = if msg.is_empty() {
         help.to_string()
     } else {
@@ -420,13 +420,24 @@ fn make_stacked_bar(width: usize, total: usize, segments: &[(usize, Color)]) -> 
 }
 
 fn draw_issues_view(f: &mut Frame, area: Rect, app: &mut App) {
-    let chunks = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
-        .split(area);
+    if app.show_details {
+        // two-pane layout: list + details
+        let chunks = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
+            .split(area);
 
-    draw_issue_list(f, chunks[0], app);
-    draw_detail(f, chunks[1], app);
+        draw_issue_list(f, chunks[0], app);
+        draw_detail(f, chunks[1], app);
+    } else {
+        // full-width list only
+        draw_issue_list(f, area, app);
+    }
+
+    // draw detail overlay on top if active
+    if app.show_detail_overlay {
+        draw_detail_overlay(f, area, app);
+    }
 }
 
 fn draw_issue_list(f: &mut Frame, area: Rect, app: &mut App) {
@@ -784,6 +795,176 @@ fn draw_detail(f: &mut Frame, area: Rect, app: &App) {
     f.render_widget(paragraph, area);
 }
 
+fn draw_detail_overlay(f: &mut Frame, area: Rect, app: &App) {
+    // use most of the screen for the overlay
+    let overlay_area = centered_rect(80, area.height.saturating_sub(4), area);
+
+    // clear the area behind the overlay
+    f.render_widget(Clear, overlay_area);
+
+    let block = Block::default()
+        .title(" Detail (press Esc, Enter, or Tab to close) ")
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::Yellow));
+
+    let Some(issue) = app.selected_issue() else {
+        let text = Paragraph::new("no issue selected").block(block);
+        f.render_widget(text, overlay_area);
+        return;
+    };
+
+    let derived = app.derived_state(issue);
+
+    let mut lines: Vec<Line> = vec![
+        Line::from(vec![
+            Span::styled("ID:       ", Style::default().fg(Color::DarkGray)),
+            Span::raw(issue.id()),
+        ]),
+        Line::from(vec![
+            Span::styled("Title:    ", Style::default().fg(Color::DarkGray)),
+            Span::raw(issue.title()),
+        ]),
+        Line::from(vec![
+            Span::styled("Priority: ", Style::default().fg(Color::DarkGray)),
+            Span::raw(issue.priority().to_string()),
+        ]),
+        Line::from(vec![
+            Span::styled("Status:   ", Style::default().fg(Color::DarkGray)),
+            Span::styled(
+                issue.status().to_string(),
+                match issue.status() {
+                    crate::issue::Status::Done => Style::default().fg(Color::Green),
+                    crate::issue::Status::Doing => Style::default().fg(Color::Yellow),
+                    crate::issue::Status::Open => Style::default(),
+                    crate::issue::Status::Skip => Style::default().fg(Color::DarkGray),
+                },
+            ),
+        ]),
+    ];
+
+    if let Some(owner) = &issue.frontmatter.owner {
+        lines.push(Line::from(vec![
+            Span::styled("Owner:    ", Style::default().fg(Color::DarkGray)),
+            Span::raw(owner.as_str()),
+        ]));
+    }
+
+    // tags
+    if !issue.frontmatter.tags.is_empty() {
+        let tags = issue
+            .frontmatter
+            .tags
+            .iter()
+            .map(|t| format!("#{}", t))
+            .collect::<Vec<_>>()
+            .join(" ");
+        lines.push(Line::from(vec![
+            Span::styled("Tags:     ", Style::default().fg(Color::DarkGray)),
+            Span::styled(tags, Style::default().fg(Color::Cyan)),
+        ]));
+    }
+
+    // state
+    let state_text = if derived.is_ready {
+        Span::styled("READY", Style::default().fg(Color::Green))
+    } else if derived.is_blocked {
+        Span::styled("BLOCKED", Style::default().fg(Color::Red))
+    } else {
+        Span::raw("")
+    };
+    if !state_text.content.is_empty() {
+        lines.push(Line::from(vec![
+            Span::styled("State:    ", Style::default().fg(Color::DarkGray)),
+            state_text,
+        ]));
+    }
+
+    // deps
+    if !issue.deps().is_empty() {
+        lines.push(Line::from(""));
+        lines.push(Line::from(Span::styled(
+            "Dependencies:",
+            Style::default().fg(Color::DarkGray),
+        )));
+        for dep in issue.deps() {
+            let is_resolved = app
+                .issues
+                .get(dep)
+                .map(|d| {
+                    matches!(
+                        d.status(),
+                        crate::issue::Status::Done | crate::issue::Status::Skip
+                    )
+                })
+                .unwrap_or(false);
+            let style = if is_resolved {
+                Style::default().fg(Color::Green)
+            } else {
+                Style::default().fg(Color::Red)
+            };
+            lines.push(Line::from(Span::styled(format!("  - {}", dep), style)));
+        }
+    }
+
+    // dependents (reverse deps - issues that depend on this one)
+    let dependents = get_dependents(issue.id(), &app.issues);
+    if !dependents.is_empty() {
+        lines.push(Line::from(""));
+        lines.push(Line::from(Span::styled(
+            "Dependents:",
+            Style::default().fg(Color::DarkGray),
+        )));
+        for dep_id in &dependents {
+            let status_info = app
+                .issues
+                .get(dep_id)
+                .map(|d| {
+                    let status_str = d.status().to_string();
+                    let style = match d.status() {
+                        crate::issue::Status::Done => Style::default().fg(Color::Green),
+                        crate::issue::Status::Doing => Style::default().fg(Color::Yellow),
+                        crate::issue::Status::Open => Style::default(),
+                        crate::issue::Status::Skip => Style::default().fg(Color::DarkGray),
+                    };
+                    (status_str, style)
+                })
+                .unwrap_or_else(|| ("missing".to_string(), Style::default().fg(Color::Red)));
+            lines.push(Line::from(vec![
+                Span::raw(format!("  - {} ", dep_id)),
+                Span::styled(format!("({})", status_info.0), status_info.1),
+            ]));
+        }
+    }
+
+    // acceptance
+    if !issue.frontmatter.acceptance.is_empty() {
+        lines.push(Line::from(""));
+        lines.push(Line::from(Span::styled(
+            "Acceptance:",
+            Style::default().fg(Color::DarkGray),
+        )));
+        for ac in &issue.frontmatter.acceptance {
+            lines.push(Line::from(format!("  - {}", ac)));
+        }
+    }
+
+    // body
+    if !issue.body.is_empty() {
+        lines.push(Line::from(""));
+        lines.push(Line::from(Span::styled(
+            "Description:",
+            Style::default().fg(Color::DarkGray),
+        )));
+        for line in issue.body.lines() {
+            lines.push(Line::from(format!("  {}", line)));
+        }
+    }
+
+    let text = Text::from(lines);
+    let paragraph = Paragraph::new(text).block(block).wrap(Wrap { trim: false });
+    f.render_widget(paragraph, overlay_area);
+}
+
 fn draw_help(f: &mut Frame, area: Rect) {
     let block = Block::default()
         .title(" help (press ? to close) ")
@@ -820,6 +1001,8 @@ fn draw_help(f: &mut Frame, area: Rect) {
         )),
         Line::from("  1          dashboard"),
         Line::from("  2          issues"),
+        Line::from("  Tab        toggle details pane"),
+        Line::from("  enter      view details (when pane hidden)"),
         Line::from(""),
         Line::from(Span::styled(
             "filter",
