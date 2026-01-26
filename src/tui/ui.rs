@@ -489,8 +489,8 @@ fn draw_issue_list(f: &mut Frame, area: Rect, app: &mut App) {
         .border_style(border_style);
 
     // calculate available width for title
-    // area - borders(2) - status(1) - ready(2) - id(8) - priority(2) - age(4) - owner(12) - spaces(6)
-    let title_width = area.width.saturating_sub(37) as usize;
+    // area - borders(2) - status_prefix(2) - id(8) - priority(2) - age(4) - owner(10) - spaces(4)
+    let title_width = area.width.saturating_sub(32) as usize;
     let view_height = block.inner(area).height as usize;
     let now = OffsetDateTime::now_utc();
 
@@ -500,13 +500,11 @@ fn draw_issue_list(f: &mut Frame, area: Rect, app: &mut App) {
         .map(|(i, id)| {
             let issue = app.issues.get(id).unwrap();
             let derived = compute_derived(issue, &app.issues);
-            let status_char = match issue.status() {
-                crate::issue::Status::Open => ' ',
-                crate::issue::Status::Doing => '→',
-                crate::issue::Status::Done => '✓',
-                crate::issue::Status::Skip => '⊘',
+            // only show → prefix for doing issues; done/skip are grey, blocked are dimmed
+            let status_prefix = match issue.status() {
+                crate::issue::Status::Doing => "→ ",
+                _ => "  ",
             };
-            let is_ready = derived.is_ready;
             let age = format_age(issue.frontmatter.created_at);
             let owner = issue
                 .frontmatter
@@ -531,6 +529,7 @@ fn draw_issue_list(f: &mut Frame, area: Rect, app: &mut App) {
 
             let duration = now - issue.frontmatter.created_at;
             let is_selected = i == app.selected;
+            let is_blocked = derived.is_blocked;
             let base_style = if is_selected {
                 Style::default()
                     .bg(Color::Yellow)
@@ -545,6 +544,10 @@ fn draw_issue_list(f: &mut Frame, area: Rect, app: &mut App) {
                         let age_color = age_color(duration);
                         Style::default().fg(age_color)
                     }
+                    crate::issue::Status::Open if is_blocked => {
+                        // blocked issues get a muted reddish-grey tint
+                        Style::default().fg(Color::Rgb(140, 120, 120))
+                    }
                     crate::issue::Status::Open => Style::default(),
                 }
             };
@@ -556,20 +559,9 @@ fn draw_issue_list(f: &mut Frame, area: Rect, app: &mut App) {
                 None => base_style,
             };
 
-            // ready indicator gets green color (unless row is selected)
-            let ready_span = if is_ready {
-                let ready_style = if is_selected {
-                    style // keep selection style
-                } else {
-                    Style::default().fg(Color::Green)
-                };
-                Span::styled("◉", ready_style)
-            } else {
-                Span::styled(" ", style)
-            };
-
             let rest_of_line = format!(
-                " {} {} {:>4} {:<10} {}",
+                "{}{} {} {:>4} {:<10} {}",
+                status_prefix,
                 id,
                 issue.priority(),
                 age,
@@ -577,11 +569,7 @@ fn draw_issue_list(f: &mut Frame, area: Rect, app: &mut App) {
                 title_and_tags
             );
 
-            let line = Line::from(vec![
-                Span::styled(format!("{}", status_char), style),
-                ready_span,
-                Span::styled(rest_of_line, style),
-            ]);
+            let line = Line::from(Span::styled(rest_of_line, style));
 
             ListItem::new(line)
         })
