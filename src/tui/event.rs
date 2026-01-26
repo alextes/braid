@@ -21,6 +21,12 @@ pub fn handle_events(app: &mut App, paths: &RepoPaths) -> Result<bool> {
 }
 
 fn handle_key_event(app: &mut App, paths: &RepoPaths, key: KeyEvent) -> Result<bool> {
+    // handle diff panel mode
+    if app.is_diff_visible() {
+        handle_diff_panel_key(app, key);
+        return Ok(false);
+    }
+
     // handle help mode separately
     if app.show_help {
         if key.code == KeyCode::Char('?') || key.code == KeyCode::Esc {
@@ -248,6 +254,67 @@ fn handle_key_event(app: &mut App, paths: &RepoPaths, key: KeyEvent) -> Result<b
     }
 
     Ok(false)
+}
+
+/// handle key events when diff panel is visible.
+fn handle_diff_panel_key(app: &mut App, key: KeyEvent) {
+    // get content height for scroll bounds
+    let content_height = app
+        .diff_content
+        .as_ref()
+        .map(|t| t.lines.len() as u16)
+        .unwrap_or(0);
+    // assume a reasonable viewport height (will be adjusted by actual rendering)
+    let viewport_height = 40u16;
+
+    match key.code {
+        // close diff panel
+        KeyCode::Esc | KeyCode::Char('q') => app.close_diff(),
+
+        // scroll down
+        KeyCode::Down | KeyCode::Char('j') => {
+            if let Some(ref mut state) = app.diff_panel_state {
+                state.scroll_down(1, content_height, viewport_height);
+            }
+        }
+
+        // scroll up
+        KeyCode::Up | KeyCode::Char('k') => {
+            if let Some(ref mut state) = app.diff_panel_state {
+                state.scroll_up(1);
+            }
+        }
+
+        // page down
+        KeyCode::PageDown | KeyCode::Char('d') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+            if let Some(ref mut state) = app.diff_panel_state {
+                state.page_down(content_height, viewport_height);
+            }
+        }
+
+        // page up
+        KeyCode::PageUp | KeyCode::Char('u') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+            if let Some(ref mut state) = app.diff_panel_state {
+                state.page_up(viewport_height);
+            }
+        }
+
+        // go to top
+        KeyCode::Char('g') => {
+            if let Some(ref mut state) = app.diff_panel_state {
+                state.scroll_to_top();
+            }
+        }
+
+        // go to bottom
+        KeyCode::Char('G') => {
+            if let Some(ref mut state) = app.diff_panel_state {
+                state.scroll_to_bottom(content_height, viewport_height);
+            }
+        }
+
+        _ => {}
+    }
 }
 
 #[cfg(test)]

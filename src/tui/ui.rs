@@ -13,6 +13,7 @@ use crate::graph::{compute_derived, get_dependents};
 use crate::issue::{Priority, Status};
 
 use super::app::{App, InputMode, View};
+use super::diff_panel::{DiffPanel, centered_overlay};
 
 /// draw the entire UI.
 pub fn draw(f: &mut Frame, app: &mut App) {
@@ -37,6 +38,11 @@ pub fn draw(f: &mut Frame, app: &mut App) {
     // draw input dialog on top if active
     if !matches!(app.input_mode, InputMode::Normal | InputMode::Filter(_)) {
         draw_input_dialog(f, app);
+    }
+
+    // draw diff panel overlay if visible
+    if app.is_diff_visible() {
+        draw_diff_panel(f, app);
     }
 }
 
@@ -1262,6 +1268,24 @@ fn draw_input_dialog(f: &mut Frame, app: &App) {
         }
         InputMode::Filter(_) | InputMode::Normal => {}
     }
+}
+
+fn draw_diff_panel(f: &mut Frame, app: &mut App) {
+    let Some(ref content) = app.diff_content else {
+        return;
+    };
+    let Some(ref file_path) = app.diff_file_path else {
+        return;
+    };
+    let Some(ref mut state) = app.diff_panel_state else {
+        return;
+    };
+
+    // create overlay covering 90% of screen
+    let area = centered_overlay(90, 90, f.area());
+
+    let panel = DiffPanel::new(content.clone(), file_path.clone());
+    f.render_stateful_widget(panel, area, state);
 }
 
 fn update_offset(offset: &mut usize, selected: Option<usize>, len: usize, view_height: usize) {

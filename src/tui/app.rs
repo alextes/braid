@@ -2,12 +2,16 @@
 
 use std::collections::{HashMap, HashSet};
 
+use ratatui::text::Text;
+
 use crate::config::Config;
 use crate::error::{BrdError, Result};
 use crate::graph::{DerivedState, compute_derived};
 use crate::issue::{Issue, IssueType, Priority, Status};
 use crate::lock::LockGuard;
 use crate::repo::RepoPaths;
+
+use super::diff_panel::DiffPanelState;
 
 /// which view is currently active.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -84,6 +88,12 @@ pub struct App {
     pub show_details: bool,
     /// whether to show the detail overlay (full-screen view)
     pub show_detail_overlay: bool,
+    /// diff panel state (when showing diff overlay)
+    pub diff_panel_state: Option<DiffPanelState>,
+    /// diff content currently being displayed
+    pub diff_content: Option<Text<'static>>,
+    /// file path for the diff being displayed
+    pub diff_file_path: Option<String>,
 }
 
 impl App {
@@ -110,6 +120,9 @@ impl App {
             ready_filter: false,
             show_details: true,
             show_detail_overlay: false,
+            diff_panel_state: None,
+            diff_content: None,
+            diff_file_path: None,
         };
         app.reload_issues(paths)?;
         Ok(app)
@@ -228,6 +241,25 @@ impl App {
         } else {
             self.message = Some("showing all issues".to_string());
         }
+    }
+
+    /// show diff panel with the given content and file path.
+    pub fn show_diff(&mut self, content: Text<'static>, file_path: String) {
+        self.diff_panel_state = Some(DiffPanelState::new());
+        self.diff_content = Some(content);
+        self.diff_file_path = Some(file_path);
+    }
+
+    /// close the diff panel.
+    pub fn close_diff(&mut self) {
+        self.diff_panel_state = None;
+        self.diff_content = None;
+        self.diff_file_path = None;
+    }
+
+    /// check if diff panel is currently visible.
+    pub fn is_diff_visible(&self) -> bool {
+        self.diff_panel_state.is_some()
     }
 
     /// start filter input mode.

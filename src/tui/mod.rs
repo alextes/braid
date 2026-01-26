@@ -1,6 +1,8 @@
 //! interactive TUI for braid issue tracker.
 
 mod app;
+pub mod diff_panel;
+pub mod diff_render;
 mod event;
 mod ui;
 
