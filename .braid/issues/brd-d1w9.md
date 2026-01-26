@@ -5,7 +5,10 @@ title: ephemeral agent workflow
 priority: P2
 status: open
 type: meta
-deps: []
+deps:
+- brd-xnxw
+- brd-qas3
+- brd-cnd8
 tags:
 - agent
 owner: null

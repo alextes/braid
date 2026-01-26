@@ -3,12 +3,14 @@ schema_version: 8
 id: brd-kih6
 title: 'refactor: split config.rs into subcommand modules'
 priority: P3
-status: open
+status: done
 deps: []
 tags:
 - refactor
 owner: null
 created_at: 2026-01-20T10:38:40.019771Z
+started_at: 2026-01-24T21:03:51.289918Z
+completed_at: 2026-01-24T21:10:02.18374Z
 ---
 
 ## Problem
@@ -18,6 +20,7 @@ created_at: 2026-01-20T10:38:40.019771Z
 ## Proposal
 
 Split into separate files by subcommand:
+
 - `config_show.rs` - display current config
 - `config_issues_branch.rs` - issues branch setup/teardown
 - `config_external_repo.rs` - external repo setup
