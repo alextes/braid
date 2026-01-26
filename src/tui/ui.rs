@@ -545,8 +545,8 @@ fn draw_issue_list(f: &mut Frame, area: Rect, app: &mut App) {
                         Style::default().fg(age_color)
                     }
                     crate::issue::Status::Open if is_blocked => {
-                        // blocked issues get a muted reddish-grey tint
-                        Style::default().fg(Color::Rgb(140, 120, 120))
+                        // blocked issues are slightly dimmed
+                        Style::default().fg(Color::Rgb(170, 170, 170))
                     }
                     crate::issue::Status::Open => Style::default(),
                 }
