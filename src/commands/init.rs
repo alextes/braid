@@ -3,16 +3,27 @@
 use std::io::{self, BufRead, Write};
 
 use crate::cli::{Cli, InitArgs};
+use crate::commands::agent::inject_agents_block;
 use crate::config::Config;
 use crate::error::{BrdError, Result};
 use crate::is_interactive;
-use crate::repo::git_rev_parse;
+use crate::repo::{RepoPaths, git_rev_parse};
 
 /// Workflow configuration determined from init prompts.
 struct WorkflowConfig {
     issues_branch: Option<String>,
     auto_pull: bool,
     auto_push: bool,
+}
+
+/// Result of injection prompt.
+enum InjectChoice {
+    /// inject into AGENTS.md (default)
+    Default,
+    /// inject into custom file
+    Custom(String),
+    /// skip injection
+    Skip,
 }
 
 pub fn cmd_init(cli: &Cli, args: &InitArgs) -> Result<()> {
@@ -102,6 +113,32 @@ pub fn cmd_init(cli: &Cli, args: &InitArgs) -> Result<()> {
         )?;
     }
 
+    // construct RepoPaths for injection
+    let paths = RepoPaths {
+        worktree_root: worktree_root.clone(),
+        git_common_dir,
+        brd_common_dir,
+    };
+
+    // determine injection choice
+    let inject_choice = determine_inject_choice(cli, args)?;
+
+    // load config for injection
+    let config = Config::load(&config_path)?;
+
+    // perform injection if requested
+    let injected_file = match &inject_choice {
+        InjectChoice::Default => {
+            inject_agents_block(&paths.worktree_root, &config, "AGENTS.md")?;
+            Some("AGENTS.md".to_string())
+        }
+        InjectChoice::Custom(file) => {
+            inject_agents_block(&paths.worktree_root, &config, file)?;
+            Some(file.clone())
+        }
+        InjectChoice::Skip => None,
+    };
+
     if cli.json {
         let json = serde_json::json!({
             "ok": true,
@@ -110,6 +147,7 @@ pub fn cmd_init(cli: &Cli, args: &InitArgs) -> Result<()> {
             "issues_branch": workflow.issues_branch,
             "auto_pull": workflow.auto_pull,
             "auto_push": workflow.auto_push,
+            "injected_file": injected_file,
         });
         println!("{}", serde_json::to_string_pretty(&json).unwrap());
     } else {
@@ -132,10 +170,26 @@ pub fn cmd_init(cli: &Cli, args: &InitArgs) -> Result<()> {
         println!("  auto-sync:  {}", sync_desc);
 
         println!("  location:   .braid/");
+
+        // injection status
+        if let Some(file) = &injected_file {
+            println!("  agents:     injected into {}", file);
+        }
+
         println!();
+
+        // reminder about running agents
+        if injected_file.is_some() {
+            println!("note: if you have running agents, ask them to re-read the instructions");
+            println!("      to pick up the new braid workflow.");
+            println!();
+        }
+
         println!("next steps:");
         println!("  brd add \"my first task\"");
-        println!("  brd agent inject");
+        if injected_file.is_none() {
+            println!("  brd agent inject   # add workflow instructions to AGENTS.md");
+        }
     }
 
     Ok(())
@@ -224,6 +278,55 @@ fn determine_workflow_config(
         auto_pull,
         auto_push,
     })
+}
+
+/// Determine whether to inject agents block and into which file.
+fn determine_inject_choice(cli: &Cli, args: &InitArgs) -> Result<InjectChoice> {
+    // non-interactive or json mode: auto-inject to AGENTS.md
+    if args.non_interactive || cli.json || !is_interactive() {
+        return Ok(InjectChoice::Default);
+    }
+
+    let stdin = io::stdin();
+
+    println!("inject braid instructions into AGENTS.md?");
+    println!("  Y: recommended - helps AI agents use braid correctly");
+    println!("  n: skip (you can run `brd agent inject` later)");
+    print!("[Y/n]: ");
+    io::stdout().flush()?;
+
+    let mut line = String::new();
+    stdin.lock().read_line(&mut line)?;
+    let choice = line.trim().to_lowercase();
+
+    match choice.as_str() {
+        "" | "y" | "yes" => {
+            println!();
+            Ok(InjectChoice::Default)
+        }
+        "n" | "no" => {
+            // offer custom file option
+            println!();
+            print!("inject into different file? (enter path or leave empty to skip): ");
+            io::stdout().flush()?;
+
+            let mut custom_line = String::new();
+            stdin.lock().read_line(&mut custom_line)?;
+            let custom_path = custom_line.trim();
+
+            println!();
+            if custom_path.is_empty() {
+                Ok(InjectChoice::Skip)
+            } else {
+                Ok(InjectChoice::Custom(custom_path.to_string()))
+            }
+        }
+        _ => {
+            eprintln!("invalid choice '{}', injecting into AGENTS.md", choice);
+            println!();
+            Ok(InjectChoice::Default)
+        }
+    }
 }
 
 /// Set up sync branch mode by creating the branch and issues worktree.
@@ -511,6 +614,51 @@ mod tests {
                 "expected 'no commits' in error, got: {}",
                 err
             );
+        });
+    }
+
+    #[test]
+    fn test_init_injects_agents_block() {
+        with_repo("inject-agents", |repo_path| {
+            let _env = EnvGuard::set("USER", Some("tester"));
+            let cli = make_cli(false);
+            let args = InitArgs {
+                issues_branch: None,
+                non_interactive: true,
+            };
+
+            cmd_init(&cli, &args).unwrap();
+
+            // verify AGENTS.md was created with braid block
+            let agents_path = repo_path.join("AGENTS.md");
+            assert!(agents_path.exists(), "AGENTS.md should be created");
+
+            let content = std::fs::read_to_string(&agents_path).unwrap();
+            assert!(
+                content.contains("<!-- braid:agents:start"),
+                "should contain braid agents block"
+            );
+            assert!(
+                content.contains("braid workflow"),
+                "should contain workflow instructions"
+            );
+        });
+    }
+
+    #[test]
+    fn test_init_json_includes_injected_file() {
+        with_repo("inject-json", |_repo_path| {
+            let _env = EnvGuard::set("USER", Some("tester"));
+            let cli = make_cli(true);
+            let args = InitArgs {
+                issues_branch: None,
+                non_interactive: true,
+            };
+
+            cmd_init(&cli, &args).unwrap();
+
+            // JSON output is printed to stdout, just verify no error
+            // (actual JSON verification would need output capture)
         });
     }
 }

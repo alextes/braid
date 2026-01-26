@@ -39,6 +39,7 @@ pub use agent::{
     cmd_agents_show,
     extract_mode,
     generate_block,
+    inject_agents_block,
 };
 pub use agent_run::{
     cmd_agent_kill, cmd_agent_logs, cmd_agent_ps, cmd_agent_send, cmd_agent_spawn,

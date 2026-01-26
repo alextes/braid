@@ -612,18 +612,24 @@ pub fn cmd_agents_show() -> Result<()> {
     Ok(())
 }
 
-/// inject or update the agents block in AGENTS.md (or custom file)
-pub fn cmd_agents_inject(paths: &RepoPaths, file: Option<&str>) -> Result<()> {
-    let config = Config::load(&paths.config_path())?;
-    let file_name = file.unwrap_or("AGENTS.md");
-    let agents_path = paths.worktree_root.join(file_name);
-    let block = generate_block(&config);
+/// result of injecting the agents block
+pub enum InjectResult {
+    /// created a new file
+    Created,
+    /// added block to existing file
+    Added,
+    /// updated existing block
+    Updated,
+}
 
-    let mode_name = if config.issues_branch.is_some() {
-        "local-sync"
-    } else {
-        "git-native"
-    };
+/// inject or update the agents block in a file (core logic, no printing)
+pub fn inject_agents_block(
+    worktree_root: &std::path::Path,
+    config: &Config,
+    file_name: &str,
+) -> Result<InjectResult> {
+    let agents_path = worktree_root.join(file_name);
+    let block = generate_block(config);
 
     if agents_path.exists() {
         let content = fs::read_to_string(&agents_path)?;
@@ -635,15 +641,12 @@ pub fn cmd_agents_inject(paths: &RepoPaths, file: Option<&str>) -> Result<()> {
                 let new_content =
                     format!("{}{}{}", &content[..start_idx], block, &content[end_idx..]);
                 fs::write(&agents_path, new_content)?;
-                println!(
-                    "updated braid agents block in {} (v{}, {})",
-                    file_name, AGENTS_BLOCK_VERSION, mode_name
-                );
+                Ok(InjectResult::Updated)
             } else {
-                return Err(BrdError::Other(format!(
+                Err(BrdError::Other(format!(
                     "found start marker but no end marker in {}",
                     file_name
-                )));
+                )))
             }
         } else {
             // append to existing file
@@ -655,10 +658,7 @@ pub fn cmd_agents_inject(paths: &RepoPaths, file: Option<&str>) -> Result<()> {
             content.push_str(&block);
             content.push('\n');
             fs::write(&agents_path, content)?;
-            println!(
-                "added braid agents block to {} (v{}, {})",
-                file_name, AGENTS_BLOCK_VERSION, mode_name
-            );
+            Ok(InjectResult::Added)
         }
     } else {
         // create new file
@@ -666,10 +666,36 @@ pub fn cmd_agents_inject(paths: &RepoPaths, file: Option<&str>) -> Result<()> {
             &agents_path,
             format!("# Instructions for AI agents\n\n{}\n", block),
         )?;
-        println!(
+        Ok(InjectResult::Created)
+    }
+}
+
+/// inject or update the agents block in AGENTS.md (or custom file)
+pub fn cmd_agents_inject(paths: &RepoPaths, file: Option<&str>) -> Result<()> {
+    let config = Config::load(&paths.config_path())?;
+    let file_name = file.unwrap_or("AGENTS.md");
+
+    let mode_name = if config.issues_branch.is_some() {
+        "local-sync"
+    } else {
+        "git-native"
+    };
+
+    let result = inject_agents_block(&paths.worktree_root, &config, file_name)?;
+
+    match result {
+        InjectResult::Created => println!(
             "created {} with braid agents block (v{}, {})",
             file_name, AGENTS_BLOCK_VERSION, mode_name
-        );
+        ),
+        InjectResult::Added => println!(
+            "added braid agents block to {} (v{}, {})",
+            file_name, AGENTS_BLOCK_VERSION, mode_name
+        ),
+        InjectResult::Updated => println!(
+            "updated braid agents block in {} (v{}, {})",
+            file_name, AGENTS_BLOCK_VERSION, mode_name
+        ),
     }
 
     Ok(())
