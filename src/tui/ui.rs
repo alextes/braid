@@ -54,8 +54,7 @@ fn draw_header(f: &mut Frame, area: Rect, app: &App) {
 
 fn draw_footer(f: &mut Frame, area: Rect, app: &App) {
     let msg = app.message.as_deref().unwrap_or("");
-    let help =
-        "[1]dashboard [2]issues [3]agents [Tab]toggle details [a]dd [e]dit [s]tart [d]one [/]filter [?]help [q]uit";
+    let help = "[1]dashboard [2]issues [3]agents [Tab]toggle details [a]dd [e]dit [s]tart [d]one [/]filter [?]help [q]uit";
     let text = if msg.is_empty() {
         help.to_string()
     } else {

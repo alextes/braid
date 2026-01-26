@@ -94,6 +94,8 @@ pub struct App {
     pub offset: usize,
     /// current agent id
     pub agent_id: String,
+    /// current repo name (for filtering worktrees)
+    pub repo_name: String,
     /// status message to display
     pub message: Option<String>,
     /// whether to show help
@@ -140,6 +142,7 @@ impl App {
     /// create a new app by loading issues from disk.
     pub fn new(paths: &RepoPaths) -> Result<Self> {
         let agent_id = get_agent_id(&paths.worktree_root);
+        let repo_name = get_repo_name(&paths.worktree_root);
         let config = Config::load(&paths.config_path())?;
 
         // extract diff renderer preference before moving config
@@ -164,6 +167,7 @@ impl App {
             selected: 0,
             offset: 0,
             agent_id,
+            repo_name,
             message: None,
             show_help: false,
             input_mode: InputMode::Normal,
@@ -233,7 +237,7 @@ impl App {
 
     /// reload worktrees from ~/.braid/worktrees/<repo>/*/.
     pub fn reload_worktrees(&mut self) {
-        self.worktrees = discover_worktrees();
+        self.worktrees = discover_worktrees(&self.repo_name);
         // clamp selection
         if self.worktree_selected >= self.worktrees.len() && !self.worktrees.is_empty() {
             self.worktree_selected = self.worktrees.len() - 1;
@@ -945,8 +949,40 @@ fn get_agent_id(worktree_root: &std::path::Path) -> String {
     std::env::var("USER").unwrap_or_else(|_| "unknown".to_string())
 }
 
+/// get repo name from git remote origin URL.
+/// falls back to the directory name if no remote is configured.
+fn get_repo_name(worktree_root: &std::path::Path) -> String {
+    // try to get from git remote origin URL
+    if let Ok(output) = std::process::Command::new("git")
+        .args(["remote", "get-url", "origin"])
+        .current_dir(worktree_root)
+        .output()
+        && output.status.success()
+    {
+        let url = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        // extract repo name from URL (handles both HTTPS and SSH formats)
+        // e.g., "https://github.com/user/repo.git" -> "repo"
+        // e.g., "git@github.com:user/repo.git" -> "repo"
+        if let Some(name) = url
+            .rsplit('/')
+            .next()
+            .or_else(|| url.rsplit(':').next())
+            .map(|s| s.trim_end_matches(".git"))
+            && !name.is_empty()
+        {
+            return name.to_string();
+        }
+    }
+
+    // fall back to directory name
+    worktree_root
+        .file_name()
+        .map(|n| n.to_string_lossy().to_string())
+        .unwrap_or_else(|| "unknown".to_string())
+}
+
 /// discover agent worktrees from ~/.braid/worktrees/<repo>/*/.
-fn discover_worktrees() -> Vec<WorktreeInfo> {
+fn discover_worktrees(repo_name: &str) -> Vec<WorktreeInfo> {
     let mut worktrees = Vec::new();
 
     // get home directory
@@ -954,48 +990,38 @@ fn discover_worktrees() -> Vec<WorktreeInfo> {
         return worktrees;
     };
 
-    let worktrees_base = PathBuf::from(home).join(".braid/worktrees");
-    if !worktrees_base.exists() {
+    // only look in the current repo's worktrees directory
+    let repo_worktrees_dir = PathBuf::from(home).join(".braid/worktrees").join(repo_name);
+
+    if !repo_worktrees_dir.exists() {
         return worktrees;
     }
 
-    // iterate over repos
-    let Ok(repos) = std::fs::read_dir(&worktrees_base) else {
+    // iterate over worktrees within this repo
+    let Ok(wt_entries) = std::fs::read_dir(&repo_worktrees_dir) else {
         return worktrees;
     };
 
-    for repo_entry in repos.flatten() {
-        let repo_path = repo_entry.path();
-        if !repo_path.is_dir() {
+    for wt_entry in wt_entries.flatten() {
+        let wt_path = wt_entry.path();
+        if !wt_path.is_dir() {
             continue;
         }
 
-        // iterate over worktrees within this repo
-        let Ok(wt_entries) = std::fs::read_dir(&repo_path) else {
-            continue;
-        };
+        let name = wt_entry.file_name().to_string_lossy().to_string();
 
-        for wt_entry in wt_entries.flatten() {
-            let wt_path = wt_entry.path();
-            if !wt_path.is_dir() {
-                continue;
-            }
+        // get branch name
+        let branch = crate::git::current_branch(&wt_path).ok();
 
-            let name = wt_entry.file_name().to_string_lossy().to_string();
+        // check if dirty
+        let is_dirty = crate::git::is_clean(&wt_path).map(|c| !c).unwrap_or(false);
 
-            // get branch name
-            let branch = crate::git::current_branch(&wt_path).ok();
-
-            // check if dirty
-            let is_dirty = crate::git::is_clean(&wt_path).map(|c| !c).unwrap_or(false);
-
-            worktrees.push(WorktreeInfo {
-                name,
-                path: wt_path,
-                branch,
-                is_dirty,
-            });
-        }
+        worktrees.push(WorktreeInfo {
+            name,
+            path: wt_path,
+            branch,
+            is_dirty,
+        });
     }
 
     // sort by name
