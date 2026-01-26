@@ -27,6 +27,17 @@ pub struct WorktreeInfo {
     pub is_dirty: bool,
 }
 
+/// Diff information for a worktree.
+#[derive(Debug, Clone, Default)]
+pub struct WorktreeDiff {
+    /// overall stats
+    pub stat: crate::git::DiffStat,
+    /// per-file changes
+    pub files: Vec<crate::git::FileDiff>,
+    /// what the diff is against (e.g., "uncommitted" or "main..HEAD")
+    pub diff_base: String,
+}
+
 /// which view is currently active.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum View {
@@ -114,6 +125,10 @@ pub struct App {
     pub worktrees: Vec<WorktreeInfo>,
     /// selected worktree index in agents view
     pub worktree_selected: usize,
+    /// diff info for the selected worktree
+    pub worktree_diff: Option<WorktreeDiff>,
+    /// selected file index in the worktree diff
+    pub worktree_file_selected: usize,
 }
 
 impl App {
@@ -145,6 +160,8 @@ impl App {
             diff_file_path: None,
             worktrees: Vec::new(),
             worktree_selected: 0,
+            worktree_diff: None,
+            worktree_file_selected: 0,
         };
         app.reload_issues(paths)?;
         app.reload_worktrees();
@@ -198,6 +215,84 @@ impl App {
         // clamp selection
         if self.worktree_selected >= self.worktrees.len() && !self.worktrees.is_empty() {
             self.worktree_selected = self.worktrees.len() - 1;
+        }
+        // load diff for selected worktree
+        self.load_worktree_diff();
+    }
+
+    /// load diff info for the currently selected worktree.
+    pub fn load_worktree_diff(&mut self) {
+        self.worktree_diff = None;
+        self.worktree_file_selected = 0;
+
+        let Some(wt) = self.worktrees.get(self.worktree_selected) else {
+            return;
+        };
+
+        // determine diff strategy based on worktree state
+        let (files, stat, diff_base) = if wt.is_dirty {
+            // uncommitted changes: diff against HEAD
+            let Ok(files) = crate::git::diff_files(&wt.path, Some("HEAD"), None) else {
+                return;
+            };
+            let Ok(stat) = crate::git::diff_stat(&wt.path, Some("HEAD"), None) else {
+                return;
+            };
+            (files, stat, "uncommitted".to_string())
+        } else {
+            // clean tree: diff against main branch
+            let Some(main_branch) = find_main_branch(&wt.path) else {
+                return; // can't determine base
+            };
+            let Ok(files) = crate::git::diff_files(&wt.path, Some(&main_branch), Some("HEAD"))
+            else {
+                return;
+            };
+            let Ok(stat) = crate::git::diff_stat(&wt.path, Some(&main_branch), Some("HEAD")) else {
+                return;
+            };
+            (files, stat, format!("{}..HEAD", main_branch))
+        };
+
+        self.worktree_diff = Some(WorktreeDiff {
+            stat,
+            files,
+            diff_base,
+        });
+    }
+
+    /// select next worktree and load its diff.
+    pub fn worktree_next(&mut self) {
+        if self.worktrees.is_empty() {
+            return;
+        }
+        if self.worktree_selected < self.worktrees.len() - 1 {
+            self.worktree_selected += 1;
+            self.load_worktree_diff();
+        }
+    }
+
+    /// select previous worktree and load its diff.
+    pub fn worktree_prev(&mut self) {
+        if self.worktree_selected > 0 {
+            self.worktree_selected -= 1;
+            self.load_worktree_diff();
+        }
+    }
+
+    /// select next file in worktree diff.
+    pub fn worktree_file_next(&mut self) {
+        if let Some(ref diff) = self.worktree_diff
+            && self.worktree_file_selected < diff.files.len().saturating_sub(1)
+        {
+            self.worktree_file_selected += 1;
+        }
+    }
+
+    /// select previous file in worktree diff.
+    pub fn worktree_file_prev(&mut self) {
+        if self.worktree_file_selected > 0 {
+            self.worktree_file_selected -= 1;
         }
     }
 
@@ -801,6 +896,17 @@ fn discover_worktrees() -> Vec<WorktreeInfo> {
     worktrees.sort_by(|a, b| a.name.cmp(&b.name));
 
     worktrees
+}
+
+/// find the main branch name for a repo (main or master).
+fn find_main_branch(path: &std::path::Path) -> Option<String> {
+    // check for common main branch names
+    for name in ["main", "master"] {
+        if crate::git::branch_exists(path, name) {
+            return Some(name.to_string());
+        }
+    }
+    None
 }
 
 #[cfg(test)]

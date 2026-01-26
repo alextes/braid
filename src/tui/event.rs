@@ -197,9 +197,15 @@ fn handle_key_event(app: &mut App, paths: &RepoPaths, key: KeyEvent) -> Result<b
         KeyCode::Char('q') => return Ok(true),
         KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => return Ok(true),
 
-        // navigation
-        KeyCode::Up | KeyCode::Char('k') => app.move_up(),
-        KeyCode::Down | KeyCode::Char('j') => app.move_down(),
+        // navigation (view-specific)
+        KeyCode::Up | KeyCode::Char('k') => match app.view {
+            crate::tui::app::View::Agents => app.worktree_prev(),
+            _ => app.move_up(),
+        },
+        KeyCode::Down | KeyCode::Char('j') => match app.view {
+            crate::tui::app::View::Agents => app.worktree_next(),
+            _ => app.move_down(),
+        },
         KeyCode::Char('g') => app.move_to_top(),
         KeyCode::Char('G') => app.move_to_bottom(),
         KeyCode::Left | KeyCode::Char('h') => app.move_dep_prev(),

@@ -428,6 +428,17 @@ fn make_stacked_bar(width: usize, total: usize, segments: &[(usize, Color)]) -> 
 }
 
 fn draw_agents_view(f: &mut Frame, area: Rect, app: &App) {
+    // split into worktree list (left) and file changes (right)
+    let chunks = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Percentage(40), Constraint::Percentage(60)])
+        .split(area);
+
+    draw_worktree_list(f, chunks[0], app);
+    draw_worktree_files(f, chunks[1], app);
+}
+
+fn draw_worktree_list(f: &mut Frame, area: Rect, app: &App) {
     let block = Block::default()
         .title(" Agents ")
         .borders(Borders::ALL)
@@ -442,12 +453,7 @@ fn draw_agents_view(f: &mut Frame, area: Rect, app: &App) {
             )),
             Line::from(""),
             Line::from(Span::styled(
-                "  Worktrees are discovered from ~/.braid/worktrees/<repo>/*/",
-                Style::default().fg(Color::DarkGray),
-            )),
-            Line::from(""),
-            Line::from(Span::styled(
-                "  Use 'brd agent init <name>' to create a new agent worktree",
+                "  Use 'brd agent init <name>'",
                 Style::default().fg(Color::DarkGray),
             )),
         ];
@@ -494,6 +500,122 @@ fn draw_agents_view(f: &mut Frame, area: Rect, app: &App) {
             // dirty indicator
             if wt.is_dirty {
                 spans.push(Span::styled(" *", Style::default().fg(Color::Yellow)));
+            }
+
+            ListItem::new(Line::from(spans))
+        })
+        .collect();
+
+    let list = List::new(items).block(block);
+    f.render_widget(list, area);
+}
+
+fn draw_worktree_files(f: &mut Frame, area: Rect, app: &App) {
+    let Some(ref diff) = app.worktree_diff else {
+        let block = Block::default()
+            .title(" Changes ")
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(Color::DarkGray));
+        let text = vec![
+            Line::from(""),
+            Line::from(Span::styled(
+                "  No changes",
+                Style::default().fg(Color::DarkGray),
+            )),
+        ];
+        let paragraph = Paragraph::new(text).block(block);
+        f.render_widget(paragraph, area);
+        return;
+    };
+
+    // build title with stats
+    let title = format!(
+        " Changes ({}) +{} -{} [{}] ",
+        diff.stat.files_changed, diff.stat.insertions, diff.stat.deletions, diff.diff_base
+    );
+
+    let block = Block::default()
+        .title(title)
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::Yellow));
+
+    if diff.files.is_empty() {
+        let text = vec![
+            Line::from(""),
+            Line::from(Span::styled(
+                "  No file changes",
+                Style::default().fg(Color::DarkGray),
+            )),
+        ];
+        let paragraph = Paragraph::new(text).block(block);
+        f.render_widget(paragraph, area);
+        return;
+    }
+
+    // build file list
+    let items: Vec<ListItem> = diff
+        .files
+        .iter()
+        .enumerate()
+        .map(|(i, file)| {
+            let mut spans = Vec::new();
+
+            // selection indicator
+            if i == app.worktree_file_selected {
+                spans.push(Span::styled("▶ ", Style::default().fg(Color::Yellow)));
+            } else {
+                spans.push(Span::raw("  "));
+            }
+
+            // status indicator
+            let status_char = match file.status {
+                crate::git::FileStatus::Added => "A",
+                crate::git::FileStatus::Modified => "M",
+                crate::git::FileStatus::Deleted => "D",
+                crate::git::FileStatus::Renamed => "R",
+                crate::git::FileStatus::Copied => "C",
+                crate::git::FileStatus::Unknown => "?",
+            };
+            let status_color = match file.status {
+                crate::git::FileStatus::Added => Color::Green,
+                crate::git::FileStatus::Deleted => Color::Red,
+                _ => Color::Yellow,
+            };
+            spans.push(Span::styled(
+                format!("{} ", status_char),
+                Style::default().fg(status_color),
+            ));
+
+            // file path
+            spans.push(Span::styled(
+                &file.path,
+                if i == app.worktree_file_selected {
+                    Style::default()
+                        .fg(Color::White)
+                        .add_modifier(Modifier::BOLD)
+                } else {
+                    Style::default().fg(Color::White)
+                },
+            ));
+
+            // +/- counts
+            if file.insertions > 0 || file.deletions > 0 {
+                spans.push(Span::raw(" "));
+                if file.insertions > 0 {
+                    spans.push(Span::styled(
+                        format!("+{}", file.insertions),
+                        Style::default().fg(Color::Green),
+                    ));
+                }
+                if file.deletions > 0 {
+                    if file.insertions > 0 {
+                        spans.push(Span::raw("/"));
+                    }
+                    spans.push(Span::styled(
+                        format!("-{}", file.deletions),
+                        Style::default().fg(Color::Red),
+                    ));
+                }
             }
 
             ListItem::new(Line::from(spans))
