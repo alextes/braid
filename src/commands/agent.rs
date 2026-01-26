@@ -17,6 +17,14 @@ use super::{
 };
 
 pub fn cmd_agent_init(cli: &Cli, paths: &RepoPaths, name: &str, base: Option<&str>) -> Result<()> {
+    // refuse if already in an agent worktree
+    let agent_toml = paths.braid_dir().join("agent.toml");
+    if agent_toml.exists() {
+        return Err(BrdError::Other(
+            "already in an agent worktree. run `brd agent init` from main instead.".to_string(),
+        ));
+    }
+
     // validate agent name (alphanumeric + hyphens)
     if !name
         .chars()
@@ -820,6 +828,28 @@ mod tests {
         let cli = test_cli();
         let err = cmd_agent_init(&cli, &paths, "agent-one", Some(&base_branch)).unwrap_err();
         assert!(err.to_string().contains("directory already exists"));
+    }
+
+    #[test]
+    fn test_agent_init_rejects_from_existing_worktree() {
+        let _lock = AGENT_INIT_TEST_LOCK.lock().unwrap();
+        let (_dir, repo_path, paths, base_branch) = create_repo();
+
+        let home_dir = tempdir().unwrap();
+        let _env = EnvGuard::set("HOME", home_dir.path().to_str().unwrap());
+
+        // simulate being in an agent worktree by creating agent.toml
+        let braid_dir = repo_path.join(".braid");
+        std::fs::create_dir_all(&braid_dir).unwrap();
+        std::fs::write(braid_dir.join("agent.toml"), "agent_id = \"existing\"\n").unwrap();
+
+        let cli = test_cli();
+        let err = cmd_agent_init(&cli, &paths, "new-agent", Some(&base_branch)).unwrap_err();
+        assert!(
+            err.to_string().contains("already in an agent worktree"),
+            "expected 'already in an agent worktree', got: {}",
+            err
+        );
     }
 
     // ========================================================================
