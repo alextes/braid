@@ -506,7 +506,7 @@ fn draw_issue_list(f: &mut Frame, area: Rect, app: &mut App) {
                 crate::issue::Status::Done => '✓',
                 crate::issue::Status::Skip => '⊘',
             };
-            let ready_char = if derived.is_ready { "◉" } else { " " };
+            let is_ready = derived.is_ready;
             let age = format_age(issue.frontmatter.created_at);
             let owner = issue
                 .frontmatter
@@ -529,19 +529,9 @@ fn draw_issue_list(f: &mut Frame, area: Rect, app: &mut App) {
                 format!("{} {}", title_part, tags)
             };
 
-            let text = format!(
-                "{}{} {} {} {:>4} {:<10} {}",
-                status_char,
-                ready_char,
-                id,
-                issue.priority(),
-                age,
-                owner,
-                title_and_tags
-            );
-
             let duration = now - issue.frontmatter.created_at;
-            let mut style = if i == app.selected {
+            let is_selected = i == app.selected;
+            let base_style = if is_selected {
                 Style::default()
                     .bg(Color::Yellow)
                     .fg(Color::Black)
@@ -560,16 +550,40 @@ fn draw_issue_list(f: &mut Frame, area: Rect, app: &mut App) {
             };
 
             // add type-based styling (italic for design, bold for meta)
-            match issue.issue_type() {
-                Some(crate::issue::IssueType::Design) => {
-                    style = style.add_modifier(Modifier::ITALIC);
-                }
-                Some(crate::issue::IssueType::Meta) => {
-                    style = style.add_modifier(Modifier::BOLD);
-                }
-                None => {}
-            }
-            ListItem::new(text).style(style)
+            let style = match issue.issue_type() {
+                Some(crate::issue::IssueType::Design) => base_style.add_modifier(Modifier::ITALIC),
+                Some(crate::issue::IssueType::Meta) => base_style.add_modifier(Modifier::BOLD),
+                None => base_style,
+            };
+
+            // ready indicator gets green color (unless row is selected)
+            let ready_span = if is_ready {
+                let ready_style = if is_selected {
+                    style // keep selection style
+                } else {
+                    Style::default().fg(Color::Green)
+                };
+                Span::styled("◉", ready_style)
+            } else {
+                Span::styled(" ", style)
+            };
+
+            let rest_of_line = format!(
+                " {} {} {:>4} {:<10} {}",
+                id,
+                issue.priority(),
+                age,
+                owner,
+                title_and_tags
+            );
+
+            let line = Line::from(vec![
+                Span::styled(format!("{}", status_char), style),
+                ready_span,
+                Span::styled(rest_of_line, style),
+            ]);
+
+            ListItem::new(line)
         })
         .collect();
 
@@ -992,7 +1006,6 @@ fn draw_help(f: &mut Frame, area: Rect) {
         Line::from("  e          edit selected issue"),
         Line::from("  s          start selected issue"),
         Line::from("  d          mark selected issue as done"),
-        Line::from("  enter      open selected dependency"),
         Line::from("  r          refresh issues from disk"),
         Line::from(""),
         Line::from(Span::styled(
@@ -1002,7 +1015,7 @@ fn draw_help(f: &mut Frame, area: Rect) {
         Line::from("  1          dashboard"),
         Line::from("  2          issues"),
         Line::from("  Tab        toggle details pane"),
-        Line::from("  enter      view details (when pane hidden)"),
+        Line::from("  enter      open dep / view details (pane hidden)"),
         Line::from(""),
         Line::from(Span::styled(
             "filter",
@@ -1019,6 +1032,7 @@ fn draw_help(f: &mut Frame, area: Rect) {
         )),
         Line::from("  ?          toggle this help"),
         Line::from("  q          quit"),
+        Line::from("  Ctrl+C     quit"),
     ];
 
     let paragraph = Paragraph::new(help_text).block(block);
