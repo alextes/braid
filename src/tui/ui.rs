@@ -158,19 +158,40 @@ fn draw_dashboard(f: &mut Frame, area: Rect, app: &App) {
         .collect();
     active_agents.sort_by(|a, b| a.0.cmp(b.0));
 
-    // recent activity
-    let completed_24h = app
-        .issues
-        .values()
-        .filter(|i| i.frontmatter.completed_at.is_some_and(|t| t > day_ago))
-        .count();
-    let started_24h = app
-        .issues
-        .values()
-        .filter(|i| i.frontmatter.started_at.is_some_and(|t| t > day_ago))
-        .count();
+    // velocity: 7-day completion and creation data
+    let week_ago = now - TimeDuration::days(7);
+    let two_weeks_ago = now - TimeDuration::days(14);
 
-    // layout: top stats row, then agents, then recent
+    // count completions per day for last 7 days
+    let mut completed_by_day = [0usize; 7];
+    let mut created_by_day = [0usize; 7];
+    let mut completed_total = 0usize;
+    let mut created_total = 0usize;
+    let mut completed_prev_week = 0usize;
+
+    for issue in app.issues.values() {
+        // completions
+        if let Some(completed_at) = issue.frontmatter.completed_at {
+            if completed_at > week_ago {
+                let days_ago = (now - completed_at).whole_days().clamp(0, 6) as usize;
+                completed_by_day[6 - days_ago] += 1;
+                completed_total += 1;
+            } else if completed_at > two_weeks_ago {
+                completed_prev_week += 1;
+            }
+        }
+        // creations
+        let created_at = issue.frontmatter.created_at;
+        if created_at > week_ago {
+            let days_ago = (now - created_at).whole_days().clamp(0, 6) as usize;
+            created_by_day[6 - days_ago] += 1;
+            created_total += 1;
+        }
+    }
+
+    let completed_delta = completed_total as i32 - completed_prev_week as i32;
+
+    // layout: top stats row, then agents, then velocity
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .margin(1)
@@ -179,7 +200,7 @@ fn draw_dashboard(f: &mut Frame, area: Rect, app: &App) {
             Constraint::Length(1), // spacing
             Constraint::Min(5),    // agents
             Constraint::Length(1), // spacing
-            Constraint::Length(4), // recent
+            Constraint::Length(5), // velocity (7d)
         ])
         .split(area);
 
@@ -364,29 +385,39 @@ fn draw_dashboard(f: &mut Frame, area: Rect, app: &App) {
     };
     f.render_widget(Paragraph::new(agent_lines), agents_inner);
 
-    // recent activity box
-    let recent_block = Block::default()
-        .title(" Recent (24h) ")
+    // velocity box (7-day sparklines)
+    let velocity_block = Block::default()
+        .title(" Velocity (7d) ")
         .borders(Borders::ALL)
         .border_style(Style::default().fg(Color::DarkGray));
-    let recent_inner = recent_block.inner(chunks[4]);
-    f.render_widget(recent_block, chunks[4]);
+    let velocity_inner = velocity_block.inner(chunks[4]);
+    f.render_widget(velocity_block, chunks[4]);
 
-    let recent_lines = vec![Line::from(vec![
-        Span::styled("✓ ", Style::default().fg(Color::Green)),
-        Span::styled(
-            format!("{}", completed_24h),
-            Style::default().fg(Color::Green),
-        ),
-        Span::raw(" completed"),
-        Span::styled("    → ", Style::default().fg(Color::DarkGray)),
-        Span::styled(
-            format!("{}", started_24h),
-            Style::default().fg(Color::Yellow),
-        ),
-        Span::raw(" started"),
-    ])];
-    f.render_widget(Paragraph::new(recent_lines), recent_inner);
+    let completed_spark = make_sparkline(&completed_by_day);
+    let created_spark = make_sparkline(&created_by_day);
+
+    let delta_str = if completed_delta > 0 {
+        format!("(+{})", completed_delta)
+    } else if completed_delta < 0 {
+        format!("({})", completed_delta)
+    } else {
+        String::new()
+    };
+
+    let velocity_lines = vec![
+        Line::from(vec![
+            Span::styled("completed ", Style::default().fg(Color::Green)),
+            Span::raw(completed_spark),
+            Span::raw(format!("  {} total ", completed_total)),
+            Span::styled(delta_str, Style::default().fg(Color::DarkGray)),
+        ]),
+        Line::from(vec![
+            Span::styled("created   ", Style::default().fg(Color::Cyan)),
+            Span::raw(created_spark),
+            Span::raw(format!("  {} total", created_total)),
+        ]),
+    ];
+    f.render_widget(Paragraph::new(velocity_lines), velocity_inner);
 }
 
 /// Create a horizontal stacked bar from segments
@@ -623,6 +654,30 @@ fn draw_worktree_files(f: &mut Frame, area: Rect, app: &App) {
 
     let list = List::new(items).block(block);
     f.render_widget(list, area);
+}
+
+/// Create an ASCII sparkline from a slice of values.
+/// Uses block characters: ▁▂▃▄▅▆▇█ (8 levels)
+fn make_sparkline(values: &[usize]) -> String {
+    const BLOCKS: [char; 8] = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
+
+    let max_val = values.iter().copied().max().unwrap_or(0);
+    if max_val == 0 {
+        return "▁".repeat(values.len());
+    }
+
+    values
+        .iter()
+        .map(|&v| {
+            let idx = if v == 0 {
+                0
+            } else {
+                // scale to 0-7 range, ensuring max value maps to index 7
+                ((v * 7) / max_val).min(7)
+            };
+            BLOCKS[idx]
+        })
+        .collect()
 }
 
 fn draw_issues_view(f: &mut Frame, area: Rect, app: &mut App) {
