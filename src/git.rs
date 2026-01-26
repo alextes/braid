@@ -7,6 +7,56 @@ use std::process::{Command, Output};
 
 use crate::error::{BrdError, Result};
 
+/// Summary of diff statistics.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct DiffStat {
+    /// number of files changed
+    pub files_changed: usize,
+    /// total lines inserted
+    pub insertions: usize,
+    /// total lines deleted
+    pub deletions: usize,
+}
+
+/// File change status in a diff.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FileStatus {
+    Added,
+    Modified,
+    Deleted,
+    Renamed,
+    Copied,
+    Unknown,
+}
+
+impl FileStatus {
+    fn from_char(c: char) -> Self {
+        match c {
+            'A' => Self::Added,
+            'M' => Self::Modified,
+            'D' => Self::Deleted,
+            'R' => Self::Renamed,
+            'C' => Self::Copied,
+            _ => Self::Unknown,
+        }
+    }
+}
+
+/// Per-file diff statistics.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FileDiff {
+    /// file path (new path for renames)
+    pub path: String,
+    /// old path (for renames/copies)
+    pub old_path: Option<String>,
+    /// change status
+    pub status: FileStatus,
+    /// lines inserted
+    pub insertions: usize,
+    /// lines deleted
+    pub deletions: usize,
+}
+
 /// Run a git command and return whether it succeeded.
 pub fn run(args: &[&str], cwd: &Path) -> Result<bool> {
     let output = Command::new("git").args(args).current_dir(cwd).output()?;
@@ -100,6 +150,153 @@ pub fn stash_push(cwd: &Path, message: &str) -> Result<bool> {
 /// Pop the most recent stash. Returns true if successful.
 pub fn stash_pop(cwd: &Path) -> Result<bool> {
     run(&["stash", "pop"], cwd)
+}
+
+/// Get diff statistics between two refs, or for uncommitted changes.
+///
+/// # arguments
+/// * `cwd` - working directory
+/// * `base` - base ref (e.g., "main"), or None for uncommitted changes
+/// * `head` - head ref (e.g., "HEAD"), or None for uncommitted changes
+///
+/// # examples
+/// ```ignore
+/// // uncommitted changes
+/// diff_stat(cwd, None, None)?;
+/// // branch diff
+/// diff_stat(cwd, Some("main"), Some("HEAD"))?;
+/// ```
+pub fn diff_stat(cwd: &Path, base: Option<&str>, head: Option<&str>) -> Result<DiffStat> {
+    let files = diff_files(cwd, base, head)?;
+
+    let (insertions, deletions) = files.iter().fold((0, 0), |(ins, del), f| {
+        (ins + f.insertions, del + f.deletions)
+    });
+
+    Ok(DiffStat {
+        files_changed: files.len(),
+        insertions,
+        deletions,
+    })
+}
+
+/// Get per-file diff statistics between two refs, or for uncommitted changes.
+///
+/// # arguments
+/// * `cwd` - working directory
+/// * `base` - base ref (e.g., "main"), or None for uncommitted changes
+/// * `head` - head ref (e.g., "HEAD"), or None for uncommitted changes
+pub fn diff_files(cwd: &Path, base: Option<&str>, head: Option<&str>) -> Result<Vec<FileDiff>> {
+    // use --numstat for machine-readable output: insertions deletions path
+    // use --find-renames to detect renames
+    let mut args = vec!["diff", "--numstat", "--find-renames"];
+
+    let range;
+    match (base, head) {
+        (Some(b), Some(h)) => {
+            range = format!("{}..{}", b, h);
+            args.push(&range);
+        }
+        (Some(b), None) => {
+            args.push(b);
+        }
+        (None, Some(h)) => {
+            args.push(h);
+        }
+        (None, None) => {
+            // uncommitted changes - no additional args needed
+        }
+    }
+
+    let numstat_output = output(&args, cwd)?;
+
+    // also get status info for file status (A/M/D/R)
+    args[1] = "--name-status";
+    let status_output = output(&args, cwd)?;
+
+    parse_diff_output(&numstat_output, &status_output)
+}
+
+/// Parse git diff --numstat and --name-status output into FileDiff structs.
+fn parse_diff_output(numstat: &str, name_status: &str) -> Result<Vec<FileDiff>> {
+    let mut files = Vec::new();
+
+    // build a map of path -> status from name-status output
+    let mut status_map: std::collections::HashMap<String, (FileStatus, Option<String>)> =
+        std::collections::HashMap::new();
+
+    for line in name_status.lines() {
+        if line.is_empty() {
+            continue;
+        }
+        let parts: Vec<&str> = line.split('\t').collect();
+        if parts.is_empty() {
+            continue;
+        }
+
+        let status_str = parts[0];
+        let status_char = status_str.chars().next().unwrap_or('?');
+        let status = FileStatus::from_char(status_char);
+
+        match parts.len() {
+            2 => {
+                // normal: status\tpath
+                status_map.insert(parts[1].to_string(), (status, None));
+            }
+            3 => {
+                // rename/copy: R100\told_path\tnew_path
+                status_map.insert(parts[2].to_string(), (status, Some(parts[1].to_string())));
+            }
+            _ => {}
+        }
+    }
+
+    // parse numstat output: insertions\tdeletions\tpath
+    for line in numstat.lines() {
+        if line.is_empty() {
+            continue;
+        }
+
+        let parts: Vec<&str> = line.split('\t').collect();
+        if parts.len() < 3 {
+            continue;
+        }
+
+        // binary files show "-" for insertions/deletions
+        let insertions = parts[0].parse().unwrap_or(0);
+        let deletions = parts[1].parse().unwrap_or(0);
+
+        // for renames, numstat shows: ins\tdel\told_path => new_path
+        // or with -z: ins\tdel\told_path\0new_path
+        let path_part = parts[2..].join("\t");
+        let (path, old_path) = if path_part.contains(" => ") {
+            // rename format: old => new or {prefix/}old => new{/suffix}
+            let arrow_parts: Vec<&str> = path_part.split(" => ").collect();
+            if arrow_parts.len() == 2 {
+                (arrow_parts[1].to_string(), Some(arrow_parts[0].to_string()))
+            } else {
+                (path_part.clone(), None)
+            }
+        } else {
+            (path_part.clone(), None)
+        };
+
+        // look up status, default to Modified if not found
+        let (status, status_old_path) = status_map
+            .get(&path)
+            .cloned()
+            .unwrap_or((FileStatus::Modified, None));
+
+        files.push(FileDiff {
+            path,
+            old_path: old_path.or(status_old_path),
+            status,
+            insertions,
+            deletions,
+        });
+    }
+
+    Ok(files)
 }
 
 /// Test helpers that panic on failure (for use in tests only).
@@ -286,5 +483,178 @@ mod tests {
         // Pop with no stash should return false
         let success = stash_pop(dir.path()).unwrap();
         assert!(!success);
+    }
+
+    #[test]
+    fn test_diff_stat_uncommitted_changes() {
+        let dir = create_test_repo();
+
+        // create uncommitted changes (must be staged to show in diff)
+        std::fs::write(dir.path().join("new_file.txt"), "line1\nline2\nline3\n").unwrap();
+        std::fs::write(dir.path().join("README.md"), "modified\n").unwrap();
+        test::run_ok(dir.path(), &["add", "."]);
+
+        // diff HEAD shows staged changes
+        let stat = diff_stat(dir.path(), Some("HEAD"), None).unwrap();
+
+        assert_eq!(stat.files_changed, 2);
+        // new_file: 3 insertions, README: 1 insertion 1 deletion
+        assert_eq!(stat.insertions, 4);
+        assert_eq!(stat.deletions, 1);
+    }
+
+    #[test]
+    fn test_diff_stat_branch_diff() {
+        let dir = create_test_repo();
+
+        // create a branch with changes
+        test::run_ok(dir.path(), &["checkout", "-b", "feature"]);
+        std::fs::write(dir.path().join("feature.txt"), "new feature\n").unwrap();
+        test::run_ok(dir.path(), &["add", "feature.txt"]);
+        test::run_ok(dir.path(), &["commit", "-m", "add feature"]);
+
+        // get main branch name
+        test::run_ok(dir.path(), &["checkout", "-"]);
+        let main = current_branch(dir.path()).unwrap();
+        test::run_ok(dir.path(), &["checkout", "feature"]);
+
+        let stat = diff_stat(dir.path(), Some(&main), Some("HEAD")).unwrap();
+
+        assert_eq!(stat.files_changed, 1);
+        assert_eq!(stat.insertions, 1);
+        assert_eq!(stat.deletions, 0);
+    }
+
+    #[test]
+    fn test_diff_stat_clean_tree() {
+        let dir = create_test_repo();
+
+        let stat = diff_stat(dir.path(), None, None).unwrap();
+
+        assert_eq!(stat.files_changed, 0);
+        assert_eq!(stat.insertions, 0);
+        assert_eq!(stat.deletions, 0);
+    }
+
+    #[test]
+    fn test_diff_files_uncommitted() {
+        let dir = create_test_repo();
+
+        // create new file
+        std::fs::write(dir.path().join("added.txt"), "new\n").unwrap();
+        // modify existing
+        std::fs::write(dir.path().join("README.md"), "changed\n").unwrap();
+
+        // stage all changes to show in diff
+        test::run_ok(dir.path(), &["add", "."]);
+
+        // diff HEAD shows staged changes
+        let files = diff_files(dir.path(), Some("HEAD"), None).unwrap();
+
+        assert_eq!(files.len(), 2);
+
+        // find each file
+        let added = files.iter().find(|f| f.path == "added.txt");
+        let modified = files.iter().find(|f| f.path == "README.md");
+
+        assert!(added.is_some());
+        assert!(modified.is_some());
+
+        let added = added.unwrap();
+        assert_eq!(added.insertions, 1);
+        assert_eq!(added.deletions, 0);
+
+        let modified = modified.unwrap();
+        assert_eq!(modified.insertions, 1);
+        assert_eq!(modified.deletions, 1);
+    }
+
+    #[test]
+    fn test_diff_files_with_deletion() {
+        let dir = create_test_repo();
+
+        // delete the README
+        std::fs::remove_file(dir.path().join("README.md")).unwrap();
+
+        let files = diff_files(dir.path(), None, None).unwrap();
+
+        assert_eq!(files.len(), 1);
+        assert_eq!(files[0].path, "README.md");
+        assert_eq!(files[0].status, FileStatus::Deleted);
+        assert_eq!(files[0].insertions, 0);
+        assert_eq!(files[0].deletions, 1);
+    }
+
+    #[test]
+    fn test_diff_files_branch_diff() {
+        let dir = create_test_repo();
+
+        // create feature branch with multiple changes
+        test::run_ok(dir.path(), &["checkout", "-b", "feature"]);
+
+        std::fs::write(dir.path().join("a.txt"), "aaa\n").unwrap();
+        std::fs::write(dir.path().join("b.txt"), "bbb\nbbb\n").unwrap();
+        test::run_ok(dir.path(), &["add", "."]);
+        test::run_ok(dir.path(), &["commit", "-m", "add files"]);
+
+        // get main branch name
+        test::run_ok(dir.path(), &["checkout", "-"]);
+        let main = current_branch(dir.path()).unwrap();
+        test::run_ok(dir.path(), &["checkout", "feature"]);
+
+        let files = diff_files(dir.path(), Some(&main), Some("HEAD")).unwrap();
+
+        assert_eq!(files.len(), 2);
+
+        let a = files.iter().find(|f| f.path == "a.txt").unwrap();
+        assert_eq!(a.insertions, 1);
+
+        let b = files.iter().find(|f| f.path == "b.txt").unwrap();
+        assert_eq!(b.insertions, 2);
+    }
+
+    #[test]
+    fn test_parse_diff_output_empty() {
+        let files = parse_diff_output("", "").unwrap();
+        assert!(files.is_empty());
+    }
+
+    #[test]
+    fn test_parse_diff_output_simple() {
+        let numstat = "3\t1\tfile.txt\n";
+        let name_status = "M\tfile.txt\n";
+
+        let files = parse_diff_output(numstat, name_status).unwrap();
+
+        assert_eq!(files.len(), 1);
+        assert_eq!(files[0].path, "file.txt");
+        assert_eq!(files[0].status, FileStatus::Modified);
+        assert_eq!(files[0].insertions, 3);
+        assert_eq!(files[0].deletions, 1);
+    }
+
+    #[test]
+    fn test_parse_diff_output_binary_file() {
+        // binary files show "-" for stats
+        let numstat = "-\t-\timage.png\n";
+        let name_status = "A\timage.png\n";
+
+        let files = parse_diff_output(numstat, name_status).unwrap();
+
+        assert_eq!(files.len(), 1);
+        assert_eq!(files[0].path, "image.png");
+        assert_eq!(files[0].status, FileStatus::Added);
+        assert_eq!(files[0].insertions, 0);
+        assert_eq!(files[0].deletions, 0);
+    }
+
+    #[test]
+    fn test_file_status_from_char() {
+        assert_eq!(FileStatus::from_char('A'), FileStatus::Added);
+        assert_eq!(FileStatus::from_char('M'), FileStatus::Modified);
+        assert_eq!(FileStatus::from_char('D'), FileStatus::Deleted);
+        assert_eq!(FileStatus::from_char('R'), FileStatus::Renamed);
+        assert_eq!(FileStatus::from_char('C'), FileStatus::Copied);
+        assert_eq!(FileStatus::from_char('?'), FileStatus::Unknown);
     }
 }
