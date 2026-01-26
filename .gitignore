@@ -3,3 +3,6 @@
 
 # claude local settings
 .claude/*.local.*
+
+# ephemeral plans (working docs, not committed)
+/.plans/
