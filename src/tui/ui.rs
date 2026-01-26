@@ -1486,7 +1486,8 @@ fn draw_diff_panel(f: &mut Frame, app: &mut App) {
     // create overlay covering 90% of screen
     let area = centered_overlay(90, 90, f.area());
 
-    let panel = DiffPanel::new(content.clone(), file_path.clone());
+    let panel = DiffPanel::new(content.clone(), file_path.clone())
+        .renderer_name(app.diff_renderer.display_name());
     f.render_stateful_widget(panel, area, state);
 }
 

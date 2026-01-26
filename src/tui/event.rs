@@ -332,6 +332,9 @@ fn handle_diff_panel_key(app: &mut App, key: KeyEvent) {
             }
         }
 
+        // cycle diff renderer
+        KeyCode::Char('t') => app.cycle_diff_renderer(),
+
         _ => {}
     }
 }

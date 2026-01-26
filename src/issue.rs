@@ -793,6 +793,7 @@ with multiple paragraphs.
             issues_repo: None,
             auto_pull: true,
             auto_push: true,
+            diff_renderer: None,
         };
         let temp_dir = tempfile::tempdir().unwrap();
 
@@ -815,6 +816,7 @@ with multiple paragraphs.
             issues_repo: None,
             auto_pull: true,
             auto_push: true,
+            diff_renderer: None,
         };
         let temp_dir = tempfile::tempdir().unwrap();
 
@@ -834,6 +836,7 @@ with multiple paragraphs.
             issues_repo: None,
             auto_pull: true,
             auto_push: true,
+            diff_renderer: None,
         };
         let temp_dir = tempfile::tempdir().unwrap();
 
@@ -863,6 +866,7 @@ with multiple paragraphs.
             issues_repo: None,
             auto_pull: true,
             auto_push: true,
+            diff_renderer: None,
         };
         let temp_dir = tempfile::tempdir().unwrap();
 

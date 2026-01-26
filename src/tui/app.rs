@@ -13,6 +13,7 @@ use crate::lock::LockGuard;
 use crate::repo::RepoPaths;
 
 use super::diff_panel::DiffPanelState;
+use super::diff_render::DiffRendererType;
 
 /// Information about an agent worktree.
 #[derive(Debug, Clone)]
@@ -121,6 +122,10 @@ pub struct App {
     pub diff_content: Option<Text<'static>>,
     /// file path for the diff being displayed
     pub diff_file_path: Option<String>,
+    /// raw diff content (for re-rendering with different renderer)
+    pub diff_raw_content: Option<String>,
+    /// current diff renderer type
+    pub diff_renderer: DiffRendererType,
     /// list of agent worktrees
     pub worktrees: Vec<WorktreeInfo>,
     /// selected worktree index in agents view
@@ -136,6 +141,21 @@ impl App {
     pub fn new(paths: &RepoPaths) -> Result<Self> {
         let agent_id = get_agent_id(&paths.worktree_root);
         let config = Config::load(&paths.config_path())?;
+
+        // extract diff renderer preference before moving config
+        let diff_renderer = config
+            .diff_renderer
+            .as_deref()
+            .and_then(DiffRendererType::parse)
+            .map(|r| {
+                if r.is_available() {
+                    r
+                } else {
+                    DiffRendererType::Native
+                }
+            })
+            .unwrap_or_default();
+
         let mut app = Self {
             view: View::Issues,
             issues: HashMap::new(),
@@ -158,6 +178,8 @@ impl App {
             diff_panel_state: None,
             diff_content: None,
             diff_file_path: None,
+            diff_raw_content: None,
+            diff_renderer,
             worktrees: Vec::new(),
             worktree_selected: 0,
             worktree_diff: None,
@@ -336,14 +358,47 @@ impl App {
 
     /// render raw diff content and show in diff panel.
     fn show_diff_from_raw(&mut self, raw_diff: &str, file_path: &str) {
-        use super::diff_render::{DiffRenderer, NativeRenderer};
+        // store raw diff for re-rendering
+        self.diff_raw_content = Some(raw_diff.to_string());
+        self.diff_file_path = Some(file_path.to_string());
 
-        let renderer = NativeRenderer;
-        let Ok(styled_text) = renderer.render(raw_diff, 80) else {
+        // render with current renderer
+        let Ok(styled_text) = self.diff_renderer.render(raw_diff, 80) else {
             return;
         };
 
         self.show_diff(styled_text, file_path.to_string());
+    }
+
+    /// re-render current diff with the active renderer.
+    pub fn re_render_diff(&mut self) {
+        let Some(raw) = self.diff_raw_content.clone() else {
+            return;
+        };
+        // check that we have a file path set (diff is open)
+        if self.diff_file_path.is_none() {
+            return;
+        }
+
+        let Ok(styled_text) = self.diff_renderer.render(&raw, 80) else {
+            return;
+        };
+
+        // update content but preserve scroll position
+        self.diff_content = Some(styled_text);
+    }
+
+    /// cycle to next available renderer and re-render.
+    pub fn cycle_diff_renderer(&mut self) {
+        let start = self.diff_renderer;
+        self.diff_renderer = self.diff_renderer.next();
+
+        // skip unavailable renderers, but don't loop forever
+        while !self.diff_renderer.is_available() && self.diff_renderer != start {
+            self.diff_renderer = self.diff_renderer.next();
+        }
+
+        self.re_render_diff();
     }
 
     /// apply the current filter to the issues list.
@@ -432,6 +487,7 @@ impl App {
         self.diff_panel_state = None;
         self.diff_content = None;
         self.diff_file_path = None;
+        self.diff_raw_content = None;
     }
 
     /// check if diff panel is currently visible.

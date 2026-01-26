@@ -65,6 +65,8 @@ pub struct DiffPanel<'a> {
     content: Text<'a>,
     /// file path being displayed
     file_path: String,
+    /// renderer name for display in title
+    renderer_name: Option<String>,
     /// block style
     block_style: Style,
 }
@@ -75,8 +77,15 @@ impl<'a> DiffPanel<'a> {
         Self {
             content,
             file_path: file_path.into(),
+            renderer_name: None,
             block_style: Style::default().fg(Color::Yellow),
         }
+    }
+
+    /// set the renderer name to display in the title.
+    pub fn renderer_name(mut self, name: impl Into<String>) -> Self {
+        self.renderer_name = Some(name.into());
+        self
     }
 
     /// set the border style.
@@ -98,7 +107,7 @@ impl StatefulWidget for DiffPanel<'_> {
         // clear the area first (for overlay effect)
         Clear.render(area, buf);
 
-        // build title with file path and scroll info
+        // build title with file path, renderer name, and scroll info
         let content_height = self.content_height();
         let viewport_height = area.height.saturating_sub(2); // minus borders
         let scroll_info = if content_height > viewport_height {
@@ -110,9 +119,14 @@ impl StatefulWidget for DiffPanel<'_> {
         } else {
             String::new()
         };
+        let renderer_info = self
+            .renderer_name
+            .as_ref()
+            .map(|n| format!("[{}] ", n))
+            .unwrap_or_default();
         let title = format!(
-            " {} {}[j/k scroll, q/Esc close] ",
-            self.file_path, scroll_info
+            " {} {}{}[j/k scroll, t renderer, q/Esc close] ",
+            self.file_path, renderer_info, scroll_info
         );
 
         let block = Block::default()

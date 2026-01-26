@@ -67,6 +67,9 @@ pub struct Config {
     /// whether to commit+push after brd done
     #[serde(default = "default_true")]
     pub auto_push: bool,
+    /// default diff renderer for TUI ("native", "delta", "diff-so-fancy")
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub diff_renderer: Option<String>,
 }
 
 impl Default for Config {
@@ -79,6 +82,7 @@ impl Default for Config {
             issues_repo: None,
             auto_pull: true,
             auto_push: true,
+            diff_renderer: None,
         }
     }
 }

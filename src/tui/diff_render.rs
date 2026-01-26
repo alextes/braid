@@ -10,6 +10,85 @@ use ratatui::{
 
 use crate::error::Result;
 
+/// available diff renderer types.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum DiffRendererType {
+    /// native renderer using inline ANSI-style coloring
+    #[default]
+    Native,
+    /// delta external renderer
+    Delta,
+    /// diff-so-fancy external renderer
+    DiffSoFancy,
+}
+
+impl DiffRendererType {
+    /// cycle to next renderer type.
+    pub fn next(self) -> Self {
+        match self {
+            Self::Native => Self::Delta,
+            Self::Delta => Self::DiffSoFancy,
+            Self::DiffSoFancy => Self::Native,
+        }
+    }
+
+    /// display name for UI.
+    pub fn display_name(&self) -> &'static str {
+        match self {
+            Self::Native => "native",
+            Self::Delta => "delta",
+            Self::DiffSoFancy => "diff-so-fancy",
+        }
+    }
+
+    /// check if this renderer's tool is available on the system.
+    pub fn is_available(&self) -> bool {
+        match self {
+            Self::Native => true, // always available
+            Self::Delta => check_tool_available("delta"),
+            Self::DiffSoFancy => check_tool_available("diff-so-fancy"),
+        }
+    }
+
+    /// get the command template for external renderers.
+    pub fn command(&self) -> Option<&'static str> {
+        match self {
+            Self::Native => None,
+            Self::Delta => Some("delta --width={width} --paging=never"),
+            Self::DiffSoFancy => Some("diff-so-fancy"),
+        }
+    }
+
+    /// parse renderer type from config string.
+    pub fn parse(s: &str) -> Option<Self> {
+        match s.to_lowercase().as_str() {
+            "native" => Some(Self::Native),
+            "delta" => Some(Self::Delta),
+            "diff-so-fancy" => Some(Self::DiffSoFancy),
+            _ => None,
+        }
+    }
+
+    /// render diff content using this renderer type.
+    pub fn render(&self, diff: &str, width: u16) -> Result<Text<'static>> {
+        match self {
+            Self::Native => NativeRenderer.render(diff, width),
+            Self::Delta | Self::DiffSoFancy => {
+                let cmd = self.command().unwrap();
+                ExternalRenderer::new(cmd).render(diff, width)
+            }
+        }
+    }
+}
+
+/// check if a tool is available on the system.
+fn check_tool_available(tool: &str) -> bool {
+    std::process::Command::new("which")
+        .arg(tool)
+        .output()
+        .is_ok_and(|o| o.status.success())
+}
+
 /// trait for rendering diff content to ratatui Text.
 pub trait DiffRenderer {
     /// render diff content to styled ratatui Text.
@@ -230,5 +309,67 @@ index abc123..def456 100644
     fn test_external_renderer_name() {
         let renderer = ExternalRenderer::new("delta");
         assert_eq!(renderer.name(), "external");
+    }
+
+    #[test]
+    fn test_diff_renderer_type_cycle() {
+        assert_eq!(DiffRendererType::Native.next(), DiffRendererType::Delta);
+        assert_eq!(
+            DiffRendererType::Delta.next(),
+            DiffRendererType::DiffSoFancy
+        );
+        assert_eq!(
+            DiffRendererType::DiffSoFancy.next(),
+            DiffRendererType::Native
+        );
+    }
+
+    #[test]
+    fn test_diff_renderer_type_display_name() {
+        assert_eq!(DiffRendererType::Native.display_name(), "native");
+        assert_eq!(DiffRendererType::Delta.display_name(), "delta");
+        assert_eq!(
+            DiffRendererType::DiffSoFancy.display_name(),
+            "diff-so-fancy"
+        );
+    }
+
+    #[test]
+    fn test_diff_renderer_type_parse() {
+        assert_eq!(
+            DiffRendererType::parse("native"),
+            Some(DiffRendererType::Native)
+        );
+        assert_eq!(
+            DiffRendererType::parse("delta"),
+            Some(DiffRendererType::Delta)
+        );
+        assert_eq!(
+            DiffRendererType::parse("diff-so-fancy"),
+            Some(DiffRendererType::DiffSoFancy)
+        );
+        assert_eq!(
+            DiffRendererType::parse("NATIVE"),
+            Some(DiffRendererType::Native)
+        );
+        assert_eq!(DiffRendererType::parse("unknown"), None);
+    }
+
+    #[test]
+    fn test_diff_renderer_type_native_always_available() {
+        assert!(DiffRendererType::Native.is_available());
+    }
+
+    #[test]
+    fn test_diff_renderer_type_command() {
+        assert_eq!(DiffRendererType::Native.command(), None);
+        assert!(DiffRendererType::Delta.command().is_some());
+        assert!(DiffRendererType::DiffSoFancy.command().is_some());
+    }
+
+    #[test]
+    fn test_diff_renderer_type_default() {
+        let renderer: DiffRendererType = Default::default();
+        assert_eq!(renderer, DiffRendererType::Native);
     }
 }
