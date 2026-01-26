@@ -296,6 +296,56 @@ impl App {
         }
     }
 
+    /// open diff view for the currently selected file in agents view.
+    pub fn open_selected_file_diff(&mut self) {
+        // extract values we need before mutating self
+        let (wt_path, is_dirty, file_path) = {
+            let Some(wt) = self.worktrees.get(self.worktree_selected) else {
+                return;
+            };
+            let Some(ref diff) = self.worktree_diff else {
+                return;
+            };
+            let Some(file) = diff.files.get(self.worktree_file_selected) else {
+                return;
+            };
+            (wt.path.clone(), wt.is_dirty, file.path.clone())
+        };
+
+        // determine base/head for diff and get content
+        let raw_diff = if is_dirty {
+            let Ok(diff) = crate::git::diff_content(&wt_path, Some("HEAD"), None, Some(&file_path))
+            else {
+                return;
+            };
+            diff
+        } else {
+            let Some(main) = find_main_branch(&wt_path) else {
+                return;
+            };
+            let Ok(diff) =
+                crate::git::diff_content(&wt_path, Some(&main), Some("HEAD"), Some(&file_path))
+            else {
+                return;
+            };
+            diff
+        };
+
+        self.show_diff_from_raw(&raw_diff, &file_path);
+    }
+
+    /// render raw diff content and show in diff panel.
+    fn show_diff_from_raw(&mut self, raw_diff: &str, file_path: &str) {
+        use super::diff_render::{DiffRenderer, NativeRenderer};
+
+        let renderer = NativeRenderer;
+        let Ok(styled_text) = renderer.render(raw_diff, 80) else {
+            return;
+        };
+
+        self.show_diff(styled_text, file_path.to_string());
+    }
+
     /// apply the current filter to the issues list.
     pub fn apply_filter(&mut self) {
         let query = self.filter_query.to_lowercase();

@@ -208,8 +208,14 @@ fn handle_key_event(app: &mut App, paths: &RepoPaths, key: KeyEvent) -> Result<b
         },
         KeyCode::Char('g') => app.move_to_top(),
         KeyCode::Char('G') => app.move_to_bottom(),
-        KeyCode::Left | KeyCode::Char('h') => app.move_dep_prev(),
-        KeyCode::Right | KeyCode::Char('l') => app.move_dep_next(),
+        KeyCode::Left | KeyCode::Char('h') => match app.view {
+            crate::tui::app::View::Agents => app.worktree_file_prev(),
+            _ => app.move_dep_prev(),
+        },
+        KeyCode::Right | KeyCode::Char('l') => match app.view {
+            crate::tui::app::View::Agents => app.worktree_file_next(),
+            _ => app.move_dep_next(),
+        },
 
         // actions
         KeyCode::Char('a') | KeyCode::Char('n') => app.start_add_issue(),
@@ -229,15 +235,18 @@ fn handle_key_event(app: &mut App, paths: &RepoPaths, key: KeyEvent) -> Result<b
                 app.message = Some(format!("error: {}", e));
             }
         }
-        KeyCode::Enter => {
-            if !app.show_details {
-                // when details pane is hidden, show full-screen overlay
-                app.show_detail_overlay();
-            } else {
-                // when details pane is visible, open selected dependency
-                app.open_selected_dependency();
+        KeyCode::Enter => match app.view {
+            crate::tui::app::View::Agents => app.open_selected_file_diff(),
+            _ => {
+                if !app.show_details {
+                    // when details pane is hidden, show full-screen overlay
+                    app.show_detail_overlay();
+                } else {
+                    // when details pane is visible, open selected dependency
+                    app.open_selected_dependency();
+                }
             }
-        }
+        },
         KeyCode::Tab => app.toggle_details(),
 
         // views
