@@ -3,13 +3,16 @@ schema_version: 8
 id: brd-71rv
 title: 'dashboard: cycle time and lead time stats'
 priority: P2
-status: open
+status: done
 deps: []
 tags:
 - tui
 owner: null
 created_at: 2026-01-25T10:16:33.006938Z
+started_at: 2026-01-27T13:29:04.996593Z
+completed_at: 2026-01-27T13:30:41.179887Z
 ---
+
 add cycle time and lead time statistics to the TUI dashboard to help understand how quickly work moves through the system.
 
 ## definitions
