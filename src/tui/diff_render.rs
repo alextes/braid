@@ -20,6 +20,8 @@ pub enum DiffRendererType {
     Delta,
     /// diff-so-fancy external renderer
     DiffSoFancy,
+    /// use git's configured pager (from pager.diff or GIT_PAGER)
+    GitPager,
 }
 
 impl DiffRendererType {
@@ -28,7 +30,8 @@ impl DiffRendererType {
         match self {
             Self::Native => Self::Delta,
             Self::Delta => Self::DiffSoFancy,
-            Self::DiffSoFancy => Self::Native,
+            Self::DiffSoFancy => Self::GitPager,
+            Self::GitPager => Self::Native,
         }
     }
 
@@ -38,6 +41,7 @@ impl DiffRendererType {
             Self::Native => "native",
             Self::Delta => "delta",
             Self::DiffSoFancy => "diff-so-fancy",
+            Self::GitPager => "git-pager",
         }
     }
 
@@ -47,6 +51,7 @@ impl DiffRendererType {
             Self::Native => true, // always available
             Self::Delta => check_tool_available("delta"),
             Self::DiffSoFancy => check_tool_available("diff-so-fancy"),
+            Self::GitPager => get_git_pager().is_some(),
         }
     }
 
@@ -56,6 +61,7 @@ impl DiffRendererType {
             Self::Native => None,
             Self::Delta => Some("delta --width={width} --paging=never"),
             Self::DiffSoFancy => Some("diff-so-fancy"),
+            Self::GitPager => None, // dynamically fetched from git config
         }
     }
 
@@ -65,6 +71,7 @@ impl DiffRendererType {
             "native" => Some(Self::Native),
             "delta" => Some(Self::Delta),
             "diff-so-fancy" => Some(Self::DiffSoFancy),
+            "git-pager" => Some(Self::GitPager),
             _ => None,
         }
     }
@@ -77,6 +84,12 @@ impl DiffRendererType {
                 let cmd = self.command().unwrap();
                 ExternalRenderer::new(cmd).render(diff, width)
             }
+            Self::GitPager => {
+                let pager = get_git_pager().ok_or_else(|| {
+                    crate::error::BrdError::Other("no git pager configured".to_string())
+                })?;
+                ExternalRenderer::new(pager).render(diff, width)
+            }
         }
     }
 }
@@ -87,6 +100,35 @@ fn check_tool_available(tool: &str) -> bool {
         .arg(tool)
         .output()
         .is_ok_and(|o| o.status.success())
+}
+
+/// get the git pager command from git config.
+///
+/// tries `pager.diff` first, then falls back to `GIT_PAGER`.
+fn get_git_pager() -> Option<String> {
+    use std::process::Command;
+
+    // try pager.diff first (diff-specific pager)
+    if let Ok(output) = Command::new("git").args(["config", "pager.diff"]).output()
+        && output.status.success()
+    {
+        let pager = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        if !pager.is_empty() {
+            return Some(pager);
+        }
+    }
+
+    // fallback to GIT_PAGER (general pager)
+    if let Ok(output) = Command::new("git").args(["var", "GIT_PAGER"]).output()
+        && output.status.success()
+    {
+        let pager = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        if !pager.is_empty() && pager != "cat" {
+            return Some(pager);
+        }
+    }
+
+    None
 }
 
 /// trait for rendering diff content to ratatui Text.
@@ -320,8 +362,9 @@ index abc123..def456 100644
         );
         assert_eq!(
             DiffRendererType::DiffSoFancy.next(),
-            DiffRendererType::Native
+            DiffRendererType::GitPager
         );
+        assert_eq!(DiffRendererType::GitPager.next(), DiffRendererType::Native);
     }
 
     #[test]
@@ -332,6 +375,7 @@ index abc123..def456 100644
             DiffRendererType::DiffSoFancy.display_name(),
             "diff-so-fancy"
         );
+        assert_eq!(DiffRendererType::GitPager.display_name(), "git-pager");
     }
 
     #[test]
@@ -347,6 +391,10 @@ index abc123..def456 100644
         assert_eq!(
             DiffRendererType::parse("diff-so-fancy"),
             Some(DiffRendererType::DiffSoFancy)
+        );
+        assert_eq!(
+            DiffRendererType::parse("git-pager"),
+            Some(DiffRendererType::GitPager)
         );
         assert_eq!(
             DiffRendererType::parse("NATIVE"),
@@ -365,6 +413,7 @@ index abc123..def456 100644
         assert_eq!(DiffRendererType::Native.command(), None);
         assert!(DiffRendererType::Delta.command().is_some());
         assert!(DiffRendererType::DiffSoFancy.command().is_some());
+        assert_eq!(DiffRendererType::GitPager.command(), None); // dynamically fetched
     }
 
     #[test]
