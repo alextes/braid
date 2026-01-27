@@ -234,24 +234,24 @@ fn draw_dashboard(f: &mut Frame, area: Rect, app: &App) {
 
     let completed_count = lead_times.len();
 
-    // layout: top stats row, then agents, then bottom row (velocity + flow)
+    // layout: top stats row, then velocity/flow row, then agents
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .margin(1)
         .constraints([
             Constraint::Length(8), // stats row (with borders)
             Constraint::Length(1), // spacing
-            Constraint::Min(5),    // agents
+            Constraint::Length(6), // velocity + flow metrics row
             Constraint::Length(1), // spacing
-            Constraint::Length(6), // bottom row (velocity + flow metrics)
+            Constraint::Min(5),    // agents
         ])
         .split(area);
 
-    // bottom row: velocity (left) and flow metrics (right)
-    let bottom_cols = Layout::default()
+    // velocity/flow row: velocity (left) and flow metrics (right)
+    let metrics_cols = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
-        .split(chunks[4]);
+        .split(chunks[2]);
 
     // top row: 3 columns for status/priority/health
     let top_cols = Layout::default()
@@ -400,8 +400,8 @@ fn draw_dashboard(f: &mut Frame, area: Rect, app: &App) {
         .title(" Active Agents ")
         .borders(Borders::ALL)
         .border_style(Style::default().fg(Color::DarkGray));
-    let agents_inner = agents_block.inner(chunks[2]);
-    f.render_widget(agents_block, chunks[2]);
+    let agents_inner = agents_block.inner(chunks[4]);
+    f.render_widget(agents_block, chunks[4]);
 
     let agent_lines: Vec<Line> = if active_agents.is_empty() {
         vec![Line::from(Span::styled(
@@ -439,8 +439,8 @@ fn draw_dashboard(f: &mut Frame, area: Rect, app: &App) {
         .title(" Velocity (7d) ")
         .borders(Borders::ALL)
         .border_style(Style::default().fg(Color::DarkGray));
-    let velocity_inner = velocity_block.inner(bottom_cols[0]);
-    f.render_widget(velocity_block, bottom_cols[0]);
+    let velocity_inner = velocity_block.inner(metrics_cols[0]);
+    f.render_widget(velocity_block, metrics_cols[0]);
 
     let completed_spark = make_sparkline(&completed_by_day);
     let created_spark = make_sparkline(&created_by_day);
@@ -473,8 +473,8 @@ fn draw_dashboard(f: &mut Frame, area: Rect, app: &App) {
         .title(" Flow Metrics ")
         .borders(Borders::ALL)
         .border_style(Style::default().fg(Color::DarkGray));
-    let flow_inner = flow_block.inner(bottom_cols[1]);
-    f.render_widget(flow_block, bottom_cols[1]);
+    let flow_inner = flow_block.inner(metrics_cols[1]);
+    f.render_widget(flow_block, metrics_cols[1]);
 
     let flow_lines = if completed_count == 0 {
         vec![Line::from(Span::styled(
