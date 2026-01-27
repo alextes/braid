@@ -8,7 +8,7 @@ deps: []
 owner: null
 created_at: 2026-01-26T21:30:10.210023Z
 started_at: 2026-01-27T16:53:53.384442Z
-completed_at: 2026-01-27T16:57:19.145156Z
+completed_at: 2026-01-27T21:23:39.999722Z
 ---
 
 for visual consistency with the TUI, render done dependencies in `brd show` output with a dimmed/grey color (similar to how blocked issues are slightly dimmed in the TUI).
