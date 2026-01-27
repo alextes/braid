@@ -148,26 +148,40 @@ fn is_pid_alive(_pid: u32) -> bool {
     true
 }
 
-/// generate the next sequential session ID.
+/// session ID length (4 random alphanumeric characters).
+const SESSION_ID_LEN: usize = 4;
+
+/// generate a random session ID (agent-xxxx format).
 pub fn next_session_id(sessions_dir: &Path) -> String {
-    let mut max_num = 0;
+    use rand::Rng;
 
-    if let Ok(entries) = fs::read_dir(sessions_dir) {
-        for entry in entries.flatten() {
-            let name = entry.file_name();
-            let name_str = name.to_string_lossy();
+    let charset: &[u8] = b"0123456789abcdefghijklmnopqrstuvwxyz";
+    let mut rng = rand::rng();
 
-            // parse "agent-N.json" pattern
-            if let Some(rest) = name_str.strip_prefix("agent-")
-                && let Some(num_str) = rest.strip_suffix(".json")
-                && let Ok(num) = num_str.parse::<u32>()
-            {
-                max_num = max_num.max(num);
-            }
+    for _ in 0..20 {
+        let suffix: String = (0..SESSION_ID_LEN)
+            .map(|_| {
+                let idx = rng.random_range(0..charset.len());
+                charset[idx] as char
+            })
+            .collect();
+
+        let id = format!("agent-{}", suffix);
+        let state_path = sessions_dir.join(format!("{}.json", id));
+
+        if !state_path.exists() {
+            return id;
         }
     }
 
-    format!("agent-{}", max_num + 1)
+    // fallback: use timestamp if random generation fails (extremely unlikely)
+    format!(
+        "agent-{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_millis() % 10000)
+            .unwrap_or(0)
+    )
 }
 
 /// load all sessions from the sessions directory.
@@ -246,23 +260,35 @@ mod tests {
     use tempfile::tempdir;
 
     #[test]
-    fn test_next_session_id_empty() {
+    fn test_next_session_id_format() {
         let dir = tempdir().unwrap();
         let id = next_session_id(dir.path());
-        assert_eq!(id, "agent-1");
+
+        // should have format "agent-xxxx" where xxxx is 4 alphanumeric chars
+        assert!(id.starts_with("agent-"), "should start with 'agent-'");
+        let suffix = id.strip_prefix("agent-").unwrap();
+        assert_eq!(suffix.len(), 4, "suffix should be 4 characters");
+        assert!(
+            suffix
+                .chars()
+                .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit()),
+            "suffix should be lowercase alphanumeric"
+        );
     }
 
     #[test]
-    fn test_next_session_id_sequential() {
+    fn test_next_session_id_avoids_collision() {
         let dir = tempdir().unwrap();
 
-        // create some session files
-        fs::write(dir.path().join("agent-1.json"), "{}").unwrap();
-        fs::write(dir.path().join("agent-2.json"), "{}").unwrap();
-        fs::write(dir.path().join("agent-5.json"), "{}").unwrap();
+        // create a session file with a specific ID
+        let existing_id = "agent-test";
+        fs::write(dir.path().join(format!("{}.json", existing_id)), "{}").unwrap();
 
-        let id = next_session_id(dir.path());
-        assert_eq!(id, "agent-6");
+        // generate many IDs and ensure none collide with existing
+        for _ in 0..10 {
+            let id = next_session_id(dir.path());
+            assert_ne!(id, existing_id, "should not collide with existing ID");
+        }
     }
 
     #[test]
