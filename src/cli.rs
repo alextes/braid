@@ -351,13 +351,19 @@ pub enum AgentAction {
         raw: bool,
     },
 
-    /// send input to a waiting agent
+    /// send a message to a stopped agent session
     Send {
         /// session ID (e.g., agent-1)
         session: String,
 
         /// message to send
         message: String,
+    },
+
+    /// attach interactively to a stopped agent session
+    Attach {
+        /// session ID (e.g., agent-1)
+        session: String,
     },
 
     /// terminate a running agent

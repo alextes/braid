@@ -42,7 +42,7 @@ pub use agent::{
     inject_agents_block,
 };
 pub use agent_run::{
-    cmd_agent_kill, cmd_agent_logs, cmd_agent_ps, cmd_agent_send, cmd_agent_spawn,
+    cmd_agent_attach, cmd_agent_kill, cmd_agent_logs, cmd_agent_ps, cmd_agent_send, cmd_agent_spawn,
 };
 pub use commit::cmd_commit;
 pub use completions::cmd_completions;
