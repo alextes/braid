@@ -335,6 +335,39 @@ impl App {
         }
     }
 
+    /// half-page up in agents view (based on focused panel).
+    pub fn agents_half_page_up(&mut self) {
+        const HALF_PAGE: usize = 10;
+        match self.agents_focus {
+            AgentsFocus::Worktrees => {
+                self.worktree_selected = self.worktree_selected.saturating_sub(HALF_PAGE);
+                self.load_worktree_diff();
+            }
+            AgentsFocus::Files => {
+                self.worktree_file_selected = self.worktree_file_selected.saturating_sub(HALF_PAGE);
+            }
+        }
+    }
+
+    /// half-page down in agents view (based on focused panel).
+    pub fn agents_half_page_down(&mut self) {
+        const HALF_PAGE: usize = 10;
+        match self.agents_focus {
+            AgentsFocus::Worktrees => {
+                let max = self.worktrees.len().saturating_sub(1);
+                self.worktree_selected = (self.worktree_selected + HALF_PAGE).min(max);
+                self.load_worktree_diff();
+            }
+            AgentsFocus::Files => {
+                if let Some(ref diff) = self.worktree_diff {
+                    let max = diff.files.len().saturating_sub(1);
+                    self.worktree_file_selected =
+                        (self.worktree_file_selected + HALF_PAGE).min(max);
+                }
+            }
+        }
+    }
+
     /// open diff view for the currently selected file in agents view.
     pub fn open_selected_file_diff(&mut self) {
         // extract values we need before mutating self

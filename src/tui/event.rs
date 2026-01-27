@@ -214,6 +214,10 @@ fn handle_key_event(app: &mut App, paths: &RepoPaths, key: KeyEvent) -> Result<b
         },
         KeyCode::Char('g') => app.move_to_top(),
         KeyCode::Char('G') => app.move_to_bottom(),
+        // half-page scroll (agents view only, d conflicts with "done" in issues)
+        KeyCode::Char('u') if app.view == crate::tui::app::View::Agents => {
+            app.agents_half_page_up()
+        }
         KeyCode::Left | KeyCode::Char('h') => match app.view {
             crate::tui::app::View::Agents => {
                 app.agents_focus = crate::tui::app::AgentsFocus::Worktrees;
@@ -235,11 +239,14 @@ fn handle_key_event(app: &mut App, paths: &RepoPaths, key: KeyEvent) -> Result<b
                 app.message = Some(format!("error: {}", e));
             }
         }
-        KeyCode::Char('d') => {
-            if let Err(e) = app.done_selected(paths) {
-                app.message = Some(format!("error: {}", e));
+        KeyCode::Char('d') => match app.view {
+            crate::tui::app::View::Agents => app.agents_half_page_down(),
+            _ => {
+                if let Err(e) = app.done_selected(paths) {
+                    app.message = Some(format!("error: {}", e));
+                }
             }
-        }
+        },
         KeyCode::Char('r') => {
             if let Err(e) = app.reload_issues(paths) {
                 app.message = Some(format!("error: {}", e));
