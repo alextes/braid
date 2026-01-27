@@ -511,6 +511,10 @@ fn print_event(event: &serde_json::Value) {
         "message_stop" | "message_start" => {
             // metadata events, skip
         }
+        "result" => {
+            // end of turn - add blank line for readability
+            println!();
+        }
         _ => {
             // unknown event type, print type for debugging
             println!("[{}]", event_type);
