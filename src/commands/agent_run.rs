@@ -314,7 +314,7 @@ pub fn cmd_agent_send(cli: &Cli, paths: &RepoPaths, session_id: &str, message: &
 
     // spawn claude with --resume to continue the conversation
     let status = Command::new("claude")
-        .args(["-p", message])
+        .args(["-p", "--verbose", message])
         .args(["--resume", &session.claude_session_id])
         .args(["--output-format", "stream-json"])
         .current_dir(working_dir)
