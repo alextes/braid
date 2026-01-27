@@ -1,6 +1,6 @@
 //! agent runtime commands: spawn, ps, logs, send, kill.
 
-use std::fs::{self, File};
+use std::fs::File;
 use std::io::{BufRead, BufReader, Write};
 use std::process::{Command, Stdio};
 
@@ -255,59 +255,132 @@ pub fn cmd_agent_logs(
     }
 
     if follow {
-        // TODO: implement tail -f behavior
-        println!("(follow mode not yet implemented)");
+        use std::io::{Seek, SeekFrom};
+        use std::thread::sleep;
+        use std::time::Duration;
+
+        let mut file = File::open(&log_path)?;
+        file.seek(SeekFrom::End(0))?;
+        let mut reader = BufReader::new(file);
+        let mut line = String::new();
+
+        loop {
+            line.clear();
+            match reader.read_line(&mut line) {
+                Ok(0) => {
+                    // no new data - check if process still alive
+                    let session = find_session(&sessions_dir, session_id)?;
+                    if !session.is_process_alive() {
+                        break;
+                    }
+                    sleep(Duration::from_millis(100));
+                }
+                Ok(_) => {
+                    if raw {
+                        print!("{}", line);
+                    } else if let Ok(event) = serde_json::from_str::<serde_json::Value>(&line) {
+                        print_event(&event);
+                    } else {
+                        print!("{}", line);
+                    }
+                    std::io::stdout().flush().ok();
+                }
+                Err(e) => return Err(BrdError::Io(e)),
+            }
+        }
     }
 
     Ok(())
 }
 
-/// send input to a waiting agent.
+/// send a message to an agent session using claude's --resume.
+///
+/// the agent must not be running - use `brd agent kill` first if needed.
+/// this starts a new claude process that continues the conversation.
 pub fn cmd_agent_send(cli: &Cli, paths: &RepoPaths, session_id: &str, message: &str) -> Result<()> {
     let sessions_dir = paths.sessions_dir();
     let session = find_session(&sessions_dir, session_id)?;
 
-    // check if process is alive
-    if !session.is_process_alive() {
+    // agent must NOT be running to send a message via --resume
+    if session.is_process_alive() {
         return Err(BrdError::Other(format!(
-            "agent {} is not running (pid {} not found)",
-            session.session_id, session.pid
+            "agent {} is still running (pid {}). use `brd agent kill {}` first.",
+            session.session_id, session.pid, session.session_id
         )));
     }
 
-    // write to stdin pipe
-    let stdin_path = Session::stdin_path(&sessions_dir, &session.session_id);
+    // determine working directory (use worktree if set, otherwise repo root)
+    let working_dir = session.worktree.as_ref().unwrap_or(&paths.worktree_root);
 
-    // create the pipe if it doesn't exist
-    if !stdin_path.exists() {
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::OpenOptionsExt;
-            // create a regular file as a fallback (proper named pipe requires nix crate)
-            fs::OpenOptions::new()
-                .write(true)
-                .create(true)
-                .truncate(true)
-                .mode(0o600)
-                .open(&stdin_path)?;
-        }
-    }
+    // spawn claude with --resume to continue the conversation
+    let status = Command::new("claude")
+        .args(["-p", message])
+        .args(["--resume", &session.claude_session_id])
+        .args(["--output-format", "stream-json"])
+        .current_dir(working_dir)
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit())
+        .status()
+        .map_err(|e| {
+            if e.kind() == std::io::ErrorKind::NotFound {
+                BrdError::Other(
+                    "claude CLI not found - install from https://claude.ai/download".to_string(),
+                )
+            } else {
+                BrdError::Io(e)
+            }
+        })?;
 
-    // for now, just note that stdin piping needs the agent to be spawned with stdin connected
-    // this is a limitation of the current implementation
     if cli.json {
         println!(
-            r#"{{"ok": false, "error": "stdin piping not yet implemented - agent must be spawned with connected stdin"}}"#
+            r#"{{"ok": {}, "session_id": "{}"}}"#,
+            status.success(),
+            session.session_id
         );
-    } else {
-        println!(
-            "note: stdin piping not yet fully implemented. \
-             message '{}' would be sent to {}",
-            message, session.session_id
-        );
+    } else if !status.success() {
+        eprintln!("claude exited with code {:?}", status.code().unwrap_or(-1));
     }
 
     Ok(())
+}
+
+/// attach to an agent session interactively using claude's --resume.
+///
+/// the agent must not be running - use `brd agent kill` first if needed.
+/// this replaces the current process with an interactive claude session.
+#[cfg(unix)]
+pub fn cmd_agent_attach(_cli: &Cli, paths: &RepoPaths, session_id: &str) -> Result<()> {
+    use std::os::unix::process::CommandExt;
+
+    let sessions_dir = paths.sessions_dir();
+    let session = find_session(&sessions_dir, session_id)?;
+
+    // agent must NOT be running to attach via --resume
+    if session.is_process_alive() {
+        return Err(BrdError::Other(format!(
+            "agent {} is still running (pid {}). use `brd agent kill {}` first.",
+            session.session_id, session.pid, session.session_id
+        )));
+    }
+
+    // determine working directory (use worktree if set, otherwise repo root)
+    let working_dir = session.worktree.as_ref().unwrap_or(&paths.worktree_root);
+
+    // exec replaces the current process - user gets full interactive claude
+    let err = Command::new("claude")
+        .args(["--resume", &session.claude_session_id])
+        .current_dir(working_dir)
+        .exec();
+
+    // exec() only returns on error
+    Err(BrdError::Io(err))
+}
+
+#[cfg(not(unix))]
+pub fn cmd_agent_attach(_cli: &Cli, _paths: &RepoPaths, _session_id: &str) -> Result<()> {
+    Err(BrdError::Other(
+        "agent attach is not supported on this platform".to_string(),
+    ))
 }
 
 /// terminate a running agent.
@@ -442,6 +515,7 @@ fn print_event(event: &serde_json::Value) {
 mod tests {
     use super::*;
     use crate::test_utils::{TestRepo, test_cli};
+    use std::fs;
     use std::path::PathBuf;
 
     // =========================================================================
