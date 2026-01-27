@@ -1,7 +1,7 @@
 use braid::cli::{AgentAction, Cli, Command, ConfigAction, DepAction};
 use braid::commands::{
-    cmd_add, cmd_agent_attach, cmd_agent_branch, cmd_agent_init, cmd_agent_kill, cmd_agent_logs,
-    cmd_agent_pr, cmd_agent_ps, cmd_agent_send, cmd_agent_spawn, cmd_agents_inject,
+    cmd_add, cmd_agent_attach, cmd_agent_branch, cmd_agent_clean, cmd_agent_init, cmd_agent_kill,
+    cmd_agent_logs, cmd_agent_pr, cmd_agent_ps, cmd_agent_send, cmd_agent_spawn, cmd_agents_inject,
     cmd_agents_show, cmd_commit, cmd_completions, cmd_config_auto_sync, cmd_config_external_repo,
     cmd_config_issues_branch, cmd_config_show, cmd_dep_add, cmd_dep_rm, cmd_doctor, cmd_done,
     cmd_edit, cmd_init, cmd_ls, cmd_merge, cmd_migrate, cmd_ready, cmd_rm, cmd_search, cmd_set,
@@ -152,6 +152,7 @@ fn run(cli: &Cli) -> Result<()> {
             AgentAction::Send { session, message } => cmd_agent_send(cli, &paths, session, message),
             AgentAction::Attach { session } => cmd_agent_attach(cli, &paths, session),
             AgentAction::Kill { session, force } => cmd_agent_kill(cli, &paths, session, *force),
+            AgentAction::Clean { all, force } => cmd_agent_clean(cli, &paths, *all, *force),
         },
         Command::Doctor => cmd_doctor(cli, &paths),
         Command::Completions { .. } => unreachable!(),

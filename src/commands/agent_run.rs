@@ -455,6 +455,92 @@ pub fn cmd_agent_kill(cli: &Cli, paths: &RepoPaths, session_id: &str, force: boo
     Ok(())
 }
 
+/// remove stale agent session files.
+pub fn cmd_agent_clean(cli: &Cli, paths: &RepoPaths, all: bool, force: bool) -> Result<()> {
+    let sessions_dir = paths.sessions_dir();
+    let sessions = load_all_sessions(&sessions_dir)?;
+
+    // find sessions to clean
+    let to_clean: Vec<_> = sessions
+        .iter()
+        .filter(|s| {
+            if all {
+                true
+            } else {
+                // stale = not running or waiting
+                matches!(
+                    s.status,
+                    SessionStatus::Completed
+                        | SessionStatus::Failed
+                        | SessionStatus::Killed
+                        | SessionStatus::Zombie
+                )
+            }
+        })
+        .collect();
+
+    if to_clean.is_empty() {
+        if cli.json {
+            println!(r#"{{"ok": true, "cleaned": 0, "message": "no sessions to clean"}}"#);
+        } else {
+            println!("no stale sessions to clean");
+        }
+        return Ok(());
+    }
+
+    // show what will be cleaned
+    if !cli.json && !force {
+        println!("found {} session(s) to clean:", to_clean.len());
+        let now = time::OffsetDateTime::now_utc();
+        for s in &to_clean {
+            let age = format_duration(now - s.started_at);
+            println!("  {} ({}) - {} old", s.session_id, s.status, age);
+        }
+        println!();
+
+        // ask for confirmation
+        eprint!("remove these? [y/N] ");
+        use std::io::Write;
+        std::io::stderr().flush()?;
+
+        let mut input = String::new();
+        std::io::stdin().read_line(&mut input)?;
+
+        if !input.trim().eq_ignore_ascii_case("y") {
+            println!("aborted");
+            return Ok(());
+        }
+    }
+
+    // remove session files
+    let mut cleaned = 0;
+    for s in &to_clean {
+        let state_path = Session::state_path(&sessions_dir, &s.session_id);
+        let log_path = Session::log_path(&sessions_dir, &s.session_id);
+        let stdin_path = Session::stdin_path(&sessions_dir, &s.session_id);
+
+        // remove each file if it exists
+        for path in [&state_path, &log_path, &stdin_path] {
+            if path.exists() && let Err(e) = std::fs::remove_file(path) {
+                eprintln!("warning: failed to remove {}: {}", path.display(), e);
+            }
+        }
+        cleaned += 1;
+
+        if !cli.json {
+            println!("removed {}", s.session_id);
+        }
+    }
+
+    if cli.json {
+        println!(r#"{{"ok": true, "cleaned": {}}}"#, cleaned);
+    } else {
+        println!("\ncleaned {} session(s)", cleaned);
+    }
+
+    Ok(())
+}
+
 /// format a duration as a human-readable string.
 fn format_duration(d: time::Duration) -> String {
     let minutes = d.whole_minutes();

@@ -375,6 +375,17 @@ pub enum AgentAction {
         #[arg(long)]
         force: bool,
     },
+
+    /// remove stale agent session files
+    Clean {
+        /// remove all sessions (not just stale ones)
+        #[arg(long)]
+        all: bool,
+
+        /// skip confirmation prompt
+        #[arg(long, short)]
+        force: bool,
+    },
 }
 
 #[derive(Subcommand)]
