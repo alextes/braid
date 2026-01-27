@@ -51,6 +51,16 @@ pub enum View {
     Agents,
 }
 
+/// which panel has focus in agents view.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum AgentsFocus {
+    /// worktree list (left panel)
+    #[default]
+    Worktrees,
+    /// file changes (right panel)
+    Files,
+}
+
 /// input mode for creating/editing issues.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum InputMode {
@@ -136,6 +146,8 @@ pub struct App {
     pub worktree_diff: Option<WorktreeDiff>,
     /// selected file index in the worktree diff
     pub worktree_file_selected: usize,
+    /// which panel has focus in agents view
+    pub agents_focus: AgentsFocus,
 }
 
 impl App {
@@ -188,6 +200,7 @@ impl App {
             worktree_selected: 0,
             worktree_diff: None,
             worktree_file_selected: 0,
+            agents_focus: AgentsFocus::default(),
         };
         app.reload_issues(paths)?;
         app.reload_worktrees();

@@ -469,10 +469,19 @@ fn draw_agents_view(f: &mut Frame, area: Rect, app: &App) {
 }
 
 fn draw_worktree_list(f: &mut Frame, area: Rect, app: &App) {
+    use crate::tui::app::AgentsFocus;
+
+    let is_focused = app.agents_focus == AgentsFocus::Worktrees;
+    let border_color = if is_focused {
+        Color::Yellow
+    } else {
+        Color::DarkGray
+    };
+
     let block = Block::default()
         .title(" Agents ")
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::Yellow));
+        .border_style(Style::default().fg(border_color));
 
     if app.worktrees.is_empty() {
         let text = vec![
@@ -499,10 +508,13 @@ fn draw_worktree_list(f: &mut Frame, area: Rect, app: &App) {
         .enumerate()
         .map(|(i, wt)| {
             let mut spans = Vec::new();
+            let is_selected = i == app.worktree_selected;
 
-            // selection indicator
-            if i == app.worktree_selected {
+            // selection indicator (only show arrow when focused)
+            if is_selected && is_focused {
                 spans.push(Span::styled("▶ ", Style::default().fg(Color::Yellow)));
+            } else if is_selected {
+                spans.push(Span::styled("› ", Style::default().fg(Color::DarkGray)));
             } else {
                 spans.push(Span::raw("  "));
             }
@@ -510,7 +522,7 @@ fn draw_worktree_list(f: &mut Frame, area: Rect, app: &App) {
             // name
             spans.push(Span::styled(
                 &wt.name,
-                if i == app.worktree_selected {
+                if is_selected {
                     Style::default()
                         .fg(Color::White)
                         .add_modifier(Modifier::BOLD)
@@ -541,11 +553,20 @@ fn draw_worktree_list(f: &mut Frame, area: Rect, app: &App) {
 }
 
 fn draw_worktree_files(f: &mut Frame, area: Rect, app: &App) {
+    use crate::tui::app::AgentsFocus;
+
+    let is_focused = app.agents_focus == AgentsFocus::Files;
+    let border_color = if is_focused {
+        Color::Yellow
+    } else {
+        Color::DarkGray
+    };
+
     let Some(ref diff) = app.worktree_diff else {
         let block = Block::default()
             .title(" Changes ")
             .borders(Borders::ALL)
-            .border_style(Style::default().fg(Color::DarkGray));
+            .border_style(Style::default().fg(border_color));
         let text = vec![
             Line::from(""),
             Line::from(Span::styled(
@@ -567,7 +588,7 @@ fn draw_worktree_files(f: &mut Frame, area: Rect, app: &App) {
     let block = Block::default()
         .title(title)
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::Yellow));
+        .border_style(Style::default().fg(border_color));
 
     if diff.files.is_empty() {
         let text = vec![
@@ -589,10 +610,13 @@ fn draw_worktree_files(f: &mut Frame, area: Rect, app: &App) {
         .enumerate()
         .map(|(i, file)| {
             let mut spans = Vec::new();
+            let is_selected = i == app.worktree_file_selected;
 
-            // selection indicator
-            if i == app.worktree_file_selected {
+            // selection indicator (only show arrow when focused)
+            if is_selected && is_focused {
                 spans.push(Span::styled("▶ ", Style::default().fg(Color::Yellow)));
+            } else if is_selected {
+                spans.push(Span::styled("› ", Style::default().fg(Color::DarkGray)));
             } else {
                 spans.push(Span::raw("  "));
             }
@@ -619,7 +643,7 @@ fn draw_worktree_files(f: &mut Frame, area: Rect, app: &App) {
             // file path
             spans.push(Span::styled(
                 &file.path,
-                if i == app.worktree_file_selected {
+                if is_selected {
                     Style::default()
                         .fg(Color::White)
                         .add_modifier(Modifier::BOLD)

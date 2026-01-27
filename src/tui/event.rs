@@ -199,21 +199,31 @@ fn handle_key_event(app: &mut App, paths: &RepoPaths, key: KeyEvent) -> Result<b
 
         // navigation (view-specific)
         KeyCode::Up | KeyCode::Char('k') => match app.view {
-            crate::tui::app::View::Agents => app.worktree_prev(),
+            crate::tui::app::View::Agents => match app.agents_focus {
+                crate::tui::app::AgentsFocus::Worktrees => app.worktree_prev(),
+                crate::tui::app::AgentsFocus::Files => app.worktree_file_prev(),
+            },
             _ => app.move_up(),
         },
         KeyCode::Down | KeyCode::Char('j') => match app.view {
-            crate::tui::app::View::Agents => app.worktree_next(),
+            crate::tui::app::View::Agents => match app.agents_focus {
+                crate::tui::app::AgentsFocus::Worktrees => app.worktree_next(),
+                crate::tui::app::AgentsFocus::Files => app.worktree_file_next(),
+            },
             _ => app.move_down(),
         },
         KeyCode::Char('g') => app.move_to_top(),
         KeyCode::Char('G') => app.move_to_bottom(),
         KeyCode::Left | KeyCode::Char('h') => match app.view {
-            crate::tui::app::View::Agents => app.worktree_file_prev(),
+            crate::tui::app::View::Agents => {
+                app.agents_focus = crate::tui::app::AgentsFocus::Worktrees;
+            }
             _ => app.move_dep_prev(),
         },
         KeyCode::Right | KeyCode::Char('l') => match app.view {
-            crate::tui::app::View::Agents => app.worktree_file_next(),
+            crate::tui::app::View::Agents => {
+                app.agents_focus = crate::tui::app::AgentsFocus::Files;
+            }
             _ => app.move_dep_next(),
         },
 
