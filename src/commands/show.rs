@@ -3,16 +3,23 @@
 use std::collections::HashMap;
 use std::fmt::Write as _;
 
+use crossterm::style::{Attribute, SetAttribute};
+
 use crate::cli::Cli;
 use crate::config::Config;
 use crate::error::{BrdError, Result};
 use crate::graph::get_dependents;
-use crate::issue::Issue;
+use crate::issue::{Issue, Status};
 use crate::repo::RepoPaths;
 
 use super::{issue_to_json, load_all_issues, resolve_issue_id};
 
-fn format_show_output(issue: &Issue, issues: &HashMap<String, Issue>, json: bool) -> String {
+fn format_show_output(
+    issue: &Issue,
+    issues: &HashMap<String, Issue>,
+    json: bool,
+    no_color: bool,
+) -> String {
     if json {
         let mut output = serde_json::to_string_pretty(&issue_to_json(issue, issues)).unwrap();
         output.push('\n');
@@ -36,7 +43,19 @@ fn format_show_output(issue: &Issue, issues: &HashMap<String, Issue>, json: bool
             .iter()
             .map(|dep_id| {
                 if let Some(dep) = issues.get(dep_id) {
-                    format!("{} ({})", dep_id, dep.status())
+                    let status = dep.status();
+                    let is_resolved = matches!(status, Status::Done | Status::Skip);
+                    if !no_color && is_resolved {
+                        format!(
+                            "{}{} ({}){}",
+                            SetAttribute(Attribute::Dim),
+                            dep_id,
+                            status,
+                            SetAttribute(Attribute::Reset)
+                        )
+                    } else {
+                        format!("{} ({})", dep_id, status)
+                    }
                 } else {
                     format!("{} (missing)", dep_id)
                 }
@@ -83,10 +102,10 @@ pub fn cmd_show(cli: &Cli, paths: &RepoPaths, id: &str, context: bool) -> Result
         .ok_or_else(|| BrdError::IssueNotFound(id.to_string()))?;
 
     if context && !cli.json {
-        let output = format_context_output(issue, &issues);
+        let output = format_context_output(issue, &issues, cli.no_color);
         print!("{output}");
     } else {
-        let output = format_show_output(issue, &issues, cli.json);
+        let output = format_show_output(issue, &issues, cli.json, cli.no_color);
         print!("{output}");
     }
 
@@ -94,13 +113,17 @@ pub fn cmd_show(cli: &Cli, paths: &RepoPaths, id: &str, context: bool) -> Result
 }
 
 /// format output with full context: the issue plus all deps and dependents content.
-fn format_context_output(issue: &Issue, issues: &HashMap<String, Issue>) -> String {
+fn format_context_output(issue: &Issue, issues: &HashMap<String, Issue>, no_color: bool) -> String {
     let mut output = String::new();
 
     // main issue
     let _ = writeln!(output, "=== {}: {} ===", issue.id(), issue.title());
     let _ = writeln!(output);
-    let _ = write!(output, "{}", format_show_output(issue, issues, false));
+    let _ = write!(
+        output,
+        "{}",
+        format_show_output(issue, issues, false, no_color)
+    );
 
     // dependencies
     let deps = issue.deps();
@@ -208,7 +231,7 @@ mod tests {
         issues.insert(issue.id().to_string(), issue.clone());
         issues.insert(dep_issue.id().to_string(), dep_issue);
 
-        let output = format_show_output(&issue, &issues, false);
+        let output = format_show_output(&issue, &issues, false, true);
 
         assert!(output.contains("ID:       brd-1234"));
         assert!(output.contains("Title:    test issue"));
@@ -245,7 +268,7 @@ mod tests {
         issues.insert(issue.id().to_string(), issue.clone());
         issues.insert(dep_issue.id().to_string(), dep_issue);
 
-        let output = format_show_output(&issue, &issues, true);
+        let output = format_show_output(&issue, &issues, true, true);
         let json: serde_json::Value = serde_json::from_str(output.trim()).unwrap();
 
         assert_eq!(json["id"], "brd-1234");
