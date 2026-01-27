@@ -191,7 +191,50 @@ fn draw_dashboard(f: &mut Frame, area: Rect, app: &App) {
 
     let completed_delta = completed_total as i32 - completed_prev_week as i32;
 
-    // layout: top stats row, then agents, then velocity
+    // flow metrics: lead time and cycle time for completed issues
+    let mut lead_times: Vec<f64> = Vec::new();
+    let mut cycle_times: Vec<f64> = Vec::new();
+
+    for issue in app.issues.values() {
+        if issue.status() != Status::Done {
+            continue;
+        }
+        let Some(completed_at) = issue.frontmatter.completed_at else {
+            continue;
+        };
+
+        // lead time: completed - created
+        let lead_time = (completed_at - issue.frontmatter.created_at).as_seconds_f64();
+        if lead_time > 0.0 {
+            lead_times.push(lead_time);
+        }
+
+        // cycle time: completed - started (if started_at exists)
+        if let Some(started_at) = issue.frontmatter.started_at {
+            let cycle_time = (completed_at - started_at).as_seconds_f64();
+            if cycle_time > 0.0 {
+                cycle_times.push(cycle_time);
+            }
+        }
+    }
+
+    let lead_avg = if lead_times.is_empty() {
+        None
+    } else {
+        Some(lead_times.iter().sum::<f64>() / lead_times.len() as f64)
+    };
+    let lead_median = median(&lead_times);
+
+    let cycle_avg = if cycle_times.is_empty() {
+        None
+    } else {
+        Some(cycle_times.iter().sum::<f64>() / cycle_times.len() as f64)
+    };
+    let cycle_median = median(&cycle_times);
+
+    let completed_count = lead_times.len();
+
+    // layout: top stats row, then agents, then bottom row (velocity + flow)
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .margin(1)
@@ -200,9 +243,15 @@ fn draw_dashboard(f: &mut Frame, area: Rect, app: &App) {
             Constraint::Length(1), // spacing
             Constraint::Min(5),    // agents
             Constraint::Length(1), // spacing
-            Constraint::Length(5), // velocity (7d)
+            Constraint::Length(6), // bottom row (velocity + flow metrics)
         ])
         .split(area);
+
+    // bottom row: velocity (left) and flow metrics (right)
+    let bottom_cols = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
+        .split(chunks[4]);
 
     // top row: 3 columns for status/priority/health
     let top_cols = Layout::default()
@@ -390,8 +439,8 @@ fn draw_dashboard(f: &mut Frame, area: Rect, app: &App) {
         .title(" Velocity (7d) ")
         .borders(Borders::ALL)
         .border_style(Style::default().fg(Color::DarkGray));
-    let velocity_inner = velocity_block.inner(chunks[4]);
-    f.render_widget(velocity_block, chunks[4]);
+    let velocity_inner = velocity_block.inner(bottom_cols[0]);
+    f.render_widget(velocity_block, bottom_cols[0]);
 
     let completed_spark = make_sparkline(&completed_by_day);
     let created_spark = make_sparkline(&created_by_day);
@@ -418,6 +467,42 @@ fn draw_dashboard(f: &mut Frame, area: Rect, app: &App) {
         ]),
     ];
     f.render_widget(Paragraph::new(velocity_lines), velocity_inner);
+
+    // flow metrics box (lead time, cycle time)
+    let flow_block = Block::default()
+        .title(" Flow Metrics ")
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::DarkGray));
+    let flow_inner = flow_block.inner(bottom_cols[1]);
+    f.render_widget(flow_block, bottom_cols[1]);
+
+    let flow_lines = if completed_count == 0 {
+        vec![Line::from(Span::styled(
+            "(no completed issues)",
+            Style::default().fg(Color::DarkGray),
+        ))]
+    } else {
+        let lead_avg_str = lead_avg.map(format_duration_short).unwrap_or_default();
+        let lead_med_str = lead_median.map(format_duration_short).unwrap_or_default();
+        let cycle_avg_str = cycle_avg.map(format_duration_short).unwrap_or_default();
+        let cycle_med_str = cycle_median.map(format_duration_short).unwrap_or_default();
+
+        vec![
+            Line::from(vec![
+                Span::styled("lead time  ", Style::default().fg(Color::DarkGray)),
+                Span::raw(format!("avg {}  med {}", lead_avg_str, lead_med_str)),
+            ]),
+            Line::from(vec![
+                Span::styled("cycle time ", Style::default().fg(Color::DarkGray)),
+                Span::raw(format!("avg {}  med {}", cycle_avg_str, cycle_med_str)),
+            ]),
+            Line::from(Span::styled(
+                format!("({} completed issues)", completed_count),
+                Style::default().fg(Color::DarkGray),
+            )),
+        ]
+    };
+    f.render_widget(Paragraph::new(flow_lines), flow_inner);
 }
 
 /// Create a horizontal stacked bar from segments
@@ -678,6 +763,40 @@ fn draw_worktree_files(f: &mut Frame, area: Rect, app: &App) {
 
     let list = List::new(items).block(block);
     f.render_widget(list, area);
+}
+
+/// Calculate median of a slice of f64 values.
+fn median(values: &[f64]) -> Option<f64> {
+    if values.is_empty() {
+        return None;
+    }
+    let mut sorted = values.to_vec();
+    sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+    let mid = sorted.len() / 2;
+    if sorted.len().is_multiple_of(2) {
+        Some((sorted[mid - 1] + sorted[mid]) / 2.0)
+    } else {
+        Some(sorted[mid])
+    }
+}
+
+/// Format a duration in seconds to a short human-readable string.
+/// Examples: "< 1h", "2.3h", "1.5d", "2.1w"
+fn format_duration_short(seconds: f64) -> String {
+    let hours = seconds / 3600.0;
+    if hours < 1.0 {
+        "< 1h".to_string()
+    } else if hours < 24.0 {
+        format!("{:.1}h", hours)
+    } else {
+        let days = hours / 24.0;
+        if days < 7.0 {
+            format!("{:.1}d", days)
+        } else {
+            let weeks = days / 7.0;
+            format!("{:.1}w", weeks)
+        }
+    }
 }
 
 /// Create an ASCII sparkline from a slice of values.
