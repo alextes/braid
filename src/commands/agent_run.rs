@@ -312,14 +312,21 @@ pub fn cmd_agent_send(cli: &Cli, paths: &RepoPaths, session_id: &str, message: &
     // determine working directory (use worktree if set, otherwise repo root)
     let working_dir = session.worktree.as_ref().unwrap_or(&paths.worktree_root);
 
+    // append output to the session log file
+    let log_path = Session::log_path(&sessions_dir, &session.session_id);
+    let log_file = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&log_path)?;
+
     // spawn claude with --resume to continue the conversation
     let status = Command::new("claude")
         .args(["-p", "--verbose", message])
         .args(["--resume", &session.claude_session_id])
         .args(["--output-format", "stream-json"])
         .current_dir(working_dir)
-        .stdout(Stdio::inherit())
-        .stderr(Stdio::inherit())
+        .stdout(Stdio::from(log_file.try_clone()?))
+        .stderr(Stdio::from(log_file))
         .status()
         .map_err(|e| {
             if e.kind() == std::io::ErrorKind::NotFound {
