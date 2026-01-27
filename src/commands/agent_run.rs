@@ -601,6 +601,34 @@ fn print_event(event: &serde_json::Value) {
             // end of turn - add blank line for readability
             println!();
         }
+        "user" => {
+            // tool results returned to the model - show brief summary
+            if let Some(message) = event.get("message")
+                && let Some(content) = message.get("content").and_then(|c| c.as_array())
+            {
+                for item in content {
+                    if item.get("type").and_then(|t| t.as_str()) == Some("tool_result") {
+                        let is_error = item
+                            .get("is_error")
+                            .and_then(|e| e.as_bool())
+                            .unwrap_or(false);
+                        let content_len = item
+                            .get("content")
+                            .and_then(|c| c.as_str())
+                            .map(|s| s.len())
+                            .unwrap_or(0);
+                        if is_error {
+                            println!("  ↳ error ({} bytes)", content_len);
+                        } else {
+                            println!("  ↳ result ({} bytes)", content_len);
+                        }
+                    }
+                }
+            }
+        }
+        "system" => {
+            // system init event, skip (or could show session info)
+        }
         _ => {
             // unknown event type, print type for debugging
             println!("[{}]", event_type);
@@ -695,7 +723,33 @@ mod tests {
                     String::new()
                 }
             }
-            "message_stop" | "message_start" => String::new(),
+            "message_stop" | "message_start" | "system" => String::new(),
+            "user" => {
+                let mut output = String::new();
+                if let Some(message) = event.get("message")
+                    && let Some(content) = message.get("content").and_then(|c| c.as_array())
+                {
+                    for item in content {
+                        if item.get("type").and_then(|t| t.as_str()) == Some("tool_result") {
+                            let is_error = item
+                                .get("is_error")
+                                .and_then(|e| e.as_bool())
+                                .unwrap_or(false);
+                            let content_len = item
+                                .get("content")
+                                .and_then(|c| c.as_str())
+                                .map(|s| s.len())
+                                .unwrap_or(0);
+                            if is_error {
+                                output.push_str(&format!("  ↳ error ({} bytes)\n", content_len));
+                            } else {
+                                output.push_str(&format!("  ↳ result ({} bytes)\n", content_len));
+                            }
+                        }
+                    }
+                }
+                output
+            }
             _ => format!("[{}]\n", event_type),
         }
     }
@@ -764,6 +818,50 @@ mod tests {
     fn test_format_event_unknown_type() {
         let event = serde_json::json!({"type": "custom_event"});
         assert_eq!(format_event(&event), "[custom_event]\n");
+    }
+
+    #[test]
+    fn test_format_event_user_tool_result() {
+        let event = serde_json::json!({
+            "type": "user",
+            "message": {
+                "role": "user",
+                "content": [
+                    {
+                        "tool_use_id": "toolu_123",
+                        "type": "tool_result",
+                        "content": "command output here",
+                        "is_error": false
+                    }
+                ]
+            }
+        });
+        assert_eq!(format_event(&event), "  ↳ result (19 bytes)\n");
+    }
+
+    #[test]
+    fn test_format_event_user_tool_result_error() {
+        let event = serde_json::json!({
+            "type": "user",
+            "message": {
+                "role": "user",
+                "content": [
+                    {
+                        "tool_use_id": "toolu_123",
+                        "type": "tool_result",
+                        "content": "error message",
+                        "is_error": true
+                    }
+                ]
+            }
+        });
+        assert_eq!(format_event(&event), "  ↳ error (13 bytes)\n");
+    }
+
+    #[test]
+    fn test_format_event_system_silent() {
+        let event = serde_json::json!({"type": "system", "subtype": "init"});
+        assert_eq!(format_event(&event), "");
     }
 
     // =========================================================================
