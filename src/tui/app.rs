@@ -1027,51 +1027,97 @@ fn get_repo_name(worktree_root: &std::path::Path) -> String {
         .unwrap_or_else(|| "unknown".to_string())
 }
 
-/// discover agent worktrees from ~/.braid/worktrees/<repo>/*/.
-fn discover_worktrees(repo_name: &str) -> Vec<WorktreeInfo> {
+/// discover all worktrees for the current repo using `git worktree list`.
+/// includes both the main worktree and agent worktrees.
+fn discover_worktrees(_repo_name: &str) -> Vec<WorktreeInfo> {
     let mut worktrees = Vec::new();
 
-    // get home directory
-    let Ok(home) = std::env::var("HOME") else {
+    // run git worktree list --porcelain from current directory
+    let Ok(output) = std::process::Command::new("git")
+        .args(["worktree", "list", "--porcelain"])
+        .output()
+    else {
         return worktrees;
     };
 
-    // only look in the current repo's worktrees directory
-    let repo_worktrees_dir = PathBuf::from(home).join(".braid/worktrees").join(repo_name);
-
-    if !repo_worktrees_dir.exists() {
+    if !output.status.success() {
         return worktrees;
     }
 
-    // iterate over worktrees within this repo
-    let Ok(wt_entries) = std::fs::read_dir(&repo_worktrees_dir) else {
-        return worktrees;
-    };
+    let stdout = String::from_utf8_lossy(&output.stdout);
 
-    for wt_entry in wt_entries.flatten() {
-        let wt_path = wt_entry.path();
-        if !wt_path.is_dir() {
-            continue;
+    // parse porcelain format: blocks separated by blank lines
+    // each block has: worktree <path>, HEAD <sha>, branch refs/heads/<name>
+    let mut current_path: Option<PathBuf> = None;
+    let mut current_branch: Option<String> = None;
+
+    for line in stdout.lines() {
+        if line.starts_with("worktree ") {
+            current_path = Some(PathBuf::from(line.strip_prefix("worktree ").unwrap()));
+        } else if line.starts_with("branch refs/heads/") {
+            current_branch = line.strip_prefix("branch refs/heads/").map(String::from);
+        } else if line.is_empty() {
+            // end of block - process this worktree
+            if let Some(path) = current_path.take() {
+                let branch = current_branch.take();
+
+                // skip issues worktree (ends with /brd/issues or has braid-issues branch)
+                let path_str = path.to_string_lossy();
+                if path_str.ends_with("/brd/issues")
+                    || path_str.ends_with("/.git/brd/issues")
+                    || branch.as_deref() == Some("braid-issues")
+                {
+                    continue;
+                }
+
+                // determine display name
+                let name = path
+                    .file_name()
+                    .map(|n| n.to_string_lossy().to_string())
+                    .unwrap_or_else(|| "unknown".to_string());
+
+                // check if dirty
+                let is_dirty = crate::git::is_clean(&path).map(|c| !c).unwrap_or(false);
+
+                worktrees.push(WorktreeInfo {
+                    name,
+                    path,
+                    branch,
+                    is_dirty,
+                });
+            }
         }
-
-        let name = wt_entry.file_name().to_string_lossy().to_string();
-
-        // get branch name
-        let branch = crate::git::current_branch(&wt_path).ok();
-
-        // check if dirty
-        let is_dirty = crate::git::is_clean(&wt_path).map(|c| !c).unwrap_or(false);
-
-        worktrees.push(WorktreeInfo {
-            name,
-            path: wt_path,
-            branch,
-            is_dirty,
-        });
     }
 
-    // sort by name
-    worktrees.sort_by(|a, b| a.name.cmp(&b.name));
+    // handle last block if file doesn't end with blank line
+    if let Some(path) = current_path {
+        let branch = current_branch;
+        let path_str = path.to_string_lossy();
+        if !path_str.ends_with("/brd/issues")
+            && !path_str.ends_with("/.git/brd/issues")
+            && branch.as_deref() != Some("braid-issues")
+        {
+            let name = path
+                .file_name()
+                .map(|n| n.to_string_lossy().to_string())
+                .unwrap_or_else(|| "unknown".to_string());
+            let is_dirty = crate::git::is_clean(&path).map(|c| !c).unwrap_or(false);
+
+            worktrees.push(WorktreeInfo {
+                name,
+                path,
+                branch,
+                is_dirty,
+            });
+        }
+    }
+
+    // sort: main/master branch first, then alphabetically by name
+    worktrees.sort_by(|a, b| {
+        let a_is_main = matches!(a.branch.as_deref(), Some("main" | "master"));
+        let b_is_main = matches!(b.branch.as_deref(), Some("main" | "master"));
+        b_is_main.cmp(&a_is_main).then_with(|| a.name.cmp(&b.name))
+    });
 
     worktrees
 }
