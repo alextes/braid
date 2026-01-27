@@ -64,20 +64,19 @@ issues live in `.braid/issues/` alongside your code.
 ```toml
 # .braid/config.toml
 issues_branch = # not set
-auto_pull = true
-auto_push = true
 ```
 
 **how it works:**
-- `brd start` fetches, rebases, claims issue, commits, pushes
-- issue changes flow through normal git workflow
-- race conditions handled by git push conflicts
+- issues stored in `.braid/issues/` on each branch
+- issue changes are regular git commits
+- issue visibility follows branch visibility (local until pushed)
+- race conditions handled by git merge/rebase conflicts
 
 **workflow:**
 ```bash
-brd start              # claim issue (syncs with remote)
+brd start              # claim issue
 # work, commit
-brd done <id>          # mark done (pushes to remote)
+brd done <id>          # mark done
 ```
 
 ### separate branch
@@ -87,21 +86,18 @@ issues live on a dedicated branch in a shared worktree.
 ```toml
 # .braid/config.toml
 issues_branch = "braid-issues"
-auto_pull = true
-auto_push = true
 ```
 
 **how it works:**
 - issues stored at `.git/brd/issues/` (shared worktree)
 - all local agents see changes instantly (shared filesystem)
-- `brd sync` pushes/pulls the issues branch to remote
+- issue changes are commits on the issues branch
 
 **workflow:**
 ```bash
 brd start              # claim issue (instant local visibility)
 # work, commit
 brd done <id>          # mark done (instant local visibility)
-brd sync               # push issues to remote when ready
 ```
 
 ### external repository
