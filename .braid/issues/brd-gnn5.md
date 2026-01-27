@@ -3,13 +3,16 @@ schema_version: 8
 id: brd-gnn5
 title: 'dashboard: velocity sparkline (7-day trend)'
 priority: P2
-status: open
+status: done
 deps: []
 tags:
 - tui
 owner: null
 created_at: 2026-01-25T10:16:32.946666Z
+started_at: 2026-01-26T21:46:59.888856Z
+completed_at: 2026-01-26T21:53:21.957136Z
 ---
+
 add a velocity section to the TUI dashboard showing issue completion and creation trends over the past 7 days using ASCII sparklines.
 
 ## mockup

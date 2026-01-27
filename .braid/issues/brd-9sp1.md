@@ -3,13 +3,14 @@ schema_version: 8
 id: brd-9sp1
 title: add diff stat infrastructure to git.rs
 priority: P2
-status: doing
+status: done
 deps: []
 tags:
 - tui
-owner: agent-one
+owner: null
 created_at: 2026-01-25T21:30:37.47433Z
 started_at: 2026-01-26T08:59:00.821953Z
+completed_at: 2026-01-26T09:01:14.105641Z
 acceptance:
 - can get diff stats for any worktree
 - works for both uncommitted and committed changes

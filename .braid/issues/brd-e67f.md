@@ -3,7 +3,7 @@ schema_version: 8
 id: brd-e67f
 title: 'TUI: render unified diff view'
 priority: P2
-status: open
+status: done
 deps:
 - brd-mw75
 - brd-4uqo
@@ -11,6 +11,8 @@ tags:
 - tui
 owner: null
 created_at: 2026-01-25T21:30:47.184718Z
+started_at: 2026-01-26T13:54:30.629014Z
+completed_at: 2026-01-26T13:57:30.066504Z
 acceptance:
 - select file, see colored diff
 - can scroll through long diffs
