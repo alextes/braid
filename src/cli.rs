@@ -62,6 +62,10 @@ pub enum Command {
         #[arg(long)]
         blocked: bool,
 
+        /// show only issues scheduled for the future
+        #[arg(long)]
+        scheduled: bool,
+
         /// filter by tag (can be repeated)
         #[arg(long)]
         tag: Vec<String>,
@@ -95,7 +99,7 @@ pub enum Command {
         /// issue ID (full or partial)
         id: String,
 
-        /// field to update (priority, status, type, owner, title, tag)
+        /// field to update (priority, status, type, owner, title, tag, scheduled-for)
         field: String,
 
         /// new value
@@ -447,4 +451,8 @@ pub struct AddArgs {
     /// issue description/body
     #[arg(long, short)]
     pub body: Option<String>,
+
+    /// schedule issue for future date (YYYY-MM-DD, +Nd, +Nw, +Nmo, or "tomorrow")
+    #[arg(long)]
+    pub scheduled_for: Option<String>,
 }

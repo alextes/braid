@@ -8,7 +8,7 @@ use serde_yaml::Value;
 use crate::error::{BrdError, Result};
 
 /// The current schema version. All new issues are created with this version.
-pub const CURRENT_SCHEMA: u32 = 8;
+pub const CURRENT_SCHEMA: u32 = 9;
 
 /// Check if a schema version needs migration.
 pub fn needs_migration(schema_version: u32) -> bool {
@@ -63,6 +63,7 @@ fn apply_migration(frontmatter: Value, from_version: u32) -> Result<Value> {
         5 => migrate_v5_to_v6(frontmatter),
         6 => migrate_v6_to_v7(frontmatter),
         7 => migrate_v7_to_v8(frontmatter),
+        8 => migrate_v8_to_v9(frontmatter),
         _ => {
             // No migration needed for this version
             Ok(frontmatter)
@@ -214,6 +215,16 @@ fn migrate_v7_to_v8(mut frontmatter: Value) -> Result<Value> {
     Ok(frontmatter)
 }
 
+/// Migration from v8 to v9.
+/// - Adds optional `scheduled_for` field (no data changes needed)
+fn migrate_v8_to_v9(mut frontmatter: Value) -> Result<Value> {
+    if let Value::Mapping(ref mut map) = frontmatter {
+        let schema_key = Value::String("schema_version".to_string());
+        map.insert(schema_key, Value::Number(9.into()));
+    }
+    Ok(frontmatter)
+}
+
 /// Summary of what migrations would be applied to get from one version to another.
 pub fn migration_summary(from_version: u32, to_version: u32) -> Vec<String> {
     let mut summaries = Vec::new();
@@ -230,6 +241,7 @@ pub fn migration_summary(from_version: u32, to_version: u32) -> Vec<String> {
             7 => {
                 summaries.push("v7→v8: replace updated_at with started_at/completed_at".to_string())
             }
+            8 => summaries.push("v8→v9: add scheduled_for field".to_string()),
             _ => {}
         }
     }

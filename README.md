@@ -70,8 +70,8 @@ brd start
 ### issue management
 
 - `brd init` — initialize braid in current repo
-- `brd add "<title>" [-p P0-P3] [-b "<body>"] [--dep <id>] [--tag <tag>]` — create a new issue
-- `brd ls [--status open|doing|done|skip] [-p P0-P3] [--ready] [--blocked]` — list issues
+- `brd add "<title>" [-p P0-P3] [-b "<body>"] [--dep <id>] [--tag <tag>] [--scheduled-for <date>]` — create a new issue
+- `brd ls [--status open|doing|done|skip] [-p P0-P3] [--ready] [--blocked] [--scheduled]` — list issues
 - `brd show <id> [--context]` — show issue details (with `--context`: include deps and dependents)
 - `brd set <id> <field> <value>` — quickly update a field (priority, status, type, owner, title, tag)
 - `brd edit <id>` — open issue in $EDITOR
@@ -228,3 +228,28 @@ brd add "fix login crash" --tag bug
 brd add "refactor auth module" --tag tech-debt --tag auth
 brd ls --tag bug
 ```
+
+## scheduled issues
+
+schedule issues to become ready at a future date. scheduled issues won't appear in `brd ready` or regular `brd ls` until their scheduled date passes.
+
+```bash
+# create a scheduled issue
+brd add "update dependencies" --scheduled-for 2025-02-15
+brd add "weekly review" --scheduled-for +7d
+brd add "tomorrow's task" --scheduled-for tomorrow
+
+# view scheduled issues
+brd ls --scheduled
+
+# modify scheduling
+brd set <id> scheduled-for +30d
+brd set <id> scheduled-for -   # clear (makes it immediately available)
+```
+
+supported date formats:
+- ISO date: `2025-02-15` (midnight UTC)
+- relative days: `+7d`
+- relative weeks: `+2w`
+- relative months: `+1mo`
+- `tomorrow`

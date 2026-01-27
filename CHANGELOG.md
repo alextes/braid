@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **scheduled issues**: `--scheduled-for` flag on `brd add` to schedule issues for future dates
+- `brd ls --scheduled` to view future-scheduled issues
+- `brd set <id> scheduled-for <date>` to modify or clear scheduling
+- date parsing supports ISO dates (`2025-02-15`), relative formats (`+7d`, `+2w`, `+1mo`), and `tomorrow`
+
 ## [0.8.0]
 
 ### Added

@@ -2,6 +2,7 @@
 
 use crate::cli::{AddArgs, Cli};
 use crate::config::Config;
+use crate::date::parse_scheduled_date;
 use crate::error::Result;
 use crate::issue::{Issue, IssueType, Priority};
 use crate::lock::LockGuard;
@@ -26,11 +27,19 @@ pub fn cmd_add(cli: &Cli, paths: &RepoPaths, args: &AddArgs) -> Result<()> {
     let issues_dir = paths.issues_dir(&config);
     let id = generate_issue_id(&config, &issues_dir)?;
 
+    // parse scheduled_for if provided
+    let scheduled_for = args
+        .scheduled_for
+        .as_ref()
+        .map(|s| parse_scheduled_date(s))
+        .transpose()?;
+
     // create issue
     let mut issue = Issue::new(id.clone(), args.title.clone(), priority, resolved_deps);
     issue.frontmatter.issue_type = issue_type;
     issue.frontmatter.acceptance = args.ac.clone();
     issue.frontmatter.tags = args.tag.clone();
+    issue.frontmatter.scheduled_for = scheduled_for;
     if let Some(ref b) = args.body {
         issue.body = b.clone();
     }
@@ -65,6 +74,7 @@ mod tests {
             ac: vec![],
             tag: vec![],
             body: None,
+            scheduled_for: None,
         }
     }
 
@@ -101,6 +111,7 @@ mod tests {
             ac: vec!["criterion 1".to_string(), "criterion 2".to_string()],
             tag: vec!["testing".to_string(), "urgent".to_string()],
             body: Some("This is the body".to_string()),
+            scheduled_for: None,
         };
 
         let result = cmd_add(&test_cli(), &repo.paths, &args);
@@ -390,5 +401,64 @@ mod tests {
         let issues = load_all_issues(&repo.paths, &repo.config).unwrap();
         let issue = issues.values().next().unwrap();
         assert!(issue.body.is_empty());
+    }
+
+    // =========================================================================
+    // Scheduled for tests
+    // =========================================================================
+
+    #[test]
+    fn test_add_with_scheduled_for_relative() {
+        let repo = TestRepo::builder().build();
+        let mut args = make_args("Scheduled issue");
+        args.scheduled_for = Some("+7d".to_string());
+
+        let result = cmd_add(&test_cli(), &repo.paths, &args);
+        assert!(result.is_ok());
+
+        let issues = load_all_issues(&repo.paths, &repo.config).unwrap();
+        let issue = issues.values().next().unwrap();
+        assert!(issue.frontmatter.scheduled_for.is_some());
+    }
+
+    #[test]
+    fn test_add_with_scheduled_for_iso() {
+        let repo = TestRepo::builder().build();
+        let mut args = make_args("Scheduled issue ISO");
+        args.scheduled_for = Some("2099-12-31".to_string());
+
+        let result = cmd_add(&test_cli(), &repo.paths, &args);
+        assert!(result.is_ok());
+
+        let issues = load_all_issues(&repo.paths, &repo.config).unwrap();
+        let issue = issues.values().next().unwrap();
+        let scheduled = issue.frontmatter.scheduled_for.unwrap();
+        assert_eq!(scheduled.year(), 2099);
+        assert_eq!(scheduled.month() as u8, 12);
+        assert_eq!(scheduled.day(), 31);
+    }
+
+    #[test]
+    fn test_add_with_scheduled_for_tomorrow() {
+        let repo = TestRepo::builder().build();
+        let mut args = make_args("Tomorrow issue");
+        args.scheduled_for = Some("tomorrow".to_string());
+
+        let result = cmd_add(&test_cli(), &repo.paths, &args);
+        assert!(result.is_ok());
+
+        let issues = load_all_issues(&repo.paths, &repo.config).unwrap();
+        let issue = issues.values().next().unwrap();
+        assert!(issue.frontmatter.scheduled_for.is_some());
+    }
+
+    #[test]
+    fn test_add_with_invalid_scheduled_for() {
+        let repo = TestRepo::builder().build();
+        let mut args = make_args("Bad scheduled");
+        args.scheduled_for = Some("invalid-date".to_string());
+
+        let result = cmd_add(&test_cli(), &repo.paths, &args);
+        assert!(result.is_err());
     }
 }

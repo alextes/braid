@@ -521,7 +521,9 @@ pub fn cmd_agent_clean(cli: &Cli, paths: &RepoPaths, all: bool, force: bool) -> 
 
         // remove each file if it exists
         for path in [&state_path, &log_path, &stdin_path] {
-            if path.exists() && let Err(e) = std::fs::remove_file(path) {
+            if path.exists()
+                && let Err(e) = std::fs::remove_file(path)
+            {
                 eprintln!("warning: failed to remove {}: {}", path.display(), e);
             }
         }

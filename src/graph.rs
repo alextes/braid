@@ -2,6 +2,8 @@
 
 use std::collections::{HashMap, HashSet};
 
+use time::OffsetDateTime;
+
 use crate::issue::{Issue, Status};
 
 /// derived information about an issue's dependency state.
@@ -15,6 +17,8 @@ pub struct DerivedState {
     pub missing_deps: Vec<String>,
     /// whether the issue is blocked (not ready due to deps)
     pub is_blocked: bool,
+    /// whether the issue is scheduled for the future
+    pub is_scheduled: bool,
 }
 
 /// compute derived state for a single issue given a lookup of all issues.
@@ -36,8 +40,17 @@ pub fn compute_derived(issue: &Issue, all_issues: &HashMap<String, Issue>) -> De
         }
     }
 
-    let is_ready =
-        issue.status() == Status::Open && open_deps.is_empty() && missing_deps.is_empty();
+    // issue is scheduled if scheduled_for is in the future
+    let is_scheduled = issue
+        .frontmatter
+        .scheduled_for
+        .map(|dt| OffsetDateTime::now_utc() < dt)
+        .unwrap_or(false);
+
+    let is_ready = issue.status() == Status::Open
+        && open_deps.is_empty()
+        && missing_deps.is_empty()
+        && !is_scheduled;
 
     let is_blocked =
         issue.status() == Status::Open && (!open_deps.is_empty() || !missing_deps.is_empty());
@@ -47,6 +60,7 @@ pub fn compute_derived(issue: &Issue, all_issues: &HashMap<String, Issue>) -> De
         open_deps,
         missing_deps,
         is_blocked,
+        is_scheduled,
     }
 }
 

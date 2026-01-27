@@ -2,6 +2,7 @@
 
 use crate::cli::Cli;
 use crate::config::Config;
+use crate::date::parse_scheduled_date;
 use crate::error::{BrdError, Result};
 use crate::issue::{IssueType, Priority, Status};
 use crate::lock::LockGuard;
@@ -64,9 +65,17 @@ pub fn cmd_set(cli: &Cli, paths: &RepoPaths, id: &str, field: &str, value: &str)
                     }
                 }
             }
+            "scheduled-for" | "scheduled" => {
+                if value == "-" {
+                    issue.frontmatter.scheduled_for = None;
+                } else {
+                    let scheduled = parse_scheduled_date(value)?;
+                    issue.frontmatter.scheduled_for = Some(scheduled);
+                }
+            }
             _ => {
                 return Err(BrdError::Other(format!(
-                    "unknown field '{}'. supported: priority, status, type, owner, title, tag",
+                    "unknown field '{}'. supported: priority, status, type, owner, title, tag, scheduled-for",
                     field
                 )));
             }
@@ -294,5 +303,93 @@ mod tests {
 
         let issues = load_all_issues(&repo.paths, &repo.config).unwrap();
         assert_eq!(issues.get("brd-tag4").unwrap().tags().len(), 1);
+    }
+
+    #[test]
+    fn test_set_scheduled_for() {
+        let repo = TestRepo::builder().build();
+        repo.issue("brd-sched1").create();
+
+        cmd_set(
+            &test_cli(),
+            &repo.paths,
+            "brd-sched1",
+            "scheduled-for",
+            "+7d",
+        )
+        .unwrap();
+
+        let issues = load_all_issues(&repo.paths, &repo.config).unwrap();
+        assert!(
+            issues
+                .get("brd-sched1")
+                .unwrap()
+                .frontmatter
+                .scheduled_for
+                .is_some()
+        );
+    }
+
+    #[test]
+    fn test_set_scheduled_for_iso() {
+        let repo = TestRepo::builder().build();
+        repo.issue("brd-sched2").create();
+
+        cmd_set(
+            &test_cli(),
+            &repo.paths,
+            "brd-sched2",
+            "scheduled-for",
+            "2099-06-15",
+        )
+        .unwrap();
+
+        let issues = load_all_issues(&repo.paths, &repo.config).unwrap();
+        let scheduled = issues
+            .get("brd-sched2")
+            .unwrap()
+            .frontmatter
+            .scheduled_for
+            .unwrap();
+        assert_eq!(scheduled.year(), 2099);
+        assert_eq!(scheduled.month() as u8, 6);
+    }
+
+    #[test]
+    fn test_set_scheduled_for_clear() {
+        use time::{Duration, OffsetDateTime};
+        let repo = TestRepo::builder().build();
+        let future = OffsetDateTime::now_utc() + Duration::days(30);
+        repo.issue("brd-sched3").scheduled_for(future).create();
+
+        cmd_set(&test_cli(), &repo.paths, "brd-sched3", "scheduled-for", "-").unwrap();
+
+        let issues = load_all_issues(&repo.paths, &repo.config).unwrap();
+        assert!(
+            issues
+                .get("brd-sched3")
+                .unwrap()
+                .frontmatter
+                .scheduled_for
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn test_set_scheduled_short_field() {
+        let repo = TestRepo::builder().build();
+        repo.issue("brd-sched4").create();
+
+        cmd_set(&test_cli(), &repo.paths, "brd-sched4", "scheduled", "+1mo").unwrap();
+
+        let issues = load_all_issues(&repo.paths, &repo.config).unwrap();
+        assert!(
+            issues
+                .get("brd-sched4")
+                .unwrap()
+                .frontmatter
+                .scheduled_for
+                .is_some()
+        );
     }
 }

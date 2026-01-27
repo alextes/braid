@@ -7,6 +7,7 @@ use time::OffsetDateTime;
 
 use crate::cli::Cli;
 use crate::config::Config;
+use crate::date::format_scheduled;
 use crate::error::Result;
 use crate::graph::compute_derived;
 use crate::issue::{Issue, IssueType, Priority, Status};
@@ -52,6 +53,7 @@ pub fn cmd_ls(
     priority_filter: Option<&str>,
     ready_only: bool,
     blocked_only: bool,
+    scheduled_only: bool,
     tag_filter: &[String],
     show_all: bool,
 ) -> Result<()> {
@@ -65,6 +67,18 @@ pub fn cmd_ls(
     let filtered: Vec<&Issue> = issues
         .values()
         .filter(|issue| {
+            let derived = compute_derived(issue, &issues);
+
+            // --scheduled: show only future-scheduled issues
+            if scheduled_only {
+                return derived.is_scheduled;
+            }
+
+            // by default, hide future-scheduled issues from normal listings
+            if derived.is_scheduled {
+                return false;
+            }
+
             if let Some(s) = status_filter
                 && issue.status() != s
             {
@@ -75,17 +89,11 @@ pub fn cmd_ls(
             {
                 return false;
             }
-            if ready_only {
-                let derived = compute_derived(issue, &issues);
-                if !derived.is_ready {
-                    return false;
-                }
+            if ready_only && !derived.is_ready {
+                return false;
             }
-            if blocked_only {
-                let derived = compute_derived(issue, &issues);
-                if !derived.is_blocked {
-                    return false;
-                }
+            if blocked_only && !derived.is_blocked {
+                return false;
             }
             if !tag_filter.is_empty() && !tag_filter.iter().all(|tag| issue.tags().contains(tag)) {
                 return false;
@@ -94,22 +102,35 @@ pub fn cmd_ls(
         })
         .collect();
 
-    // partition into doing, open, and resolved (done/skip) issues
+    // partition into doing, open, scheduled, and resolved (done/skip) issues
     let mut doing: Vec<&Issue> = Vec::new();
     let mut open: Vec<&Issue> = Vec::new();
+    let mut scheduled: Vec<&Issue> = Vec::new();
     let mut resolved: Vec<&Issue> = Vec::new();
 
     for issue in filtered {
-        match issue.status() {
-            Status::Doing => doing.push(issue),
-            Status::Open => open.push(issue),
-            Status::Done | Status::Skip => resolved.push(issue),
+        let derived = compute_derived(issue, &issues);
+        if derived.is_scheduled {
+            scheduled.push(issue);
+        } else {
+            match issue.status() {
+                Status::Doing => doing.push(issue),
+                Status::Open => open.push(issue),
+                Status::Done | Status::Skip => resolved.push(issue),
+            }
         }
     }
 
     // sort doing and open by priority, created_at, id
     doing.sort_by(|a, b| a.cmp_by_priority(b));
     open.sort_by(|a, b| a.cmp_by_priority(b));
+
+    // sort scheduled issues by scheduled_for date (soonest first)
+    scheduled.sort_by(|a, b| {
+        let a_time = a.frontmatter.scheduled_for.unwrap();
+        let b_time = b.frontmatter.scheduled_for.unwrap();
+        a_time.cmp(&b_time).then_with(|| a.id().cmp(b.id()))
+    });
 
     // sort resolved issues by completed_at (most recent first), then by id for stability
     resolved.sort_by(|a, b| {
@@ -127,6 +148,7 @@ pub fn cmd_ls(
     // compute total counts BEFORE truncation
     let total_doing = doing.len();
     let total_open = open.len();
+    let total_scheduled = scheduled.len();
     let total_done = resolved
         .iter()
         .filter(|i| i.status() == Status::Done)
@@ -141,6 +163,7 @@ pub fn cmd_ls(
     let hidden_resolved;
 
     // limit open and resolved issues unless --all is specified
+    // (scheduled issues use their own view with --scheduled, so no limit here)
     if !show_all && open.len() > DEFAULT_OPEN_LIMIT {
         hidden_open = open.len() - DEFAULT_OPEN_LIMIT;
         open.truncate(DEFAULT_OPEN_LIMIT);
@@ -155,8 +178,12 @@ pub fn cmd_ls(
         hidden_resolved = 0;
     }
 
-    // combine: doing first, then open, then resolved
-    let filtered: Vec<&Issue> = doing.into_iter().chain(open).chain(resolved).collect();
+    // combine: for --scheduled show only scheduled, otherwise show doing/open/resolved
+    let filtered: Vec<&Issue> = if scheduled_only {
+        scheduled
+    } else {
+        doing.into_iter().chain(open).chain(resolved).collect()
+    };
 
     if cli.json {
         let json: Vec<_> = filtered
@@ -239,9 +266,15 @@ pub fn cmd_ls(
                 }
             }
 
-            // age column: padded to 4 chars (max is "99mo")
-            let age = format_age(issue.frontmatter.created_at);
-            let age_col = format!("{:>4}", age);
+            // age/schedule column: padded to 7 chars (max is "in 99mo")
+            // for scheduled issues, show "in Xd" format; otherwise show age
+            let age_col = if derived.is_scheduled {
+                let scheduled = format_scheduled(issue.frontmatter.scheduled_for.unwrap());
+                format!("{:>7}", scheduled)
+            } else {
+                let age = format_age(issue.frontmatter.created_at);
+                format!("{:>7}", age)
+            };
 
             // type column: "design", "meta", or padded empty (8 chars)
             let type_col = match issue.issue_type() {
@@ -363,15 +396,22 @@ pub fn cmd_ls(
 
         // build summary line: open (open+doing), plus non-zero resolved counts
         let mut parts = Vec::new();
-        parts.push(format!("open: {}", open_count));
-        if total_doing > 0 {
-            parts.push(format!("doing: {}", total_doing));
-        }
-        if total_done > 0 {
-            parts.push(format!("done: {}", total_done));
-        }
-        if total_skip > 0 {
-            parts.push(format!("skip: {}", total_skip));
+        if scheduled_only {
+            parts.push(format!("scheduled: {}", total_scheduled));
+        } else {
+            parts.push(format!("open: {}", open_count));
+            if total_doing > 0 {
+                parts.push(format!("doing: {}", total_doing));
+            }
+            if total_scheduled > 0 {
+                parts.push(format!("scheduled: {}", total_scheduled));
+            }
+            if total_done > 0 {
+                parts.push(format!("done: {}", total_done));
+            }
+            if total_skip > 0 {
+                parts.push(format!("skip: {}", total_skip));
+            }
         }
 
         println!("{} | took: {}ms", parts.join(" | "), elapsed_ms);

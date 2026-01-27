@@ -5,6 +5,7 @@
 use std::fs;
 
 use tempfile::{TempDir, tempdir};
+use time::OffsetDateTime;
 
 use crate::cli::{Cli, Command};
 use crate::config::Config;
@@ -95,6 +96,7 @@ pub struct IssueBuilder<'a> {
     owner: Option<String>,
     deps: Vec<String>,
     tags: Vec<String>,
+    scheduled_for: Option<OffsetDateTime>,
 }
 
 impl<'a> IssueBuilder<'a> {
@@ -109,6 +111,7 @@ impl<'a> IssueBuilder<'a> {
             owner: None,
             deps: vec![],
             tags: vec![],
+            scheduled_for: None,
         }
     }
 
@@ -147,6 +150,11 @@ impl<'a> IssueBuilder<'a> {
         self
     }
 
+    pub fn scheduled_for(mut self, dt: OffsetDateTime) -> Self {
+        self.scheduled_for = Some(dt);
+        self
+    }
+
     /// create the issue file in the test repo
     pub fn create(self) -> Issue {
         let mut issue = Issue::new(
@@ -159,6 +167,7 @@ impl<'a> IssueBuilder<'a> {
         issue.frontmatter.issue_type = self.issue_type;
         issue.frontmatter.owner = self.owner;
         issue.frontmatter.tags = self.tags;
+        issue.frontmatter.scheduled_for = self.scheduled_for;
 
         let path = self
             .repo

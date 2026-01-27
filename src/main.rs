@@ -76,6 +76,7 @@ fn run(cli: &Cli) -> Result<()> {
             priority,
             ready,
             blocked,
+            scheduled,
             tag,
             all,
         } => cmd_ls(
@@ -85,6 +86,7 @@ fn run(cli: &Cli) -> Result<()> {
             priority.as_deref(),
             *ready,
             *blocked,
+            *scheduled,
             tag,
             *all,
         ),

@@ -143,6 +143,12 @@ pub struct IssueFrontmatter {
         with = "time::serde::rfc3339::option"
     )]
     pub completed_at: Option<OffsetDateTime>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "time::serde::rfc3339::option"
+    )]
+    pub scheduled_for: Option<OffsetDateTime>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub acceptance: Vec<String>,
 }
@@ -173,6 +179,7 @@ impl Issue {
                 created_at: now,
                 started_at: None,
                 completed_at: None,
+                scheduled_for: None,
                 acceptance: Vec::new(),
             },
             body: String::new(),
