@@ -282,7 +282,7 @@ impl App {
             self.offset = 0;
         }
 
-        self.reset_dep_selection();
+        self.clamp_dep_selection();
         self.apply_filter();
         if show_message {
             self.message = Some("refreshed".to_string());
@@ -1209,6 +1209,7 @@ impl App {
         }
     }
 
+    /// reset dep selection to 0 (used when changing selected issue).
     fn reset_dep_selection(&mut self) {
         let deps_len = self
             .selected_issue()
@@ -1216,6 +1217,23 @@ impl App {
             .unwrap_or(0);
         if deps_len == 0 {
             self.detail_dep_selected = None;
+        } else {
+            self.detail_dep_selected = Some(0);
+        }
+    }
+
+    /// clamp dep selection to valid range without resetting (used on reload).
+    fn clamp_dep_selection(&mut self) {
+        let deps_len = self
+            .selected_issue()
+            .map(|issue| issue.deps().len())
+            .unwrap_or(0);
+        if deps_len == 0 {
+            self.detail_dep_selected = None;
+        } else if let Some(idx) = self.detail_dep_selected {
+            if idx >= deps_len {
+                self.detail_dep_selected = Some(deps_len - 1);
+            }
         } else {
             self.detail_dep_selected = Some(0);
         }
@@ -1551,6 +1569,28 @@ mod tests {
             issue.save(&issue_path).expect("failed to save issue");
         }
 
+        fn add_issue_with_deps(
+            &self,
+            id: &str,
+            title: &str,
+            priority: Priority,
+            status: Status,
+            deps: Vec<&str>,
+        ) {
+            let mut issue = Issue::new(
+                id.to_string(),
+                title.to_string(),
+                priority,
+                deps.into_iter().map(String::from).collect(),
+            );
+            issue.frontmatter.status = status;
+            let issue_path = self
+                .paths
+                .issues_dir(&self.config)
+                .join(format!("{}.md", id));
+            issue.save(&issue_path).expect("failed to save issue");
+        }
+
         fn app(&self) -> App {
             App::new(&self.paths).expect("failed to create app")
         }
@@ -1820,5 +1860,66 @@ mod tests {
         app.filter_query.clear();
         app.status_filter.insert(Status::Done);
         assert!(app.has_filter());
+    }
+
+    #[test]
+    fn test_reload_preserves_dep_selection() {
+        let env = TestEnv::new();
+        env.add_issue("brd-dep1", "dep one", Priority::P2, Status::Open);
+        env.add_issue("brd-dep2", "dep two", Priority::P3, Status::Open);
+        env.add_issue("brd-dep3", "dep three", Priority::P3, Status::Open);
+        env.add_issue_with_deps(
+            "brd-main",
+            "main issue",
+            Priority::P1,
+            Status::Open,
+            vec!["brd-dep1", "brd-dep2", "brd-dep3"],
+        );
+
+        let mut app = env.app();
+
+        // select brd-main (should be first due to priority)
+        assert_eq!(app.selected_issue_id(), Some("brd-main"));
+        assert_eq!(app.detail_dep_selected, Some(0));
+
+        // move to dep index 2
+        app.move_dep_next();
+        app.move_dep_next();
+        assert_eq!(app.detail_dep_selected, Some(2));
+
+        // reload issues - should preserve dep selection
+        app.reload_issues(&env.paths).expect("reload failed");
+        assert_eq!(app.detail_dep_selected, Some(2));
+    }
+
+    #[test]
+    fn test_reload_clamps_dep_selection_when_deps_removed() {
+        let env = TestEnv::new();
+        env.add_issue("brd-dep1", "dep one", Priority::P2, Status::Open);
+        env.add_issue("brd-dep2", "dep two", Priority::P3, Status::Open);
+        env.add_issue_with_deps(
+            "brd-main",
+            "main issue",
+            Priority::P1,
+            Status::Open,
+            vec!["brd-dep1", "brd-dep2"],
+        );
+
+        let mut app = env.app();
+        assert_eq!(app.selected_issue_id(), Some("brd-main"));
+
+        // move to dep index 1
+        app.move_dep_next();
+        assert_eq!(app.detail_dep_selected, Some(1));
+
+        // remove one dep from the issue file
+        let issue_path = env.paths.issues_dir(&env.config).join("brd-main.md");
+        let mut issue = app.issues.get("brd-main").unwrap().clone();
+        issue.frontmatter.deps = vec!["brd-dep1".to_string()];
+        issue.save(&issue_path).expect("failed to save");
+
+        // reload - should clamp to max valid index (0)
+        app.reload_issues(&env.paths).expect("reload failed");
+        assert_eq!(app.detail_dep_selected, Some(0));
     }
 }
