@@ -1084,16 +1084,23 @@ fn draw_issue_list(f: &mut Frame, area: Rect, app: &mut App) {
     let view_height = block.inner(area).height as usize;
     let now = OffsetDateTime::now_utc();
 
+    // compute issues that are blocking the currently selected issue
+    let blockers = app.get_blocking_selected();
+
     let items: Vec<ListItem> = visible
         .iter()
         .enumerate()
         .map(|(i, id)| {
             let issue = app.issues.get(id).unwrap();
             let derived = compute_derived(issue, &app.issues);
-            // only show → prefix for doing issues; done/skip are grey, blocked are dimmed
-            let status_prefix = match issue.status() {
-                crate::issue::Status::Doing => "→ ",
-                _ => "  ",
+            let is_blocker = blockers.contains(id);
+            // show ! for blockers, → for doing, otherwise space
+            let status_prefix = if issue.status() == Status::Doing {
+                "→ "
+            } else if is_blocker {
+                "! "
+            } else {
+                "  "
             };
             let age = format_age(issue.frontmatter.created_at);
             let owner = issue
@@ -1127,18 +1134,16 @@ fn draw_issue_list(f: &mut Frame, area: Rect, app: &mut App) {
                     .add_modifier(Modifier::BOLD)
             } else {
                 match issue.status() {
-                    crate::issue::Status::Done | crate::issue::Status::Skip => {
-                        Style::default().fg(Color::DarkGray)
-                    }
-                    crate::issue::Status::Doing => {
+                    Status::Done | Status::Skip => Style::default().fg(Color::DarkGray),
+                    Status::Doing => {
                         let age_color = age_color(duration);
                         Style::default().fg(age_color)
                     }
-                    crate::issue::Status::Open if is_blocked => {
+                    Status::Open if is_blocked => {
                         // blocked issues are slightly dimmed
                         Style::default().fg(Color::Rgb(170, 170, 170))
                     }
-                    crate::issue::Status::Open => Style::default(),
+                    Status::Open => Style::default(),
                 }
             };
 
@@ -1149,9 +1154,9 @@ fn draw_issue_list(f: &mut Frame, area: Rect, app: &mut App) {
                 None => base_style,
             };
 
+            // build line with optional red "!" prefix for blockers
             let rest_of_line = format!(
-                "{}{} {} {:>4} {:<10} {}",
-                status_prefix,
+                "{} {} {:>4} {:<10} {}",
                 id,
                 issue.priority(),
                 age,
@@ -1159,7 +1164,18 @@ fn draw_issue_list(f: &mut Frame, area: Rect, app: &mut App) {
                 title_and_tags
             );
 
-            let line = Line::from(Span::styled(rest_of_line, style));
+            let line = if is_blocker && !is_selected {
+                // show red "!" prefix for blockers (but not when selected, as bg is yellow)
+                Line::from(vec![
+                    Span::styled("! ", Style::default().fg(Color::Red)),
+                    Span::styled(rest_of_line, style),
+                ])
+            } else {
+                Line::from(Span::styled(
+                    format!("{}{}", status_prefix, rest_of_line),
+                    style,
+                ))
+            };
 
             ListItem::new(line)
         })
@@ -1288,28 +1304,29 @@ fn draw_detail(f: &mut Frame, area: Rect, app: &App) {
             "Dependencies:",
             Style::default().fg(Color::DarkGray),
         )));
-        for (idx, dep) in issue.deps().iter().enumerate() {
-            let is_resolved = app
-                .issues
-                .get(dep)
-                .map(|d| {
-                    matches!(
-                        d.status(),
-                        crate::issue::Status::Done | crate::issue::Status::Skip
-                    )
-                })
-                .unwrap_or(false);
-            let mut style = if is_resolved {
-                Style::default().fg(Color::Green)
+        for (idx, dep_id) in issue.deps().iter().enumerate() {
+            let is_selected = Some(idx) == selected_dep;
+            let prefix = if is_selected { ">" } else { " " };
+
+            let (symbol, status_text, base_color) = if let Some(dep_issue) = app.issues.get(dep_id)
+            {
+                match dep_issue.status() {
+                    Status::Done => ("✓", "done", Color::Green),
+                    Status::Skip => ("⊘", "skip", Color::DarkGray),
+                    Status::Doing => ("→", "doing", Color::Yellow),
+                    Status::Open => ("○", "open", Color::White),
+                }
             } else {
-                Style::default().fg(Color::Red)
+                ("?", "missing", Color::Red)
             };
-            let prefix = if Some(idx) == selected_dep { ">" } else { "-" };
-            if Some(idx) == selected_dep {
+
+            let mut style = Style::default().fg(base_color);
+            if is_selected {
                 style = style.add_modifier(Modifier::BOLD);
             }
+
             lines.push(Line::from(Span::styled(
-                format!("  {} {}", prefix, dep),
+                format!("{} {} {} ({})", prefix, symbol, dep_id, status_text),
                 style,
             )));
         }
@@ -1357,24 +1374,22 @@ fn draw_detail(f: &mut Frame, area: Rect, app: &App) {
             Style::default().fg(Color::DarkGray),
         )));
         for dep_id in &dependents {
-            let status_info = app
-                .issues
-                .get(dep_id)
-                .map(|d| {
-                    let status_str = d.status().to_string();
-                    let style = match d.status() {
-                        crate::issue::Status::Done => Style::default().fg(Color::Green),
-                        crate::issue::Status::Doing => Style::default().fg(Color::Yellow),
-                        crate::issue::Status::Open => Style::default(),
-                        crate::issue::Status::Skip => Style::default().fg(Color::DarkGray),
-                    };
-                    (status_str, style)
-                })
-                .unwrap_or_else(|| ("missing".to_string(), Style::default().fg(Color::Red)));
-            lines.push(Line::from(vec![
-                Span::raw(format!("  - {} ", dep_id)),
-                Span::styled(format!("({})", status_info.0), status_info.1),
-            ]));
+            let (symbol, status_text, base_color) = if let Some(dep_issue) = app.issues.get(dep_id)
+            {
+                match dep_issue.status() {
+                    Status::Done => ("✓", "done", Color::Green),
+                    Status::Skip => ("⊘", "skip", Color::DarkGray),
+                    Status::Doing => ("→", "doing", Color::Yellow),
+                    Status::Open => ("○", "open", Color::White),
+                }
+            } else {
+                ("?", "missing", Color::Red)
+            };
+
+            lines.push(Line::from(Span::styled(
+                format!("  {} {} ({})", symbol, dep_id, status_text),
+                Style::default().fg(base_color),
+            )));
         }
     }
 
@@ -1498,23 +1513,23 @@ fn draw_detail_overlay(f: &mut Frame, area: Rect, app: &App) {
             "Dependencies:",
             Style::default().fg(Color::DarkGray),
         )));
-        for dep in issue.deps() {
-            let is_resolved = app
-                .issues
-                .get(dep)
-                .map(|d| {
-                    matches!(
-                        d.status(),
-                        crate::issue::Status::Done | crate::issue::Status::Skip
-                    )
-                })
-                .unwrap_or(false);
-            let style = if is_resolved {
-                Style::default().fg(Color::Green)
+        for dep_id in issue.deps() {
+            let (symbol, status_text, base_color) = if let Some(dep_issue) = app.issues.get(dep_id)
+            {
+                match dep_issue.status() {
+                    Status::Done => ("✓", "done", Color::Green),
+                    Status::Skip => ("⊘", "skip", Color::DarkGray),
+                    Status::Doing => ("→", "doing", Color::Yellow),
+                    Status::Open => ("○", "open", Color::White),
+                }
             } else {
-                Style::default().fg(Color::Red)
+                ("?", "missing", Color::Red)
             };
-            lines.push(Line::from(Span::styled(format!("  - {}", dep), style)));
+
+            lines.push(Line::from(Span::styled(
+                format!("  {} {} ({})", symbol, dep_id, status_text),
+                Style::default().fg(base_color),
+            )));
         }
     }
 
@@ -1527,24 +1542,22 @@ fn draw_detail_overlay(f: &mut Frame, area: Rect, app: &App) {
             Style::default().fg(Color::DarkGray),
         )));
         for dep_id in &dependents {
-            let status_info = app
-                .issues
-                .get(dep_id)
-                .map(|d| {
-                    let status_str = d.status().to_string();
-                    let style = match d.status() {
-                        crate::issue::Status::Done => Style::default().fg(Color::Green),
-                        crate::issue::Status::Doing => Style::default().fg(Color::Yellow),
-                        crate::issue::Status::Open => Style::default(),
-                        crate::issue::Status::Skip => Style::default().fg(Color::DarkGray),
-                    };
-                    (status_str, style)
-                })
-                .unwrap_or_else(|| ("missing".to_string(), Style::default().fg(Color::Red)));
-            lines.push(Line::from(vec![
-                Span::raw(format!("  - {} ", dep_id)),
-                Span::styled(format!("({})", status_info.0), status_info.1),
-            ]));
+            let (symbol, status_text, base_color) = if let Some(dep_issue) = app.issues.get(dep_id)
+            {
+                match dep_issue.status() {
+                    Status::Done => ("✓", "done", Color::Green),
+                    Status::Skip => ("⊘", "skip", Color::DarkGray),
+                    Status::Doing => ("→", "doing", Color::Yellow),
+                    Status::Open => ("○", "open", Color::White),
+                }
+            } else {
+                ("?", "missing", Color::Red)
+            };
+
+            lines.push(Line::from(Span::styled(
+                format!("  {} {} ({})", symbol, dep_id, status_text),
+                Style::default().fg(base_color),
+            )));
         }
     }
 

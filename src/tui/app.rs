@@ -777,9 +777,13 @@ impl App {
                 if !self.status_filter.is_empty() && !self.status_filter.contains(&issue.status()) {
                     return false;
                 }
-                // check query filter
-                if !query.is_empty() && !issue.title().to_lowercase().contains(&query) {
-                    return false;
+                // check query filter (matches title or id)
+                if !query.is_empty() {
+                    let matches_title = issue.title().to_lowercase().contains(&query);
+                    let matches_id = issue.id().to_lowercase().contains(&query);
+                    if !matches_title && !matches_id {
+                        return false;
+                    }
                 }
                 true
             })
@@ -885,6 +889,25 @@ impl App {
     /// get derived state for an issue.
     pub fn derived_state(&self, issue: &Issue) -> DerivedState {
         compute_derived(issue, &self.issues)
+    }
+
+    /// get the set of issue IDs that are currently blocking the selected issue.
+    /// returns an empty set if no issue is selected or the issue is not blocked.
+    pub fn get_blocking_selected(&self) -> HashSet<String> {
+        let mut blockers = HashSet::new();
+        let Some(selected_id) = self.selected_issue_id() else {
+            return blockers;
+        };
+        let Some(selected_issue) = self.issues.get(selected_id) else {
+            return blockers;
+        };
+        let derived = compute_derived(selected_issue, &self.issues);
+        if !derived.is_blocked {
+            return blockers;
+        }
+        blockers.extend(derived.open_deps.iter().cloned());
+        blockers.extend(derived.missing_deps.iter().cloned());
+        blockers
     }
 
     /// move selection up.
@@ -1809,6 +1832,33 @@ mod tests {
         app.apply_filter();
         assert_eq!(app.visible_issues().len(), 1);
         assert_eq!(app.visible_issues()[0], "brd-aaaa");
+    }
+
+    #[test]
+    fn test_apply_filter_matches_id() {
+        let env = TestEnv::new();
+        env.add_issue("brd-aaaa", "some title", Priority::P1, Status::Open);
+        env.add_issue("brd-bbbb", "other title", Priority::P2, Status::Open);
+        env.add_issue("brd-cccc", "another title", Priority::P3, Status::Open);
+
+        let mut app = env.app();
+
+        // filter by partial ID
+        app.filter_query = "aaaa".to_string();
+        app.apply_filter();
+        assert_eq!(app.filtered_issues.len(), 1);
+        assert!(app.filtered_issues.contains(&"brd-aaaa".to_string()));
+
+        // filter by prefix
+        app.filter_query = "brd-b".to_string();
+        app.apply_filter();
+        assert_eq!(app.filtered_issues.len(), 1);
+        assert!(app.filtered_issues.contains(&"brd-bbbb".to_string()));
+
+        // filter by brd- matches all
+        app.filter_query = "brd-".to_string();
+        app.apply_filter();
+        assert_eq!(app.filtered_issues.len(), 3);
     }
 
     #[test]
