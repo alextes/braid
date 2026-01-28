@@ -234,7 +234,7 @@ fn draw_dashboard(f: &mut Frame, area: Rect, app: &App) {
 
     let completed_count = lead_times.len();
 
-    // layout: top stats row, then velocity/flow row, then agents
+    // layout: top stats row, then velocity/flow row, then git graph, then agents
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .margin(1)
@@ -243,7 +243,9 @@ fn draw_dashboard(f: &mut Frame, area: Rect, app: &App) {
             Constraint::Length(1), // spacing
             Constraint::Length(6), // velocity + flow metrics row
             Constraint::Length(1), // spacing
-            Constraint::Min(5),    // agents
+            Constraint::Length(5), // git graph
+            Constraint::Length(1), // spacing
+            Constraint::Min(4),    // agents (compact)
         ])
         .split(area);
 
@@ -395,13 +397,16 @@ fn draw_dashboard(f: &mut Frame, area: Rect, app: &App) {
     }
     f.render_widget(Paragraph::new(health_lines), health_inner);
 
+    // git graph box
+    draw_git_graph(f, chunks[4], app);
+
     // agents box
     let agents_block = Block::default()
         .title(" Active Agents ")
         .borders(Borders::ALL)
         .border_style(Style::default().fg(Color::DarkGray));
-    let agents_inner = agents_block.inner(chunks[4]);
-    f.render_widget(agents_block, chunks[4]);
+    let agents_inner = agents_block.inner(chunks[6]);
+    f.render_widget(agents_block, chunks[6]);
 
     let agent_lines: Vec<Line> = if active_agents.is_empty() {
         vec![Line::from(Span::styled(
@@ -821,6 +826,129 @@ fn make_sparkline(values: &[usize]) -> String {
             BLOCKS[idx]
         })
         .collect()
+}
+
+fn draw_git_graph(f: &mut Frame, area: Rect, app: &App) {
+    let block = Block::default()
+        .title(" Git Graph ")
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::DarkGray));
+    let inner = block.inner(area);
+    f.render_widget(block, area);
+
+    let Some(ref graph) = app.git_graph else {
+        let text = vec![Line::from(Span::styled(
+            "(no git data)",
+            Style::default().fg(Color::DarkGray),
+        ))];
+        f.render_widget(Paragraph::new(text), inner);
+        return;
+    };
+
+    if graph.branches.is_empty() {
+        let text = vec![Line::from(Span::styled(
+            "(no branches)",
+            Style::default().fg(Color::DarkGray),
+        ))];
+        f.render_widget(Paragraph::new(text), inner);
+        return;
+    }
+
+    let mut lines: Vec<Line> = Vec::new();
+
+    // available width for the graph content
+    let max_width = inner.width as usize;
+
+    for branch_info in &graph.branches {
+        let mut spans: Vec<Span> = Vec::new();
+
+        if branch_info.is_main {
+            // main branch line: name + commit dots + total count
+            // format: "main        ●───●───●───●───● (127 total)"
+            let name_width = 12;
+            let name_str = format!("{:<width$}", branch_info.name, width = name_width);
+            spans.push(Span::styled(name_str, Style::default().fg(Color::White)));
+
+            // calculate how many commit dots we can show
+            // leave room for name (12) + " (" + count + " total)"
+            let total_str = format!("{}", graph.main_total_commits);
+            let suffix_len = 3 + total_str.len() + 7; // " (" + count + " total)"
+            let available_for_dots = max_width.saturating_sub(name_width + suffix_len);
+
+            // each commit is "●" (1 char) with "───" (3 chars) between
+            // so n commits take: n + (n-1)*3 = 4n - 3 chars
+            let num_commits = branch_info.commits.len();
+            let mut dots_str = String::new();
+
+            if num_commits > 0 {
+                let dots_needed = num_commits + (num_commits.saturating_sub(1)) * 3;
+                if dots_needed <= available_for_dots {
+                    // show all commits with connectors
+                    for (i, _) in branch_info.commits.iter().enumerate() {
+                        if i > 0 {
+                            dots_str.push_str("───");
+                        }
+                        dots_str.push('●');
+                    }
+                } else {
+                    // show as many as we can
+                    let can_show = available_for_dots.div_ceil(4);
+                    for i in 0..can_show.min(num_commits) {
+                        if i > 0 {
+                            dots_str.push_str("───");
+                        }
+                        dots_str.push('●');
+                    }
+                }
+            }
+
+            spans.push(Span::styled(dots_str, Style::default().fg(Color::White)));
+            spans.push(Span::styled(
+                format!(" ({} total)", graph.main_total_commits),
+                Style::default().fg(Color::DarkGray),
+            ));
+        } else {
+            // agent branch line: name + divergence + commit SHAs + ahead count
+            // format: "agent-one   └─────── c419bf7 ─ 448b8ce ● (+2)"
+            let name_width = 12;
+            let name_str = format!("{:<width$}", branch_info.name, width = name_width);
+            spans.push(Span::styled(name_str, Style::default().fg(Color::Cyan)));
+
+            // divergence indicator
+            spans.push(Span::styled("└───", Style::default().fg(Color::DarkGray)));
+
+            // show recent commit SHAs
+            let commits_to_show = branch_info.commits.iter().take(2).collect::<Vec<_>>();
+            for (i, commit) in commits_to_show.iter().enumerate() {
+                if i > 0 {
+                    spans.push(Span::styled(" ─ ", Style::default().fg(Color::DarkGray)));
+                } else {
+                    spans.push(Span::raw(" "));
+                }
+                spans.push(Span::styled(
+                    &commit.short_sha,
+                    Style::default().fg(Color::DarkGray),
+                ));
+            }
+
+            // commit marker and ahead count
+            spans.push(Span::styled(" ●", Style::default().fg(Color::Cyan)));
+
+            let ahead_style = if branch_info.ahead_of_main == 0 {
+                Style::default().fg(Color::Green)
+            } else {
+                Style::default().fg(Color::Yellow)
+            };
+            spans.push(Span::styled(
+                format!(" (+{})", branch_info.ahead_of_main),
+                ahead_style,
+            ));
+        }
+
+        lines.push(Line::from(spans));
+    }
+
+    f.render_widget(Paragraph::new(lines), inner);
 }
 
 fn draw_issues_view(f: &mut Frame, area: Rect, app: &mut App) {

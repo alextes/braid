@@ -498,6 +498,56 @@ fn parse_range(s: &str) -> (u32, u32) {
     }
 }
 
+/// Info about a single commit.
+#[derive(Debug, Clone)]
+pub struct CommitInfo {
+    /// full SHA
+    pub sha: String,
+    /// short SHA (first 7 chars)
+    pub short_sha: String,
+    /// first line of commit message
+    pub message: String,
+}
+
+/// Get recent commits for a branch.
+pub fn log_commits(cwd: &Path, branch: &str, limit: usize) -> Result<Vec<CommitInfo>> {
+    let limit_arg = format!("-n{}", limit);
+    let out = output(&["log", "--format=%H %s", &limit_arg, branch, "--"], cwd)?;
+
+    let commits = out
+        .lines()
+        .filter(|line| !line.is_empty())
+        .filter_map(|line| {
+            let (sha, message) = line.split_once(' ')?;
+            Some(CommitInfo {
+                sha: sha.to_string(),
+                short_sha: sha.chars().take(7).collect(),
+                message: message.to_string(),
+            })
+        })
+        .collect();
+
+    Ok(commits)
+}
+
+/// Count commits between two refs (base..head).
+pub fn commit_count(cwd: &Path, base: &str, head: &str) -> Result<usize> {
+    let range = format!("{}..{}", base, head);
+    let out = output(&["rev-list", "--count", &range], cwd)?;
+    Ok(out.parse().unwrap_or(0))
+}
+
+/// Find merge base between two branches.
+pub fn merge_base(cwd: &Path, branch1: &str, branch2: &str) -> Result<String> {
+    output(&["merge-base", branch1, branch2], cwd)
+}
+
+/// Count total commits on a branch.
+pub fn total_commit_count(cwd: &Path, branch: &str) -> Result<usize> {
+    let out = output(&["rev-list", "--count", branch], cwd)?;
+    Ok(out.parse().unwrap_or(0))
+}
+
 /// Test helpers that panic on failure (for use in tests only).
 #[cfg(test)]
 pub mod test {
@@ -1018,5 +1068,84 @@ diff --git a/file2.txt b/file2.txt
         assert_eq!(parse_range("10,5"), (10, 5));
         assert_eq!(parse_range("1"), (1, 1));
         assert_eq!(parse_range("42,100"), (42, 100));
+    }
+
+    #[test]
+    fn test_log_commits() {
+        let dir = create_test_repo();
+
+        // create a couple more commits
+        std::fs::write(dir.path().join("file1.txt"), "content1\n").unwrap();
+        test::run_ok(dir.path(), &["add", "."]);
+        test::run_ok(dir.path(), &["commit", "-m", "add file1"]);
+
+        std::fs::write(dir.path().join("file2.txt"), "content2\n").unwrap();
+        test::run_ok(dir.path(), &["add", "."]);
+        test::run_ok(dir.path(), &["commit", "-m", "add file2"]);
+
+        let branch = current_branch(dir.path()).unwrap();
+        let commits = log_commits(dir.path(), &branch, 5).unwrap();
+
+        assert_eq!(commits.len(), 3);
+        assert_eq!(commits[0].message, "add file2");
+        assert_eq!(commits[1].message, "add file1");
+        assert_eq!(commits[2].message, "init");
+        assert_eq!(commits[0].short_sha.len(), 7);
+    }
+
+    #[test]
+    fn test_commit_count() {
+        let dir = create_test_repo();
+
+        // create feature branch with commits
+        test::run_ok(dir.path(), &["checkout", "-b", "feature"]);
+        std::fs::write(dir.path().join("feature.txt"), "feature\n").unwrap();
+        test::run_ok(dir.path(), &["add", "."]);
+        test::run_ok(dir.path(), &["commit", "-m", "feature commit 1"]);
+
+        std::fs::write(dir.path().join("feature2.txt"), "feature2\n").unwrap();
+        test::run_ok(dir.path(), &["add", "."]);
+        test::run_ok(dir.path(), &["commit", "-m", "feature commit 2"]);
+
+        // get main branch name
+        test::run_ok(dir.path(), &["checkout", "-"]);
+        let main = current_branch(dir.path()).unwrap();
+        test::run_ok(dir.path(), &["checkout", "feature"]);
+
+        let ahead = commit_count(dir.path(), &main, "HEAD").unwrap();
+        assert_eq!(ahead, 2);
+    }
+
+    #[test]
+    fn test_total_commit_count() {
+        let dir = create_test_repo();
+
+        // add more commits
+        std::fs::write(dir.path().join("file1.txt"), "content1\n").unwrap();
+        test::run_ok(dir.path(), &["add", "."]);
+        test::run_ok(dir.path(), &["commit", "-m", "add file1"]);
+
+        let branch = current_branch(dir.path()).unwrap();
+        let total = total_commit_count(dir.path(), &branch).unwrap();
+
+        assert_eq!(total, 2);
+    }
+
+    #[test]
+    fn test_merge_base() {
+        let dir = create_test_repo();
+
+        // get initial commit sha
+        let main = current_branch(dir.path()).unwrap();
+        let initial_sha = test::output(dir.path(), &["rev-parse", "HEAD"]);
+
+        // create feature branch with commits
+        test::run_ok(dir.path(), &["checkout", "-b", "feature"]);
+        std::fs::write(dir.path().join("feature.txt"), "feature\n").unwrap();
+        test::run_ok(dir.path(), &["add", "."]);
+        test::run_ok(dir.path(), &["commit", "-m", "feature commit"]);
+
+        let base = merge_base(dir.path(), &main, "feature").unwrap();
+        assert_eq!(base, initial_sha);
     }
 }

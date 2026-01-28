@@ -28,6 +28,28 @@ pub struct WorktreeInfo {
     pub is_dirty: bool,
 }
 
+/// Info about a branch for the git graph.
+#[derive(Debug, Clone)]
+pub struct BranchGraphInfo {
+    /// branch name
+    pub name: String,
+    /// recent commits on this branch
+    pub commits: Vec<crate::git::CommitInfo>,
+    /// commits ahead of main
+    pub ahead_of_main: usize,
+    /// is this main/master
+    pub is_main: bool,
+}
+
+/// Git graph data for visualization.
+#[derive(Debug, Clone, Default)]
+pub struct GitGraph {
+    /// branches to display
+    pub branches: Vec<BranchGraphInfo>,
+    /// total commits on main branch
+    pub main_total_commits: usize,
+}
+
 /// Diff information for a worktree.
 #[derive(Debug, Clone, Default)]
 pub struct WorktreeDiff {
@@ -148,6 +170,8 @@ pub struct App {
     pub worktree_file_selected: usize,
     /// which panel has focus in agents view
     pub agents_focus: AgentsFocus,
+    /// git graph data for dashboard
+    pub git_graph: Option<GitGraph>,
 }
 
 impl App {
@@ -201,9 +225,11 @@ impl App {
             worktree_diff: None,
             worktree_file_selected: 0,
             agents_focus: AgentsFocus::default(),
+            git_graph: None,
         };
         app.reload_issues(paths)?;
         app.reload_worktrees();
+        app.load_git_graph();
         Ok(app)
     }
 
@@ -257,6 +283,71 @@ impl App {
         }
         // load diff for selected worktree
         self.load_worktree_diff();
+        // reload git graph
+        self.load_git_graph();
+    }
+
+    /// load git graph data from worktrees.
+    pub fn load_git_graph(&mut self) {
+        self.git_graph = None;
+
+        if self.worktrees.is_empty() {
+            return;
+        }
+
+        // find main branch worktree
+        let main_wt = self
+            .worktrees
+            .iter()
+            .find(|wt| matches!(wt.branch.as_deref(), Some("main" | "master")));
+
+        let Some(main_wt) = main_wt else {
+            return;
+        };
+
+        let main_branch = main_wt.branch.clone().unwrap_or_else(|| "main".to_string());
+
+        // get total commits on main
+        let main_total = crate::git::total_commit_count(&main_wt.path, &main_branch).unwrap_or(0);
+
+        // get recent commits on main (last 8)
+        let main_commits =
+            crate::git::log_commits(&main_wt.path, &main_branch, 8).unwrap_or_default();
+
+        let mut branches = vec![BranchGraphInfo {
+            name: main_branch.clone(),
+            commits: main_commits,
+            ahead_of_main: 0,
+            is_main: true,
+        }];
+
+        // get info for each non-main worktree
+        for wt in &self.worktrees {
+            let Some(ref branch) = wt.branch else {
+                continue;
+            };
+            if branch == "main" || branch == "master" {
+                continue;
+            }
+
+            // count commits ahead of main
+            let ahead = crate::git::commit_count(&wt.path, &main_branch, "HEAD").unwrap_or(0);
+
+            // get last 3 commits on this branch
+            let commits = crate::git::log_commits(&wt.path, "HEAD", 3).unwrap_or_default();
+
+            branches.push(BranchGraphInfo {
+                name: branch.clone(),
+                commits,
+                ahead_of_main: ahead,
+                is_main: false,
+            });
+        }
+
+        self.git_graph = Some(GitGraph {
+            branches,
+            main_total_commits: main_total,
+        });
     }
 
     /// load diff info for the currently selected worktree.
