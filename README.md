@@ -65,6 +65,22 @@ brd start
 
 `brd init` asks two questions: where to store issues and whether to auto-sync with git. the defaults work well for most setups.
 
+## terminal UI
+
+braid includes a full terminal UI for browsing and managing issues. launch it with `brd tui`.
+
+<!-- SCREENSHOT_PLACEHOLDER -->
+
+the dashboard shows:
+- **status overview** — open, doing, done, and skipped issue counts
+- **priority breakdown** — P0-P3 distribution across active issues
+- **health metrics** — ready vs blocked issues, stale work detection
+- **velocity** — 7-day completion and creation sparklines
+- **git graph** — branch relationships and commits across agent worktrees
+- **active agents** — who's working on what
+
+use number keys to switch views: `1` dashboard, `2` issues, `3` agents. press `?` for help.
+
 ## commands
 
 ### issue management
