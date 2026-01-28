@@ -69,7 +69,7 @@ brd start
 
 braid includes a full terminal UI for browsing and managing issues. launch it with `brd tui`.
 
-<!-- SCREENSHOT_PLACEHOLDER -->
+<img width="1079" height="674" alt="TUI-v1" src="https://github.com/user-attachments/assets/7a1b0d94-a352-422c-b70a-a4fe758c45e2" />
 
 the dashboard shows:
 - **status overview** — open, doing, done, and skipped issue counts
