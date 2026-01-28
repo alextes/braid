@@ -66,7 +66,29 @@ fn format_show_output(
 
     let dependents = get_dependents(issue.id(), issues);
     if !dependents.is_empty() {
-        let _ = writeln!(output, "Dependents: {}", dependents.join(", "));
+        let deps_with_status: Vec<String> = dependents
+            .iter()
+            .map(|dep_id| {
+                if let Some(dep) = issues.get(dep_id) {
+                    let status = dep.status();
+                    let is_resolved = matches!(status, Status::Done | Status::Skip);
+                    if !no_color && is_resolved {
+                        format!(
+                            "{}{} ({}){}",
+                            SetAttribute(Attribute::Dim),
+                            dep_id,
+                            status,
+                            SetAttribute(Attribute::Reset)
+                        )
+                    } else {
+                        format!("{} ({})", dep_id, status)
+                    }
+                } else {
+                    format!("{} (missing)", dep_id)
+                }
+            })
+            .collect();
+        let _ = writeln!(output, "Dependents: {}", deps_with_status.join(", "));
     }
 
     if !issue.tags().is_empty() {
@@ -308,5 +330,45 @@ mod tests {
         let cli = make_cli(false);
         let err = cmd_show(&cli, &paths, "brd-missing", false).unwrap_err();
         assert!(matches!(err, BrdError::IssueNotFound(_)));
+    }
+
+    #[test]
+    fn test_format_show_output_dependents_show_status() {
+        // parent issue that other issues depend on
+        let parent = Issue::new(
+            "brd-parent".to_string(),
+            "parent issue".to_string(),
+            Priority::P1,
+            vec![],
+        );
+
+        // dependent issues that depend on parent
+        let mut dependent_open = Issue::new(
+            "brd-child1".to_string(),
+            "open child".to_string(),
+            Priority::P2,
+            vec!["brd-parent".to_string()],
+        );
+        dependent_open.frontmatter.status = Status::Open;
+
+        let mut dependent_done = Issue::new(
+            "brd-child2".to_string(),
+            "done child".to_string(),
+            Priority::P2,
+            vec!["brd-parent".to_string()],
+        );
+        dependent_done.frontmatter.status = Status::Done;
+
+        let mut issues = HashMap::new();
+        issues.insert(parent.id().to_string(), parent.clone());
+        issues.insert(dependent_open.id().to_string(), dependent_open);
+        issues.insert(dependent_done.id().to_string(), dependent_done);
+
+        let output = format_show_output(&parent, &issues, false, true);
+
+        // dependents should show status in parentheses
+        assert!(output.contains("Dependents:"));
+        assert!(output.contains("brd-child1 (open)"));
+        assert!(output.contains("brd-child2 (done)"));
     }
 }
