@@ -21,6 +21,12 @@ pub fn handle_events(app: &mut App, paths: &RepoPaths) -> Result<bool> {
 }
 
 fn handle_key_event(app: &mut App, paths: &RepoPaths, key: KeyEvent) -> Result<bool> {
+    // handle logs overlay mode
+    if app.show_logs_overlay {
+        handle_logs_overlay_key(app, key);
+        return Ok(false);
+    }
+
     // handle diff panel mode
     if app.is_diff_visible() {
         handle_diff_panel_key(app, key);
@@ -270,8 +276,42 @@ fn handle_key_event(app: &mut App, paths: &RepoPaths, key: KeyEvent) -> Result<b
         KeyCode::Char('1') => app.view = crate::tui::app::View::Dashboard,
         KeyCode::Char('2') => app.view = crate::tui::app::View::Issues,
         KeyCode::Char('3') => {
-            app.reload_worktrees();
+            app.reload_worktrees(paths);
             app.view = crate::tui::app::View::Agents;
+        }
+
+        // spawn agent for issue (issues view)
+        KeyCode::Char('S') if app.view == crate::tui::app::View::Issues => {
+            if let Some(issue_id) = app.selected_issue_id().map(|s| s.to_string()) {
+                match app.spawn_agent_for_issue(paths, &issue_id) {
+                    Ok(()) => {}
+                    Err(e) => app.message = Some(format!("error: {}", e)),
+                }
+            } else {
+                app.message = Some("no issue selected".to_string());
+            }
+        }
+
+        // kill session (agents view)
+        KeyCode::Char('K') if app.view == crate::tui::app::View::Agents => {
+            if let Some(session) = app.selected_session() {
+                let session_id = session.session_id.clone();
+                if let Err(e) = app.kill_session(paths, &session_id) {
+                    app.message = Some(format!("error: {}", e));
+                }
+            } else {
+                app.message = Some("no session for this worktree".to_string());
+            }
+        }
+
+        // view logs (agents view)
+        KeyCode::Char('L') if app.view == crate::tui::app::View::Agents => {
+            if let Some(session) = app.selected_session() {
+                let session_id = session.session_id.clone();
+                app.open_logs_overlay(paths, &session_id);
+            } else {
+                app.message = Some("no session for this worktree".to_string());
+            }
         }
 
         // filter
@@ -290,6 +330,44 @@ fn handle_key_event(app: &mut App, paths: &RepoPaths, key: KeyEvent) -> Result<b
     }
 
     Ok(false)
+}
+
+/// handle key events when logs overlay is visible.
+fn handle_logs_overlay_key(app: &mut App, key: KeyEvent) {
+    // assume reasonable viewport height for scrolling
+    let view_height = 30usize;
+
+    match key.code {
+        // close logs overlay
+        KeyCode::Esc | KeyCode::Char('q') => app.close_logs_overlay(),
+
+        // scroll down
+        KeyCode::Down | KeyCode::Char('j') => app.logs_scroll_down(1, view_height),
+
+        // scroll up
+        KeyCode::Up | KeyCode::Char('k') => app.logs_scroll_up(1),
+
+        // page down
+        KeyCode::PageDown | KeyCode::Char('d') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+            app.logs_scroll_down(view_height / 2, view_height);
+        }
+
+        // page up
+        KeyCode::PageUp | KeyCode::Char('u') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+            app.logs_scroll_up(view_height / 2);
+        }
+
+        // go to top
+        KeyCode::Char('g') => app.logs_scroll = 0,
+
+        // go to bottom
+        KeyCode::Char('G') => {
+            let max_scroll = app.logs_content.len().saturating_sub(view_height);
+            app.logs_scroll = max_scroll;
+        }
+
+        _ => {}
+    }
 }
 
 /// handle key events when diff panel is visible.

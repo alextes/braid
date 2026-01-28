@@ -11,6 +11,7 @@ use crate::graph::{DerivedState, compute_derived};
 use crate::issue::{Issue, IssueType, Priority, Status};
 use crate::lock::LockGuard;
 use crate::repo::RepoPaths;
+use crate::session::{Session, SessionStatus, load_all_sessions};
 
 use super::diff_panel::DiffPanelState;
 use super::diff_render::DiffRendererType;
@@ -172,6 +173,16 @@ pub struct App {
     pub agents_focus: AgentsFocus,
     /// git graph data for dashboard
     pub git_graph: Option<GitGraph>,
+    /// agent sessions loaded from disk
+    pub sessions: Vec<Session>,
+    /// whether to show the logs overlay
+    pub show_logs_overlay: bool,
+    /// logs content for the overlay
+    pub logs_content: Vec<String>,
+    /// scroll offset for logs overlay
+    pub logs_scroll: usize,
+    /// session ID for logs overlay (to know which session we're viewing)
+    pub logs_session_id: Option<String>,
 }
 
 impl App {
@@ -226,9 +237,14 @@ impl App {
             worktree_file_selected: 0,
             agents_focus: AgentsFocus::default(),
             git_graph: None,
+            sessions: Vec::new(),
+            show_logs_overlay: false,
+            logs_content: Vec::new(),
+            logs_scroll: 0,
+            logs_session_id: None,
         };
         app.reload_issues(paths)?;
-        app.reload_worktrees();
+        app.reload_worktrees(paths);
         app.load_git_graph();
         Ok(app)
     }
@@ -275,7 +291,7 @@ impl App {
     }
 
     /// reload worktrees from ~/.braid/worktrees/<repo>/*/.
-    pub fn reload_worktrees(&mut self) {
+    pub fn reload_worktrees(&mut self, paths: &RepoPaths) {
         self.worktrees = discover_worktrees(&self.repo_name);
         // clamp selection
         if self.worktree_selected >= self.worktrees.len() && !self.worktrees.is_empty() {
@@ -285,6 +301,8 @@ impl App {
         self.load_worktree_diff();
         // reload git graph
         self.load_git_graph();
+        // load sessions
+        self.load_sessions(paths);
     }
 
     /// load git graph data from worktrees.
@@ -348,6 +366,202 @@ impl App {
             branches,
             main_total_commits: main_total,
         });
+    }
+
+    /// load all agent sessions from disk.
+    pub fn load_sessions(&mut self, paths: &RepoPaths) {
+        let sessions_dir = paths.sessions_dir();
+        self.sessions = load_all_sessions(&sessions_dir).unwrap_or_default();
+    }
+
+    /// get session for the currently selected worktree.
+    pub fn selected_session(&self) -> Option<&Session> {
+        let worktree = self.worktrees.get(self.worktree_selected)?;
+        self.sessions
+            .iter()
+            .find(|s| s.worktree.as_ref() == Some(&worktree.path))
+    }
+
+    /// get session for a worktree by index.
+    pub fn session_for_worktree(&self, worktree_idx: usize) -> Option<&Session> {
+        let worktree = self.worktrees.get(worktree_idx)?;
+        self.sessions
+            .iter()
+            .find(|s| s.worktree.as_ref() == Some(&worktree.path))
+    }
+
+    /// open logs overlay for a session.
+    pub fn open_logs_overlay(&mut self, paths: &RepoPaths, session_id: &str) {
+        use std::fs::File;
+        use std::io::{BufRead, BufReader};
+
+        let sessions_dir = paths.sessions_dir();
+        let log_path = Session::log_path(&sessions_dir, session_id);
+
+        let mut lines = Vec::new();
+        if log_path.exists()
+            && let Ok(file) = File::open(&log_path)
+        {
+            let reader = BufReader::new(file);
+            for line in reader.lines().map_while(std::result::Result::ok) {
+                // parse and format the JSON event
+                if let Ok(event) = serde_json::from_str::<serde_json::Value>(&line)
+                    && let Some(formatted) = format_log_event(&event)
+                {
+                    lines.push(formatted);
+                }
+            }
+        }
+
+        self.logs_content = lines;
+        self.logs_scroll = 0;
+        self.logs_session_id = Some(session_id.to_string());
+        self.show_logs_overlay = true;
+    }
+
+    /// close logs overlay.
+    pub fn close_logs_overlay(&mut self) {
+        self.show_logs_overlay = false;
+        self.logs_content.clear();
+        self.logs_scroll = 0;
+        self.logs_session_id = None;
+    }
+
+    /// scroll logs overlay up.
+    pub fn logs_scroll_up(&mut self, lines: usize) {
+        self.logs_scroll = self.logs_scroll.saturating_sub(lines);
+    }
+
+    /// scroll logs overlay down.
+    pub fn logs_scroll_down(&mut self, lines: usize, view_height: usize) {
+        let max_scroll = self.logs_content.len().saturating_sub(view_height);
+        self.logs_scroll = (self.logs_scroll + lines).min(max_scroll);
+    }
+
+    /// kill a session by session ID.
+    pub fn kill_session(&mut self, paths: &RepoPaths, session_id: &str) -> Result<()> {
+        use crate::session::{Session, find_session};
+
+        let sessions_dir = paths.sessions_dir();
+        let mut session = find_session(&sessions_dir, session_id)?;
+
+        if !session.is_process_alive() {
+            self.message = Some(format!("{} already dead", session.session_id));
+            return Ok(());
+        }
+
+        // send SIGTERM
+        #[cfg(unix)]
+        {
+            let result = unsafe { libc::kill(session.pid as i32, libc::SIGTERM) };
+            if result != 0 {
+                let err = std::io::Error::last_os_error();
+                return Err(BrdError::Other(format!(
+                    "failed to kill process {}: {}",
+                    session.pid, err
+                )));
+            }
+        }
+
+        #[cfg(not(unix))]
+        {
+            return Err(BrdError::Other(
+                "kill not implemented on this platform".to_string(),
+            ));
+        }
+
+        // update session state
+        session.status = SessionStatus::Killed;
+        let state_path = Session::state_path(&sessions_dir, &session.session_id);
+        session.save(&state_path)?;
+
+        self.message = Some(format!("killed {}", session.session_id));
+        self.load_sessions(paths);
+        Ok(())
+    }
+
+    /// spawn an agent for an issue.
+    pub fn spawn_agent_for_issue(&mut self, paths: &RepoPaths, issue_id: &str) -> Result<()> {
+        use crate::session::next_session_id;
+        use std::fs::File;
+        use std::process::{Command, Stdio};
+        use uuid::Uuid;
+
+        let config = Config::load(&paths.config_path())?;
+        let issues_dir = paths.issues_dir(&config);
+
+        // verify issue exists
+        let issue_path = issues_dir.join(format!("{}.md", issue_id));
+        if !issue_path.exists() {
+            return Err(BrdError::IssueNotFound(issue_id.to_string()));
+        }
+
+        // ensure sessions directory exists
+        let sessions_dir = paths.ensure_sessions_dir()?;
+
+        // generate session IDs
+        let session_id = next_session_id(&sessions_dir);
+        let claude_session_id = Uuid::new_v4().to_string();
+
+        // paths for this session
+        let log_path = Session::log_path(&sessions_dir, &session_id);
+        let state_path = Session::state_path(&sessions_dir, &session_id);
+
+        // build the prompt
+        let prompt = format!(
+            "work on issue {}. run `brd show {}` to see details. \
+             when done, run `brd done {}`.",
+            issue_id, issue_id, issue_id
+        );
+
+        let budget = 1.0; // default budget
+        let model = "claude-sonnet-4-20250514";
+
+        // spawn claude in background mode
+        let log_file = File::create(&log_path)?;
+        let child = Command::new("claude")
+            .args([
+                "-p",
+                "--verbose",
+                "--output-format=stream-json",
+                &format!("--session-id={}", claude_session_id),
+                &format!("--max-budget-usd={}", budget),
+                "--model",
+                model,
+                &prompt,
+            ])
+            .current_dir(&paths.worktree_root)
+            .stdout(Stdio::from(log_file.try_clone()?))
+            .stderr(Stdio::from(log_file))
+            .spawn()
+            .map_err(|e| {
+                if e.kind() == std::io::ErrorKind::NotFound {
+                    BrdError::Other(
+                        "claude CLI not found - install from https://claude.ai/download"
+                            .to_string(),
+                    )
+                } else {
+                    BrdError::Io(e)
+                }
+            })?;
+
+        let pid = child.id();
+
+        // save session state
+        let session = Session::new(
+            session_id.clone(),
+            claude_session_id,
+            pid,
+            issue_id.to_string(),
+            Some(paths.worktree_root.clone()),
+            budget,
+            model.to_string(),
+        );
+        session.save(&state_path)?;
+
+        self.message = Some(format!("spawned {} for {}", session_id, issue_id));
+        self.load_sessions(paths);
+        Ok(())
     }
 
     /// load diff info for the currently selected worktree.
@@ -1014,6 +1228,72 @@ impl App {
             return true;
         }
         false
+    }
+}
+
+/// format a log event from claude stream-json for display.
+fn format_log_event(event: &serde_json::Value) -> Option<String> {
+    let event_type = event.get("type").and_then(|v| v.as_str())?;
+
+    match event_type {
+        "assistant" => {
+            if let Some(message) = event.get("message")
+                && let Some(content) = message.get("content").and_then(|c| c.as_array())
+            {
+                for item in content {
+                    if let Some(text) = item.get("text").and_then(|t| t.as_str()) {
+                        return Some(text.to_string());
+                    }
+                }
+            }
+            None
+        }
+        "content_block_delta" => {
+            if let Some(delta) = event.get("delta")
+                && let Some(text) = delta.get("text").and_then(|t| t.as_str())
+            {
+                Some(text.to_string())
+            } else {
+                None
+            }
+        }
+        "tool_use" => event
+            .get("name")
+            .and_then(|n| n.as_str())
+            .map(|name| format!("[tool: {}]", name)),
+        "user" => {
+            // tool results returned to the model
+            if let Some(message) = event.get("message")
+                && let Some(content) = message.get("content").and_then(|c| c.as_array())
+            {
+                for item in content {
+                    if item.get("type").and_then(|t| t.as_str()) == Some("tool_result") {
+                        let is_error = item
+                            .get("is_error")
+                            .and_then(|e| e.as_bool())
+                            .unwrap_or(false);
+                        let content_len = item
+                            .get("content")
+                            .and_then(|c| c.as_str())
+                            .map(|s| s.len())
+                            .unwrap_or(0);
+                        if is_error {
+                            return Some(format!("  ↳ error ({} bytes)", content_len));
+                        } else {
+                            return Some(format!("  ↳ result ({} bytes)", content_len));
+                        }
+                    }
+                }
+            }
+            None
+        }
+        "error" => event
+            .get("error")
+            .and_then(|e| e.get("message"))
+            .and_then(|m| m.as_str())
+            .map(|msg| format!("error: {}", msg)),
+        "result" => Some(String::new()), // blank line for readability
+        _ => None,                       // skip metadata events
     }
 }
 

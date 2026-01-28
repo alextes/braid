@@ -11,6 +11,7 @@ use time::{Duration as TimeDuration, OffsetDateTime};
 
 use crate::graph::{compute_derived, get_dependents};
 use crate::issue::{Priority, Status};
+use crate::session::SessionStatus;
 
 use super::app::{App, InputMode, View};
 use super::diff_panel::{DiffPanel, centered_overlay};
@@ -43,6 +44,11 @@ pub fn draw(f: &mut Frame, app: &mut App) {
     // draw diff panel overlay if visible
     if app.is_diff_visible() {
         draw_diff_panel(f, app);
+    }
+
+    // draw logs overlay if visible
+    if app.show_logs_overlay {
+        draw_logs_overlay(f, app);
     }
 }
 
@@ -591,6 +597,8 @@ fn draw_worktree_list(f: &mut Frame, area: Rect, app: &App) {
         return;
     }
 
+    let now = time::OffsetDateTime::now_utc();
+
     // build list items
     let items: Vec<ListItem> = app
         .worktrees
@@ -634,12 +642,59 @@ fn draw_worktree_list(f: &mut Frame, area: Rect, app: &App) {
                 spans.push(Span::styled(" *", Style::default().fg(Color::Yellow)));
             }
 
+            // session status - find session for this worktree
+            if let Some(session) = app.session_for_worktree(i) {
+                // status indicator
+                let (status_char, status_color) = match session.status {
+                    SessionStatus::Running => ("●", Color::Green),
+                    SessionStatus::Waiting => ("◐", Color::Yellow),
+                    SessionStatus::Completed => ("✓", Color::Green),
+                    SessionStatus::Failed => ("✗", Color::Red),
+                    SessionStatus::Killed => ("○", Color::DarkGray),
+                    SessionStatus::Zombie => ("⚠", Color::Red),
+                };
+                spans.push(Span::raw(" "));
+                spans.push(Span::styled(status_char, Style::default().fg(status_color)));
+
+                // session ID (truncated)
+                let short_id = &session.session_id;
+                spans.push(Span::styled(
+                    format!(" {}", short_id),
+                    Style::default().fg(Color::DarkGray),
+                ));
+
+                // runtime for active sessions
+                if matches!(
+                    session.status,
+                    SessionStatus::Running | SessionStatus::Waiting
+                ) {
+                    let runtime = now - session.started_at;
+                    let runtime_str = format_runtime(runtime);
+                    spans.push(Span::styled(
+                        format!(" {}", runtime_str),
+                        Style::default().fg(Color::DarkGray),
+                    ));
+                }
+            }
+
             ListItem::new(Line::from(spans))
         })
         .collect();
 
     let list = List::new(items).block(block);
     f.render_widget(list, area);
+}
+
+/// format a runtime duration for display.
+fn format_runtime(d: time::Duration) -> String {
+    let minutes = d.whole_minutes();
+    if minutes < 60 {
+        format!("{}m", minutes.max(1))
+    } else if minutes < 60 * 24 {
+        format!("{}h", minutes / 60)
+    } else {
+        format!("{}d", minutes / (60 * 24))
+    }
 }
 
 fn draw_worktree_files(f: &mut Frame, area: Rect, app: &App) {
@@ -1527,6 +1582,7 @@ fn draw_help(f: &mut Frame, area: Rect) {
         Line::from("  s          start selected issue"),
         Line::from("  d          mark selected issue as done"),
         Line::from("  r          refresh issues from disk"),
+        Line::from("  S          spawn agent for issue"),
         Line::from(""),
         Line::from(Span::styled(
             "views",
@@ -1536,7 +1592,14 @@ fn draw_help(f: &mut Frame, area: Rect) {
         Line::from("  2          issues"),
         Line::from("  3          agents"),
         Line::from("  Tab        toggle details pane"),
-        Line::from("  enter      open dep / view details (pane hidden)"),
+        Line::from("  enter      open dep / view details / view diff"),
+        Line::from(""),
+        Line::from(Span::styled(
+            "agents view",
+            Style::default().add_modifier(Modifier::BOLD),
+        )),
+        Line::from("  K          kill agent session"),
+        Line::from("  L          view agent logs"),
         Line::from(""),
         Line::from(Span::styled(
             "filter",
@@ -1814,6 +1877,69 @@ fn draw_diff_panel(f: &mut Frame, app: &mut App) {
     let panel = DiffPanel::new(content.clone(), file_path.clone())
         .renderer_name(app.diff_renderer.display_name());
     f.render_stateful_widget(panel, area, state);
+}
+
+fn draw_logs_overlay(f: &mut Frame, app: &App) {
+    // create overlay covering 90% of screen
+    let area = centered_overlay(90, 90, f.area());
+
+    // clear the area behind the overlay
+    f.render_widget(Clear, area);
+
+    let session_id = app.logs_session_id.as_deref().unwrap_or("unknown");
+    let title = format!(" Logs: {} (j/k scroll, Esc close) ", session_id);
+
+    let block = Block::default()
+        .title(title)
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::Yellow));
+
+    let inner = block.inner(area);
+    f.render_widget(block, area);
+
+    if app.logs_content.is_empty() {
+        let text = vec![
+            Line::from(""),
+            Line::from(Span::styled(
+                "  (no log content)",
+                Style::default().fg(Color::DarkGray),
+            )),
+        ];
+        let paragraph = Paragraph::new(text);
+        f.render_widget(paragraph, inner);
+        return;
+    }
+
+    // build lines with scroll offset
+    let view_height = inner.height as usize;
+    let lines: Vec<Line> = app
+        .logs_content
+        .iter()
+        .skip(app.logs_scroll)
+        .take(view_height)
+        .map(|s| Line::from(s.as_str()))
+        .collect();
+
+    let scroll_info = format!(
+        " [{}/{} lines] ",
+        app.logs_scroll + 1,
+        app.logs_content.len()
+    );
+
+    let paragraph = Paragraph::new(lines);
+    f.render_widget(paragraph, inner);
+
+    // show scroll position at bottom right
+    if app.logs_content.len() > view_height {
+        let scroll_span = Span::styled(scroll_info, Style::default().fg(Color::DarkGray));
+        let scroll_rect = Rect::new(
+            area.x + area.width.saturating_sub(scroll_span.width() as u16 + 2),
+            area.y + area.height - 1,
+            scroll_span.width() as u16,
+            1,
+        );
+        f.render_widget(Paragraph::new(scroll_span), scroll_rect);
+    }
 }
 
 fn update_offset(offset: &mut usize, selected: Option<usize>, len: usize, view_height: usize) {
