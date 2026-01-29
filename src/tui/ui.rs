@@ -528,29 +528,43 @@ fn make_stacked_bar(width: usize, total: usize, segments: &[(usize, Color)]) -> 
         ));
     }
 
-    let mut spans = Vec::new();
-    let mut used = 0;
+    // use largest remainder method to distribute width fairly
+    // this ensures the bar always uses its full width
+    let mut widths: Vec<usize> = segments.iter().map(|_| 0).collect();
+    let mut remainders: Vec<(usize, f64)> = Vec::new();
 
-    for (count, color) in segments {
+    // calculate base widths and remainders
+    for (i, (count, _)) in segments.iter().enumerate() {
         if *count == 0 {
             continue;
         }
-        let segment_width = (*count * width) / total;
-        if segment_width > 0 {
-            spans.push(Span::styled(
-                "█".repeat(segment_width),
-                Style::default().fg(*color),
-            ));
-            used += segment_width;
-        }
+        let exact = (*count as f64 * width as f64) / total as f64;
+        let base = exact.floor() as usize;
+        widths[i] = base;
+        remainders.push((i, exact - base as f64));
     }
 
-    // fill remaining with dim
-    if used < width {
-        spans.push(Span::styled(
-            "░".repeat(width - used),
-            Style::default().fg(Color::DarkGray),
-        ));
+    // distribute remaining width to segments with largest remainders
+    let used: usize = widths.iter().sum();
+    let mut remaining = width.saturating_sub(used);
+    remainders.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+    for (i, _) in remainders {
+        if remaining == 0 {
+            break;
+        }
+        widths[i] += 1;
+        remaining -= 1;
+    }
+
+    // build spans
+    let mut spans = Vec::new();
+    for (i, (_, color)) in segments.iter().enumerate() {
+        if widths[i] > 0 {
+            spans.push(Span::styled(
+                "█".repeat(widths[i]),
+                Style::default().fg(*color),
+            ));
+        }
     }
 
     Line::from(spans)
