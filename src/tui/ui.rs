@@ -917,89 +917,104 @@ fn draw_git_graph(f: &mut Frame, area: Rect, app: &App) {
     // available width for the graph content
     let max_width = inner.width as usize;
 
-    for branch_info in &graph.branches {
+    // find main branch info
+    let main_branch = graph.branches.iter().find(|b| b.is_main);
+
+    // collect feature branches sorted by fork distance (older forks first)
+    let mut feature_branches: Vec<_> = graph.branches.iter().filter(|b| !b.is_main).collect();
+    feature_branches.sort_by_key(|b| std::cmp::Reverse(b.main_commits_since_fork.unwrap_or(0)));
+
+    // render main branch line first
+    if let Some(main_info) = main_branch {
+        let name_width = 12;
+        let name_str = format!("{} ({})", main_info.name, graph.main_total_commits);
+        let name_display = format!("{:<width$}", name_str, width = name_width);
+
+        // calculate how many commit positions we can show
+        // leave room for name + " ← HEAD"
+        let suffix = " ← HEAD";
+        let available_for_dots = max_width.saturating_sub(name_width + suffix.len());
+
+        // show up to 8 commits, or fewer if space is limited
+        let commits_to_show = main_info.commits.len().min(8);
+        // each commit dot is "●" with "──" between (3 chars per position)
+        let chars_per_commit = 3usize;
+        let num_dots = (available_for_dots / chars_per_commit)
+            .min(commits_to_show)
+            .max(1);
+
+        let mut spans: Vec<Span> = Vec::new();
+        spans.push(Span::styled(
+            name_display,
+            Style::default().fg(Color::White),
+        ));
+
+        // build the commit line
+        let mut dots_str = String::new();
+        for i in 0..num_dots {
+            if i > 0 {
+                dots_str.push_str("──");
+            }
+            dots_str.push('●');
+        }
+
+        spans.push(Span::styled(dots_str, Style::default().fg(Color::White)));
+        spans.push(Span::styled(suffix, Style::default().fg(Color::DarkGray)));
+
+        lines.push(Line::from(spans));
+    }
+
+    // render feature branches with fork connectors
+    for branch_info in &feature_branches {
         let mut spans: Vec<Span> = Vec::new();
 
-        if branch_info.is_main {
-            // main branch line: name + commit dots + total count
-            // format: "main        ●───●───●───●───● (127 total)"
-            let name_width = 12;
-            let name_str = format!("{:<width$}", branch_info.name, width = name_width);
-            spans.push(Span::styled(name_str, Style::default().fg(Color::White)));
+        // calculate fork position on main line
+        let main_since_fork = branch_info.main_commits_since_fork.unwrap_or(0);
 
-            // calculate how many commit dots we can show
-            // leave room for name (12) + " (" + count + " total)"
-            let total_str = format!("{}", graph.main_total_commits);
-            let suffix_len = 3 + total_str.len() + 7; // " (" + count + " total)"
-            let available_for_dots = max_width.saturating_sub(name_width + suffix_len);
-
-            // each commit is "●" (1 char) with "───" (3 chars) between
-            // so n commits take: n + (n-1)*3 = 4n - 3 chars
-            let num_commits = branch_info.commits.len();
-            let mut dots_str = String::new();
-
-            if num_commits > 0 {
-                let dots_needed = num_commits + (num_commits.saturating_sub(1)) * 3;
-                if dots_needed <= available_for_dots {
-                    // show all commits with connectors
-                    for (i, _) in branch_info.commits.iter().enumerate() {
-                        if i > 0 {
-                            dots_str.push_str("───");
-                        }
-                        dots_str.push('●');
-                    }
-                } else {
-                    // show as many as we can
-                    let can_show = available_for_dots.div_ceil(4);
-                    for i in 0..can_show.min(num_commits) {
-                        if i > 0 {
-                            dots_str.push_str("───");
-                        }
-                        dots_str.push('●');
-                    }
-                }
-            }
-
-            spans.push(Span::styled(dots_str, Style::default().fg(Color::White)));
-            spans.push(Span::styled(
-                format!(" ({} total)", graph.main_total_commits),
-                Style::default().fg(Color::DarkGray),
-            ));
+        // build prefix spacing based on fork position
+        // more commits since fork = connector further left
+        // use empty space for alignment, then the connector character
+        let fork_indicator = if main_since_fork == 0 {
+            // branch is at HEAD of main
+            "            ╰─"
+        } else if main_since_fork <= 2 {
+            // recent fork
+            "         ╰───"
+        } else if main_since_fork <= 5 {
+            // moderate fork
+            "      ╰──────"
         } else {
-            // agent branch line: name + divergence + commit SHAs + ahead count
-            // format: "agent-one   └─────── c419bf7 ─ 448b8ce ● (+2)"
-            let name_width = 12;
-            let name_str = format!("{:<width$}", branch_info.name, width = name_width);
-            spans.push(Span::styled(name_str, Style::default().fg(Color::Cyan)));
+            // old fork (show ellipsis)
+            "···╰─────────"
+        };
 
-            // divergence indicator
-            spans.push(Span::styled("└───", Style::default().fg(Color::DarkGray)));
+        spans.push(Span::styled(
+            fork_indicator,
+            Style::default().fg(Color::DarkGray),
+        ));
 
-            // show recent commit SHAs
-            let commits_to_show = branch_info.commits.iter().take(2).collect::<Vec<_>>();
-            for (i, commit) in commits_to_show.iter().enumerate() {
-                if i > 0 {
-                    spans.push(Span::styled(" ─ ", Style::default().fg(Color::DarkGray)));
-                } else {
-                    spans.push(Span::raw(" "));
-                }
-                spans.push(Span::styled(
-                    &commit.short_sha,
-                    Style::default().fg(Color::DarkGray),
-                ));
-            }
+        // branch name
+        spans.push(Span::styled(
+            format!(" {}", branch_info.name),
+            Style::default().fg(Color::Cyan),
+        ));
 
-            // commit marker and ahead count
-            spans.push(Span::styled(" ●", Style::default().fg(Color::Cyan)));
+        // ahead count
+        let ahead_style = if branch_info.ahead_of_main == 0 {
+            Style::default().fg(Color::Green)
+        } else {
+            Style::default().fg(Color::Yellow)
+        };
+        spans.push(Span::styled(
+            format!(" (+{})", branch_info.ahead_of_main),
+            ahead_style,
+        ));
 
-            let ahead_style = if branch_info.ahead_of_main == 0 {
-                Style::default().fg(Color::Green)
-            } else {
-                Style::default().fg(Color::Yellow)
-            };
+        // latest commit SHA
+        if let Some(commit) = branch_info.commits.first() {
             spans.push(Span::styled(
-                format!(" (+{})", branch_info.ahead_of_main),
-                ahead_style,
+                format!(" {}", commit.short_sha),
+                Style::default().fg(Color::DarkGray),
             ));
         }
 
@@ -1218,16 +1233,69 @@ fn draw_issue_list(f: &mut Frame, area: Rect, app: &mut App) {
     }
 }
 
-fn draw_detail(f: &mut Frame, area: Rect, app: &App) {
+fn draw_detail(f: &mut Frame, area: Rect, app: &mut App) {
+    let inner_height = area.height.saturating_sub(2) as usize; // subtract borders
+
     let block = Block::default()
-        .title(" Detail ")
         .borders(Borders::ALL)
         .border_style(Style::default().fg(Color::DarkGray));
 
-    let Some(issue) = app.selected_issue() else {
-        let text = Paragraph::new("no issue selected").block(block);
+    // build the content lines first, collecting all needed data
+    let lines = build_detail_lines(app);
+
+    if lines.is_empty() {
+        let text = Paragraph::new("no issue selected").block(block.clone().title(" Detail "));
         f.render_widget(text, area);
         return;
+    }
+
+    let content_height = lines.len();
+    let max_scroll = content_height.saturating_sub(inner_height);
+
+    // clamp scroll to valid range
+    if app.detail_scroll > max_scroll {
+        app.detail_scroll = max_scroll;
+    }
+
+    // build title with scroll indicator if scrolled
+    let title = if app.detail_scroll > 0 {
+        format!(" Detail [{}/{}] ", app.detail_scroll + 1, content_height)
+    } else {
+        " Detail ".to_string()
+    };
+
+    let text = Text::from(lines);
+    let paragraph = Paragraph::new(text)
+        .block(block.clone().title(title))
+        .wrap(Wrap { trim: false })
+        .scroll((app.detail_scroll as u16, 0));
+    f.render_widget(paragraph, area);
+
+    // render scrollbar if content overflows
+    if content_height > inner_height {
+        let mut scrollbar_state = ScrollbarState::new(content_height)
+            .viewport_content_length(inner_height)
+            .position(app.detail_scroll);
+        let scrollbar = Scrollbar::new(ScrollbarOrientation::VerticalRight)
+            .begin_symbol(None)
+            .end_symbol(None)
+            .track_symbol(Some("│"))
+            .thumb_symbol("█");
+        // render scrollbar in the inner area (inside the border)
+        let scrollbar_area = Rect {
+            x: area.x + area.width - 1,
+            y: area.y + 1,
+            width: 1,
+            height: area.height.saturating_sub(2),
+        };
+        f.render_stateful_widget(scrollbar, scrollbar_area, &mut scrollbar_state);
+    }
+}
+
+/// build content lines for the detail pane, returning empty vec if no issue selected.
+fn build_detail_lines(app: &App) -> Vec<Line<'static>> {
+    let Some(issue) = app.selected_issue() else {
+        return Vec::new();
     };
 
     let derived = app.derived_state(issue);
@@ -1235,11 +1303,11 @@ fn draw_detail(f: &mut Frame, area: Rect, app: &App) {
     let mut lines: Vec<Line> = vec![
         Line::from(vec![
             Span::styled("ID:       ", Style::default().fg(Color::DarkGray)),
-            Span::raw(issue.id()),
+            Span::raw(issue.id().to_string()),
         ]),
         Line::from(vec![
             Span::styled("Title:    ", Style::default().fg(Color::DarkGray)),
-            Span::raw(issue.title()),
+            Span::raw(issue.title().to_string()),
         ]),
         Line::from(vec![
             Span::styled("Priority: ", Style::default().fg(Color::DarkGray)),
@@ -1262,7 +1330,7 @@ fn draw_detail(f: &mut Frame, area: Rect, app: &App) {
     if let Some(owner) = &issue.frontmatter.owner {
         lines.push(Line::from(vec![
             Span::styled("Owner:    ", Style::default().fg(Color::DarkGray)),
-            Span::raw(owner.as_str()),
+            Span::raw(owner.clone()),
         ]));
     }
 
@@ -1346,11 +1414,11 @@ fn draw_detail(f: &mut Frame, area: Rect, app: &App) {
                 };
                 lines.push(Line::from(vec![
                     Span::styled("  id:       ", Style::default().fg(Color::DarkGray)),
-                    Span::raw(dep_issue.id()),
+                    Span::raw(dep_issue.id().to_string()),
                 ]));
                 lines.push(Line::from(vec![
                     Span::styled("  title:    ", Style::default().fg(Color::DarkGray)),
-                    Span::raw(dep_issue.title()),
+                    Span::raw(dep_issue.title().to_string()),
                 ]));
                 lines.push(Line::from(vec![
                     Span::styled("  status:   ", Style::default().fg(Color::DarkGray)),
@@ -1417,9 +1485,7 @@ fn draw_detail(f: &mut Frame, area: Rect, app: &App) {
         }
     }
 
-    let text = Text::from(lines);
-    let paragraph = Paragraph::new(text).block(block).wrap(Wrap { trim: false });
-    f.render_widget(paragraph, area);
+    lines
 }
 
 fn draw_detail_overlay(f: &mut Frame, area: Rect, app: &App) {
@@ -1608,6 +1674,8 @@ fn draw_help(f: &mut Frame, area: Rect) {
         Line::from("  G          go to bottom"),
         Line::from("  ← / h      select previous dependency"),
         Line::from("  → / l      select next dependency"),
+        Line::from("  PgUp/Ctrl+u  scroll detail pane up"),
+        Line::from("  PgDn/Ctrl+d  scroll detail pane down"),
         Line::from(""),
         Line::from(Span::styled(
             "actions",

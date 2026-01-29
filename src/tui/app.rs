@@ -40,6 +40,11 @@ pub struct BranchGraphInfo {
     pub ahead_of_main: usize,
     /// is this main/master
     pub is_main: bool,
+    /// fork point SHA (merge-base with main), kept for potential future use
+    #[allow(dead_code)]
+    pub fork_point_sha: Option<String>,
+    /// commits on main since this branch forked
+    pub main_commits_since_fork: Option<usize>,
 }
 
 /// Git graph data for visualization.
@@ -183,6 +188,8 @@ pub struct App {
     pub logs_scroll: usize,
     /// session ID for logs overlay (to know which session we're viewing)
     pub logs_session_id: Option<String>,
+    /// scroll offset for detail pane
+    pub detail_scroll: usize,
 }
 
 impl App {
@@ -242,6 +249,7 @@ impl App {
             logs_content: Vec::new(),
             logs_scroll: 0,
             logs_session_id: None,
+            detail_scroll: 0,
         };
         app.reload_issues(paths)?;
         app.reload_worktrees(paths);
@@ -337,6 +345,8 @@ impl App {
             commits: main_commits,
             ahead_of_main: 0,
             is_main: true,
+            fork_point_sha: None,
+            main_commits_since_fork: None,
         }];
 
         // get info for each non-main worktree
@@ -354,11 +364,21 @@ impl App {
             // get last 3 commits on this branch
             let commits = crate::git::log_commits(&wt.path, "HEAD", 3).unwrap_or_default();
 
+            // find fork point (merge-base with main)
+            let fork_point_sha = crate::git::merge_base(&wt.path, &main_branch, "HEAD").ok();
+
+            // count commits on main since fork point
+            let main_commits_since_fork = fork_point_sha.as_ref().and_then(|fork_sha| {
+                crate::git::commit_count(&main_wt.path, fork_sha, &main_branch).ok()
+            });
+
             branches.push(BranchGraphInfo {
                 name: branch.clone(),
                 commits,
                 ahead_of_main: ahead,
                 is_main: false,
+                fork_point_sha,
+                main_commits_since_fork,
             });
         }
 
@@ -436,6 +456,16 @@ impl App {
     pub fn logs_scroll_down(&mut self, lines: usize, view_height: usize) {
         let max_scroll = self.logs_content.len().saturating_sub(view_height);
         self.logs_scroll = (self.logs_scroll + lines).min(max_scroll);
+    }
+
+    /// scroll detail pane up.
+    pub fn detail_scroll_up(&mut self, lines: usize) {
+        self.detail_scroll = self.detail_scroll.saturating_sub(lines);
+    }
+
+    /// scroll detail pane down.
+    pub fn detail_scroll_down(&mut self, lines: usize, max_scroll: usize) {
+        self.detail_scroll = (self.detail_scroll + lines).min(max_scroll);
     }
 
     /// kill a session by session ID.
@@ -1243,6 +1273,8 @@ impl App {
         } else {
             self.detail_dep_selected = Some(0);
         }
+        // also reset detail scroll when changing issue
+        self.detail_scroll = 0;
     }
 
     /// clamp dep selection to valid range without resetting (used on reload).

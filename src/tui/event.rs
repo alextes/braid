@@ -203,6 +203,30 @@ fn handle_key_event(app: &mut App, paths: &RepoPaths, key: KeyEvent) -> Result<b
         KeyCode::Char('q') => return Ok(true),
         KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => return Ok(true),
 
+        // detail pane scrolling (issues view only, when details pane is visible)
+        KeyCode::PageUp if app.view == crate::tui::app::View::Issues && app.show_details => {
+            app.detail_scroll_up(10);
+        }
+        KeyCode::PageDown if app.view == crate::tui::app::View::Issues && app.show_details => {
+            // max_scroll will be computed in the UI based on content height
+            // use a large number here; the method clamps to actual max
+            app.detail_scroll_down(10, usize::MAX);
+        }
+        KeyCode::Char('u')
+            if key.modifiers.contains(KeyModifiers::CONTROL)
+                && app.view == crate::tui::app::View::Issues
+                && app.show_details =>
+        {
+            app.detail_scroll_up(10);
+        }
+        KeyCode::Char('d')
+            if key.modifiers.contains(KeyModifiers::CONTROL)
+                && app.view == crate::tui::app::View::Issues
+                && app.show_details =>
+        {
+            app.detail_scroll_down(10, usize::MAX);
+        }
+
         // navigation (view-specific)
         KeyCode::Up | KeyCode::Char('k') => match app.view {
             crate::tui::app::View::Agents => match app.agents_focus {
