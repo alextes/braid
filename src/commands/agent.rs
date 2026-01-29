@@ -315,6 +315,26 @@ fn extract_issue_id_from_branch(branch: &str) -> Option<&str> {
     }
 }
 
+/// check if gh CLI is installed and accessible.
+fn check_gh_available() -> Result<()> {
+    match Command::new("gh").arg("--version").output() {
+        Ok(output) if output.status.success() => Ok(()),
+        Ok(_) => Err(BrdError::Other(
+            "gh CLI found but returned an error. try running `gh auth login`".to_string(),
+        )),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Err(BrdError::Other(
+            "gh CLI not found\n\n\
+             install it to create PRs:\n  \
+             macOS:   brew install gh\n  \
+             linux:   see https://github.com/cli/cli#installation\n  \
+             windows: winget install GitHub.cli\n\n\
+             then run: gh auth login"
+                .to_string(),
+        )),
+        Err(e) => Err(BrdError::Io(e)),
+    }
+}
+
 /// create a PR from the current branch using gh cli.
 pub fn cmd_agent_pr(cli: &Cli, paths: &RepoPaths) -> Result<()> {
     let config = Config::load(&paths.config_path())?;
@@ -351,6 +371,9 @@ pub fn cmd_agent_pr(cli: &Cli, paths: &RepoPaths) -> Result<()> {
     } else {
         format!("{}\n\nCloses: {}", issue.body.trim(), full_id)
     };
+
+    // check gh is available before pushing (no point pushing if we can't create the PR)
+    check_gh_available()?;
 
     // push the branch first
     if !cli.json {
@@ -1389,13 +1412,42 @@ mod tests {
         // Create proper feature branch
         git_ok(&repo_path, &["checkout", "-b", "pr/test-agent/tst-0001"]);
 
-        // This will fail because gh CLI isn't available, but we can check it gets past branch validation
+        // This will fail because gh CLI isn't available (or can't push), but we verify
+        // that we got past branch validation
         let err = cmd_agent_pr(&cli, &paths).unwrap_err();
-        // Error should be about gh CLI or pushing, not about branch format
+        let err_str = err.to_string();
+
+        // Should not be a branch format error - we got past validation
         assert!(
-            !err.to_string().contains("doesn't match expected format"),
+            !err_str.contains("doesn't match expected format"),
             "unexpected error about branch format: {}",
             err
         );
+
+        // Should be either a gh CLI error or a push error
+        let is_gh_error = err_str.contains("gh CLI");
+        let is_push_error = err_str.contains("push");
+        assert!(
+            is_gh_error || is_push_error,
+            "expected gh CLI or push error, got: {}",
+            err
+        );
+    }
+
+    #[test]
+    fn test_check_gh_available_error_message() {
+        // This test verifies the error message format when gh is not available.
+        // If gh IS installed, this test just passes (we can't easily mock Command).
+        let result = check_gh_available();
+        if let Err(e) = result {
+            let msg = e.to_string();
+            // Should contain installation instructions
+            assert!(
+                msg.contains("brew install") || msg.contains("auth login"),
+                "gh error should contain installation/auth help: {}",
+                msg
+            );
+        }
+        // If gh is installed and working, that's fine too
     }
 }
