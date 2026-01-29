@@ -164,6 +164,12 @@ pub enum Command {
         id: String,
     },
 
+    /// reopen a done/skipped issue
+    Reopen {
+        /// issue ID
+        id: String,
+    },
+
     /// delete an issue
     Rm {
         /// issue ID

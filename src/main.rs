@@ -4,8 +4,8 @@ use braid::commands::{
     cmd_agent_logs, cmd_agent_pr, cmd_agent_ps, cmd_agent_send, cmd_agent_spawn, cmd_agents_inject,
     cmd_agents_show, cmd_commit, cmd_completions, cmd_config_auto_sync, cmd_config_external_repo,
     cmd_config_issues_branch, cmd_config_show, cmd_dep_add, cmd_dep_rm, cmd_doctor, cmd_done,
-    cmd_edit, cmd_init, cmd_ls, cmd_merge, cmd_migrate, cmd_ready, cmd_rm, cmd_search, cmd_set,
-    cmd_show, cmd_skip, cmd_start, cmd_status, cmd_sync, cmd_tui,
+    cmd_edit, cmd_init, cmd_ls, cmd_merge, cmd_migrate, cmd_ready, cmd_reopen, cmd_rm, cmd_search,
+    cmd_set, cmd_show, cmd_skip, cmd_start, cmd_status, cmd_sync, cmd_tui,
 };
 use braid::config::Config;
 use braid::error::{BrdError, Result};
@@ -121,6 +121,7 @@ fn run(cli: &Cli) -> Result<()> {
             no_push,
         } => cmd_done(cli, &paths, id, *force, result, *no_push),
         Command::Skip { id } => cmd_skip(cli, &paths, id),
+        Command::Reopen { id } => cmd_reopen(cli, &paths, id),
         Command::Rm { id, force } => cmd_rm(cli, &paths, id, *force),
         Command::Agent { action } => match action {
             AgentAction::Init { name, base } => cmd_agent_init(cli, &paths, name, base.as_deref()),
