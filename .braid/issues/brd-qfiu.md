@@ -1,5 +1,5 @@
 ---
-schema_version: 8
+schema_version: 9
 id: brd-qfiu
 title: add README section comparing braid with beads
 priority: P2
@@ -9,7 +9,7 @@ deps: []
 owner: null
 created_at: 2025-12-27T22:13:47.855608Z
 started_at: 2025-12-28T18:35:30.418591Z
-completed_at: 2025-12-28T18:35:30.418591Z
+completed_at: 2026-01-29T11:40:06.520412Z
 ---
 
 add a section to the README that compares braid with beads, the project that inspired it. this should help users understand the relationship between the two projects and what makes braid different.

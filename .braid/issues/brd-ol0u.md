@@ -1,15 +1,17 @@
 ---
-schema_version: 8
+schema_version: 9
 id: brd-ol0u
 title: 'design: visualize and clarify dependency relationships'
 priority: P2
-status: open
+status: done
 type: design
 deps: []
 tags:
 - ux
 owner: null
 created_at: 2026-01-18T20:36:28.54195Z
+started_at: 2026-01-28T15:18:55.911152Z
+completed_at: 2026-01-28T15:30:26.700739Z
 ---
 
 Explore better ways to show dependencies between issues.
