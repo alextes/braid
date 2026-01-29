@@ -5,7 +5,10 @@ use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span, Text},
-    widgets::{Block, Borders, Clear, List, ListItem, ListState, Paragraph, Wrap},
+    widgets::{
+        Block, Borders, Clear, List, ListItem, ListState, Paragraph, Scrollbar,
+        ScrollbarOrientation, ScrollbarState, Wrap,
+    },
 };
 use time::{Duration as TimeDuration, OffsetDateTime};
 
@@ -1177,6 +1180,25 @@ fn draw_issue_list(f: &mut Frame, area: Rect, app: &mut App) {
         .highlight_style(Style::default())
         .highlight_symbol("");
     f.render_stateful_widget(list, area, &mut state);
+
+    // render scrollbar if there are more items than fit in view
+    if visible_len > view_height {
+        let mut scrollbar_state =
+            ScrollbarState::new(visible_len.saturating_sub(view_height)).position(app.offset);
+        let scrollbar = Scrollbar::new(ScrollbarOrientation::VerticalRight)
+            .begin_symbol(None)
+            .end_symbol(None)
+            .track_symbol(Some("│"))
+            .thumb_symbol("█");
+        // render scrollbar in the inner area (inside the border)
+        let scrollbar_area = Rect {
+            x: area.x + area.width - 1,
+            y: area.y + 1,
+            width: 1,
+            height: area.height.saturating_sub(2),
+        };
+        f.render_stateful_widget(scrollbar, scrollbar_area, &mut scrollbar_state);
+    }
 }
 
 fn draw_detail(f: &mut Frame, area: Rect, app: &App) {
