@@ -4,7 +4,7 @@ use crate::cli::Cli;
 use crate::config::Config;
 use crate::date::parse_scheduled_date;
 use crate::error::{BrdError, Result};
-use crate::issue::{IssueType, Priority, Status};
+use crate::issue::{IssueType, Priority};
 use crate::lock::LockGuard;
 use crate::repo::RepoPaths;
 
@@ -28,14 +28,15 @@ pub fn cmd_set(cli: &Cli, paths: &RepoPaths, id: &str, field: &str, value: &str)
                 issue.frontmatter.priority = priority;
             }
             "status" | "s" => {
-                let status: Status = value.parse()?;
-                // Update timestamps based on status transition
-                if status == Status::Doing {
-                    issue.mark_started();
-                } else if matches!(status, Status::Done | Status::Skip) {
-                    issue.mark_completed();
-                }
-                issue.frontmatter.status = status;
+                return Err(BrdError::Other(
+                    "cannot set status directly\n\n\
+                     use these commands instead:\n  \
+                     brd start <id>   - start working (sets status to doing)\n  \
+                     brd done <id>    - mark complete (sets status to done)\n  \
+                     brd skip <id>    - mark skipped (sets status to skip)\n  \
+                     brd reopen <id>  - reopen issue (sets status to open)"
+                        .to_string(),
+                ));
             }
             "type" | "t" => {
                 if value == "-" {
@@ -75,7 +76,7 @@ pub fn cmd_set(cli: &Cli, paths: &RepoPaths, id: &str, field: &str, value: &str)
             }
             _ => {
                 return Err(BrdError::Other(format!(
-                    "unknown field '{}'. supported: priority, status, type, owner, title, tag, scheduled-for",
+                    "unknown field '{}'. supported: priority, type, owner, title, tag, scheduled-for",
                     field
                 )));
             }
@@ -92,7 +93,7 @@ pub fn cmd_set(cli: &Cli, paths: &RepoPaths, id: &str, field: &str, value: &str)
     } else {
         // format value appropriately for each field type
         let display_value = match field.to_lowercase().as_str() {
-            "priority" | "p" | "status" | "s" | "type" | "t" => value.to_uppercase(),
+            "priority" | "p" | "type" | "t" => value.to_uppercase(),
             _ => value.to_string(),
         };
         println!("{} {} = {}", full_id, field, display_value);
@@ -104,7 +105,7 @@ pub fn cmd_set(cli: &Cli, paths: &RepoPaths, id: &str, field: &str, value: &str)
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::issue::{IssueType, Status};
+    use crate::issue::IssueType;
     use crate::test_utils::{TestRepo, test_cli};
 
     #[test]
@@ -156,25 +157,23 @@ mod tests {
     }
 
     #[test]
-    fn test_set_status() {
+    fn test_set_status_rejected() {
         let repo = TestRepo::builder().build();
         repo.issue("brd-stat").create();
 
-        cmd_set(&test_cli(), &repo.paths, "brd-stat", "status", "done").unwrap();
-
-        let issues = load_all_issues(&repo.paths, &repo.config).unwrap();
-        assert_eq!(issues.get("brd-stat").unwrap().status(), Status::Done);
+        let err = cmd_set(&test_cli(), &repo.paths, "brd-stat", "status", "done").unwrap_err();
+        assert!(err.to_string().contains("cannot set status directly"));
+        assert!(err.to_string().contains("brd start"));
+        assert!(err.to_string().contains("brd done"));
     }
 
     #[test]
-    fn test_set_status_short() {
+    fn test_set_status_short_rejected() {
         let repo = TestRepo::builder().build();
         repo.issue("brd-stat2").create();
 
-        cmd_set(&test_cli(), &repo.paths, "brd-stat2", "s", "doing").unwrap();
-
-        let issues = load_all_issues(&repo.paths, &repo.config).unwrap();
-        assert_eq!(issues.get("brd-stat2").unwrap().status(), Status::Doing);
+        let err = cmd_set(&test_cli(), &repo.paths, "brd-stat2", "s", "doing").unwrap_err();
+        assert!(err.to_string().contains("cannot set status directly"));
     }
 
     #[test]
