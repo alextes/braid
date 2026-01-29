@@ -284,24 +284,20 @@ fn handle_key_event(app: &mut App, paths: &RepoPaths, key: KeyEvent) -> Result<b
         KeyCode::Char('G') => app.move_to_bottom(),
         // half-page scroll (agents view, u without modifier)
         KeyCode::Char('u') if app.view == View::Agents => app.agents_half_page_up(),
-        KeyCode::Left | KeyCode::Char('h') => match app.view {
-            View::Agents => {
-                app.agents_focus = crate::tui::app::AgentsFocus::Worktrees;
-            }
-            View::Issues if app.issues_focus == IssuesFocus::Details => {
-                app.move_dep_prev();
-            }
-            _ => {}
-        },
-        KeyCode::Right | KeyCode::Char('l') => match app.view {
-            View::Agents => {
-                app.agents_focus = crate::tui::app::AgentsFocus::Files;
-            }
-            View::Issues if app.issues_focus == IssuesFocus::Details => {
-                app.move_dep_next();
-            }
-            _ => {}
-        },
+        KeyCode::Left | KeyCode::Char('h') if app.view == View::Agents => {
+            app.agents_focus = crate::tui::app::AgentsFocus::Worktrees;
+        }
+        KeyCode::Right | KeyCode::Char('l') if app.view == View::Agents => {
+            app.agents_focus = crate::tui::app::AgentsFocus::Files;
+        }
+
+        // 1-9 selects dependency by number (issues view, detail focused)
+        KeyCode::Char(c @ '1'..='9')
+            if app.view == View::Issues && app.issues_focus == IssuesFocus::Details =>
+        {
+            let idx = (c as usize) - ('1' as usize);
+            app.select_dep_by_index(idx);
+        }
 
         // actions
         KeyCode::Char('a') | KeyCode::Char('n') => app.start_add_issue(),
@@ -800,7 +796,7 @@ mod tests {
     }
 
     #[test]
-    fn test_dependency_navigation_and_open() {
+    fn test_dependency_selection_and_open() {
         let env = TestEnv::new();
         env.add_issue("brd-dep1", "dep one", Priority::P2, Status::Open);
         env.add_issue("brd-dep2", "dep two", Priority::P3, Status::Open);
@@ -816,12 +812,12 @@ mod tests {
         assert_eq!(app.selected_issue_id(), Some("brd-main"));
         assert_eq!(app.detail_dep_selected, Some(0));
 
-        // switch focus to detail pane first (h/l only work when detail is focused)
+        // switch focus to detail pane first (1-9 only work when detail is focused)
         handle_key_event(&mut app, &env.paths, key(KeyCode::Tab)).expect("tab to focus failed");
         assert_eq!(app.issues_focus, IssuesFocus::Details);
 
-        // now navigate deps with right arrow
-        handle_key_event(&mut app, &env.paths, key(KeyCode::Right)).expect("move dep failed");
+        // select dep 2 by pressing '2'
+        handle_key_event(&mut app, &env.paths, key(KeyCode::Char('2'))).expect("select dep failed");
         assert_eq!(app.detail_dep_selected, Some(1));
 
         handle_key_event(&mut app, &env.paths, key(KeyCode::Enter)).expect("open dep failed");

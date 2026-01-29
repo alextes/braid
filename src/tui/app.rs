@@ -1028,40 +1028,15 @@ impl App {
         self.show_detail_overlay = false;
     }
 
-    /// move selection to previous dependency.
-    pub fn move_dep_prev(&mut self) {
+    /// select dependency by index (0-based).
+    pub fn select_dep_by_index(&mut self, idx: usize) {
         let Some(issue) = self.selected_issue() else {
-            self.message = Some("no issue selected".to_string());
             return;
         };
-        if issue.deps().is_empty() {
-            self.message = Some("no dependencies".to_string());
-            return;
+        if idx < issue.deps().len() {
+            self.detail_dep_selected = Some(idx);
+            self.message = None;
         }
-        let current = self.detail_dep_selected.unwrap_or(0);
-        let next = current.saturating_sub(1);
-        self.detail_dep_selected = Some(next);
-        self.message = None;
-    }
-
-    /// move selection to next dependency.
-    pub fn move_dep_next(&mut self) {
-        let Some(issue) = self.selected_issue() else {
-            self.message = Some("no issue selected".to_string());
-            return;
-        };
-        if issue.deps().is_empty() {
-            self.message = Some("no dependencies".to_string());
-            return;
-        }
-        let current = self.detail_dep_selected.unwrap_or(0);
-        let next = if current + 1 < issue.deps().len() {
-            current + 1
-        } else {
-            current
-        };
-        self.detail_dep_selected = Some(next);
-        self.message = None;
     }
 
     /// open the selected dependency in the list view.
@@ -1992,9 +1967,8 @@ mod tests {
         assert_eq!(app.selected_issue_id(), Some("brd-main"));
         assert_eq!(app.detail_dep_selected, Some(0));
 
-        // move to dep index 2
-        app.move_dep_next();
-        app.move_dep_next();
+        // select dep index 2
+        app.select_dep_by_index(2);
         assert_eq!(app.detail_dep_selected, Some(2));
 
         // reload issues - should preserve dep selection
@@ -2018,8 +1992,8 @@ mod tests {
         let mut app = env.app();
         assert_eq!(app.selected_issue_id(), Some("brd-main"));
 
-        // move to dep index 1
-        app.move_dep_next();
+        // select dep index 1
+        app.select_dep_by_index(1);
         assert_eq!(app.detail_dep_selected, Some(1));
 
         // remove one dep from the issue file

@@ -1386,7 +1386,12 @@ fn build_detail_lines(app: &App) -> Vec<Line<'static>> {
         )));
         for (idx, dep_id) in issue.deps().iter().enumerate() {
             let is_selected = Some(idx) == selected_dep;
-            let prefix = if is_selected { ">" } else { " " };
+            // show number for selection (1-9), or bullet for overflow
+            let prefix = if idx < 9 {
+                format!("{}", idx + 1)
+            } else {
+                "-".to_string()
+            };
 
             let (symbol, status_text, base_color) = if let Some(dep_issue) = app.issues.get(dep_id)
             {
@@ -1694,8 +1699,7 @@ fn draw_help(f: &mut Frame, area: Rect) {
         )),
         Line::from("  ↑ / k      scroll detail content"),
         Line::from("  ↓ / j      scroll detail content"),
-        Line::from("  ← / h      previous dependency"),
-        Line::from("  → / l      next dependency"),
+        Line::from("  1-9        select dependency by number"),
         Line::from("  Ctrl+u/d   half-page scroll detail"),
         Line::from("  Tab / Esc  return focus to list"),
         Line::from("  Enter      jump to selected dependency"),
