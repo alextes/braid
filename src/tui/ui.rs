@@ -16,7 +16,7 @@ use crate::graph::{compute_derived, get_dependents};
 use crate::issue::{Priority, Status};
 use crate::session::SessionStatus;
 
-use super::app::{App, InputMode, View};
+use super::app::{App, InputMode, IssuesFocus, View};
 use super::diff_panel::{DiffPanel, centered_overlay};
 
 /// draw the entire UI.
@@ -63,7 +63,7 @@ fn draw_header(f: &mut Frame, area: Rect, app: &App) {
 
 fn draw_footer(f: &mut Frame, area: Rect, app: &App) {
     let msg = app.message.as_deref().unwrap_or("");
-    let help = "[1]dashboard [2]issues [3]agents [Tab]toggle details [a]dd [e]dit [s]tart [d]one [/]filter [?]help [q]uit";
+    let help = "[1]dashboard [2]issues [3]agents [Tab]focus [\\]toggle details [a]dd [e]dit [s]tart [d]one [/]filter [?]help [q]uit";
     let text = if msg.is_empty() {
         help.to_string()
     } else {
@@ -1046,7 +1046,13 @@ fn draw_issues_view(f: &mut Frame, area: Rect, app: &mut App) {
 }
 
 fn draw_issue_list(f: &mut Frame, area: Rect, app: &mut App) {
-    let border_style = Style::default().fg(Color::Yellow);
+    let is_focused = app.issues_focus == IssuesFocus::List;
+    let border_color = if is_focused {
+        Color::Yellow
+    } else {
+        Color::DarkGray
+    };
+    let border_style = Style::default().fg(border_color);
 
     // build title with filter info
     let visible = app.visible_issues();
@@ -1236,9 +1242,15 @@ fn draw_issue_list(f: &mut Frame, area: Rect, app: &mut App) {
 fn draw_detail(f: &mut Frame, area: Rect, app: &mut App) {
     let inner_height = area.height.saturating_sub(2) as usize; // subtract borders
 
+    let is_focused = app.issues_focus == IssuesFocus::Details;
+    let border_color = if is_focused {
+        Color::Yellow
+    } else {
+        Color::DarkGray
+    };
     let block = Block::default()
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::DarkGray));
+        .border_style(Style::default().fg(border_color));
 
     // build the content lines first, collecting all needed data
     let lines = build_detail_lines(app);
@@ -1665,17 +1677,28 @@ fn draw_help(f: &mut Frame, area: Rect) {
     let help_text = vec![
         Line::from(""),
         Line::from(Span::styled(
-            "navigation",
+            "issues view - list focused",
             Style::default().add_modifier(Modifier::BOLD),
         )),
         Line::from("  ↑ / k      move up"),
         Line::from("  ↓ / j      move down"),
         Line::from("  g          go to top"),
         Line::from("  G          go to bottom"),
-        Line::from("  ← / h      select previous dependency"),
-        Line::from("  → / l      select next dependency"),
-        Line::from("  PgUp/Ctrl+u  scroll detail pane up"),
-        Line::from("  PgDn/Ctrl+d  scroll detail pane down"),
+        Line::from("  Ctrl+u/d   half-page scroll"),
+        Line::from("  Tab        switch focus to detail pane"),
+        Line::from("  Enter      switch focus to detail pane"),
+        Line::from(""),
+        Line::from(Span::styled(
+            "issues view - detail focused",
+            Style::default().add_modifier(Modifier::BOLD),
+        )),
+        Line::from("  ↑ / k      scroll detail content"),
+        Line::from("  ↓ / j      scroll detail content"),
+        Line::from("  ← / h      previous dependency"),
+        Line::from("  → / l      next dependency"),
+        Line::from("  Ctrl+u/d   half-page scroll detail"),
+        Line::from("  Tab / Esc  return focus to list"),
+        Line::from("  Enter      jump to selected dependency"),
         Line::from(""),
         Line::from(Span::styled(
             "actions",
@@ -1695,8 +1718,7 @@ fn draw_help(f: &mut Frame, area: Rect) {
         Line::from("  1          dashboard"),
         Line::from("  2          issues"),
         Line::from("  3          agents"),
-        Line::from("  Tab        toggle details pane"),
-        Line::from("  enter      open dep / view details / view diff"),
+        Line::from("  \\          toggle details pane visibility"),
         Line::from(""),
         Line::from(Span::styled(
             "agents view",
@@ -1712,7 +1734,7 @@ fn draw_help(f: &mut Frame, area: Rect) {
         Line::from("  /          enter filter mode"),
         Line::from("  R          toggle ready filter"),
         Line::from("  enter      confirm filter"),
-        Line::from("  esc        clear filter"),
+        Line::from("  esc        clear filter / unfocus detail"),
         Line::from(""),
         Line::from(Span::styled(
             "other",

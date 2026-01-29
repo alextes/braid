@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyModifiers};
 
-use super::app::{App, InputMode};
+use super::app::{App, InputMode, IssuesFocus, View};
 use crate::error::Result;
 use crate::repo::RepoPaths;
 
@@ -203,62 +203,104 @@ fn handle_key_event(app: &mut App, paths: &RepoPaths, key: KeyEvent) -> Result<b
         KeyCode::Char('q') => return Ok(true),
         KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => return Ok(true),
 
-        // detail pane scrolling (issues view only, when details pane is visible)
-        KeyCode::PageUp if app.view == crate::tui::app::View::Issues && app.show_details => {
-            app.detail_scroll_up(10);
-        }
-        KeyCode::PageDown if app.view == crate::tui::app::View::Issues && app.show_details => {
-            // max_scroll will be computed in the UI based on content height
-            // use a large number here; the method clamps to actual max
-            app.detail_scroll_down(10, usize::MAX);
-        }
-        KeyCode::Char('u')
-            if key.modifiers.contains(KeyModifiers::CONTROL)
-                && app.view == crate::tui::app::View::Issues
-                && app.show_details =>
-        {
-            app.detail_scroll_up(10);
-        }
-        KeyCode::Char('d')
-            if key.modifiers.contains(KeyModifiers::CONTROL)
-                && app.view == crate::tui::app::View::Issues
-                && app.show_details =>
-        {
-            app.detail_scroll_down(10, usize::MAX);
+        // tab switches focus between panels (issues view with details visible)
+        KeyCode::Tab if app.view == View::Issues && app.show_details => {
+            app.issues_focus = match app.issues_focus {
+                IssuesFocus::List => IssuesFocus::Details,
+                IssuesFocus::Details => IssuesFocus::List,
+            };
         }
 
-        // navigation (view-specific)
+        // backslash toggles detail pane visibility
+        KeyCode::Char('\\') if app.view == View::Issues => {
+            app.toggle_details();
+            // reset to list focus when toggling
+            app.issues_focus = IssuesFocus::List;
+        }
+
+        // esc returns to list focus (when in details), otherwise clears filter
+        KeyCode::Esc if app.view == View::Issues => {
+            if app.issues_focus == IssuesFocus::Details {
+                app.issues_focus = IssuesFocus::List;
+            } else if app.has_filter() {
+                app.clear_filter();
+            }
+        }
+
+        // page up/down based on focus (issues view)
+        KeyCode::PageUp if app.view == View::Issues && app.show_details => match app.issues_focus {
+            IssuesFocus::List => app.half_page_up(),
+            IssuesFocus::Details => app.detail_scroll_up(10),
+        },
+        KeyCode::PageDown if app.view == View::Issues && app.show_details => {
+            match app.issues_focus {
+                IssuesFocus::List => app.half_page_down(),
+                IssuesFocus::Details => app.detail_scroll_down(10, usize::MAX),
+            }
+        }
+
+        // ctrl+u/d half-page scroll based on focus (issues view)
+        KeyCode::Char('u') if key.modifiers.contains(KeyModifiers::CONTROL) => match app.view {
+            View::Issues if app.show_details => match app.issues_focus {
+                IssuesFocus::List => app.half_page_up(),
+                IssuesFocus::Details => app.detail_scroll_up(10),
+            },
+            View::Issues => app.half_page_up(),
+            _ => {}
+        },
+        KeyCode::Char('d') if key.modifiers.contains(KeyModifiers::CONTROL) => match app.view {
+            View::Issues if app.show_details => match app.issues_focus {
+                IssuesFocus::List => app.half_page_down(),
+                IssuesFocus::Details => app.detail_scroll_down(10, usize::MAX),
+            },
+            View::Issues => app.half_page_down(),
+            _ => {}
+        },
+
+        // navigation (view and focus specific)
         KeyCode::Up | KeyCode::Char('k') => match app.view {
-            crate::tui::app::View::Agents => match app.agents_focus {
+            View::Agents => match app.agents_focus {
                 crate::tui::app::AgentsFocus::Worktrees => app.worktree_prev(),
                 crate::tui::app::AgentsFocus::Files => app.worktree_file_prev(),
+            },
+            View::Issues => match app.issues_focus {
+                IssuesFocus::List => app.move_up(),
+                IssuesFocus::Details => app.detail_scroll_up(1),
             },
             _ => app.move_up(),
         },
         KeyCode::Down | KeyCode::Char('j') => match app.view {
-            crate::tui::app::View::Agents => match app.agents_focus {
+            View::Agents => match app.agents_focus {
                 crate::tui::app::AgentsFocus::Worktrees => app.worktree_next(),
                 crate::tui::app::AgentsFocus::Files => app.worktree_file_next(),
+            },
+            View::Issues => match app.issues_focus {
+                IssuesFocus::List => app.move_down(),
+                IssuesFocus::Details => app.detail_scroll_down(1, usize::MAX),
             },
             _ => app.move_down(),
         },
         KeyCode::Char('g') => app.move_to_top(),
         KeyCode::Char('G') => app.move_to_bottom(),
-        // half-page scroll (agents view only, d conflicts with "done" in issues)
-        KeyCode::Char('u') if app.view == crate::tui::app::View::Agents => {
-            app.agents_half_page_up()
-        }
+        // half-page scroll (agents view, u without modifier)
+        KeyCode::Char('u') if app.view == View::Agents => app.agents_half_page_up(),
         KeyCode::Left | KeyCode::Char('h') => match app.view {
-            crate::tui::app::View::Agents => {
+            View::Agents => {
                 app.agents_focus = crate::tui::app::AgentsFocus::Worktrees;
             }
-            _ => app.move_dep_prev(),
+            View::Issues if app.issues_focus == IssuesFocus::Details => {
+                app.move_dep_prev();
+            }
+            _ => {}
         },
         KeyCode::Right | KeyCode::Char('l') => match app.view {
-            crate::tui::app::View::Agents => {
+            View::Agents => {
                 app.agents_focus = crate::tui::app::AgentsFocus::Files;
             }
-            _ => app.move_dep_next(),
+            View::Issues if app.issues_focus == IssuesFocus::Details => {
+                app.move_dep_next();
+            }
+            _ => {}
         },
 
         // actions
@@ -270,7 +312,7 @@ fn handle_key_event(app: &mut App, paths: &RepoPaths, key: KeyEvent) -> Result<b
             }
         }
         KeyCode::Char('d') => match app.view {
-            crate::tui::app::View::Agents => app.agents_half_page_down(),
+            View::Agents => app.agents_half_page_down(),
             _ => {
                 if let Err(e) = app.done_selected(paths) {
                     app.message = Some(format!("error: {}", e));
@@ -283,29 +325,45 @@ fn handle_key_event(app: &mut App, paths: &RepoPaths, key: KeyEvent) -> Result<b
             }
         }
         KeyCode::Enter => match app.view {
-            crate::tui::app::View::Agents => app.open_selected_file_diff(),
-            _ => {
-                if !app.show_details {
-                    // when details pane is hidden, show full-screen overlay
-                    app.show_detail_overlay();
-                } else {
-                    // when details pane is visible, open selected dependency
+            View::Agents => app.open_selected_file_diff(),
+            View::Issues => match app.issues_focus {
+                IssuesFocus::List => {
+                    if !app.show_details {
+                        // when details pane is hidden, show full-screen overlay
+                        app.show_detail_overlay();
+                    } else {
+                        // when details pane is visible and list focused, switch to details
+                        app.issues_focus = IssuesFocus::Details;
+                    }
+                }
+                IssuesFocus::Details => {
+                    // when details pane is focused, open selected dependency
                     app.open_selected_dependency();
                 }
-            }
+            },
+            _ => {}
         },
-        KeyCode::Tab => app.toggle_details(),
+        KeyCode::Tab => {
+            // other views: do nothing (issues view handled above)
+        }
 
         // views
-        KeyCode::Char('1') => app.view = crate::tui::app::View::Dashboard,
-        KeyCode::Char('2') => app.view = crate::tui::app::View::Issues,
+        KeyCode::Char('1') => {
+            app.view = View::Dashboard;
+            app.issues_focus = IssuesFocus::List;
+        }
+        KeyCode::Char('2') => {
+            app.view = View::Issues;
+            // keep current focus
+        }
         KeyCode::Char('3') => {
             app.reload_worktrees(paths);
-            app.view = crate::tui::app::View::Agents;
+            app.view = View::Agents;
+            app.issues_focus = IssuesFocus::List;
         }
 
         // spawn agent for issue (issues view)
-        KeyCode::Char('S') if app.view == crate::tui::app::View::Issues => {
+        KeyCode::Char('S') if app.view == View::Issues => {
             if let Some(issue_id) = app.selected_issue_id().map(|s| s.to_string()) {
                 match app.spawn_agent_for_issue(paths, &issue_id) {
                     Ok(()) => {}
@@ -317,7 +375,7 @@ fn handle_key_event(app: &mut App, paths: &RepoPaths, key: KeyEvent) -> Result<b
         }
 
         // kill session (agents view)
-        KeyCode::Char('K') if app.view == crate::tui::app::View::Agents => {
+        KeyCode::Char('K') if app.view == View::Agents => {
             if let Some(session) = app.selected_session() {
                 let session_id = session.session_id.clone();
                 if let Err(e) = app.kill_session(paths, &session_id) {
@@ -329,7 +387,7 @@ fn handle_key_event(app: &mut App, paths: &RepoPaths, key: KeyEvent) -> Result<b
         }
 
         // view logs (agents view)
-        KeyCode::Char('L') if app.view == crate::tui::app::View::Agents => {
+        KeyCode::Char('L') if app.view == View::Agents => {
             if let Some(session) = app.selected_session() {
                 let session_id = session.session_id.clone();
                 app.open_logs_overlay(paths, &session_id);
@@ -342,6 +400,7 @@ fn handle_key_event(app: &mut App, paths: &RepoPaths, key: KeyEvent) -> Result<b
         KeyCode::Char('/') => app.start_filter(),
         KeyCode::Char('R') => app.toggle_ready_filter(),
         KeyCode::Esc => {
+            // handled above for issues view
             if app.has_filter() {
                 app.clear_filter();
             }
@@ -757,6 +816,11 @@ mod tests {
         assert_eq!(app.selected_issue_id(), Some("brd-main"));
         assert_eq!(app.detail_dep_selected, Some(0));
 
+        // switch focus to detail pane first (h/l only work when detail is focused)
+        handle_key_event(&mut app, &env.paths, key(KeyCode::Tab)).expect("tab to focus failed");
+        assert_eq!(app.issues_focus, IssuesFocus::Details);
+
+        // now navigate deps with right arrow
         handle_key_event(&mut app, &env.paths, key(KeyCode::Right)).expect("move dep failed");
         assert_eq!(app.detail_dep_selected, Some(1));
 
@@ -765,7 +829,28 @@ mod tests {
     }
 
     #[test]
-    fn test_tab_toggles_details_pane() {
+    fn test_tab_switches_focus() {
+        let env = TestEnv::new();
+        env.add_issue("brd-aaaa", "issue", Priority::P1, Status::Open);
+        let mut app = env.app();
+
+        // default: details shown, list focused
+        assert!(app.show_details);
+        assert_eq!(app.issues_focus, IssuesFocus::List);
+
+        // tab switches focus to detail
+        handle_key_event(&mut app, &env.paths, key(KeyCode::Tab)).expect("tab failed");
+        assert_eq!(app.issues_focus, IssuesFocus::Details);
+        assert!(app.show_details);
+
+        // tab switches focus back to list
+        handle_key_event(&mut app, &env.paths, key(KeyCode::Tab)).expect("tab failed");
+        assert_eq!(app.issues_focus, IssuesFocus::List);
+        assert!(app.show_details);
+    }
+
+    #[test]
+    fn test_backslash_toggles_details_pane() {
         let env = TestEnv::new();
         env.add_issue("brd-aaaa", "issue", Priority::P1, Status::Open);
         let mut app = env.app();
@@ -773,12 +858,12 @@ mod tests {
         // default: details shown
         assert!(app.show_details);
 
-        // toggle off
-        handle_key_event(&mut app, &env.paths, key(KeyCode::Tab)).expect("tab failed");
+        // backslash toggles off
+        handle_key_event(&mut app, &env.paths, key(KeyCode::Char('\\'))).expect("backslash failed");
         assert!(!app.show_details);
 
-        // toggle on
-        handle_key_event(&mut app, &env.paths, key(KeyCode::Tab)).expect("tab failed");
+        // backslash toggles on
+        handle_key_event(&mut app, &env.paths, key(KeyCode::Char('\\'))).expect("backslash failed");
         assert!(app.show_details);
     }
 

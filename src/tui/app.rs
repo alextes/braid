@@ -89,6 +89,16 @@ pub enum AgentsFocus {
     Files,
 }
 
+/// which panel has focus in issues view.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum IssuesFocus {
+    /// issue list (left panel)
+    #[default]
+    List,
+    /// detail pane (right panel)
+    Details,
+}
+
 /// input mode for creating/editing issues.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum InputMode {
@@ -190,6 +200,8 @@ pub struct App {
     pub logs_session_id: Option<String>,
     /// scroll offset for detail pane
     pub detail_scroll: usize,
+    /// which panel has focus in issues view
+    pub issues_focus: IssuesFocus,
 }
 
 impl App {
@@ -250,6 +262,7 @@ impl App {
             logs_scroll: 0,
             logs_session_id: None,
             detail_scroll: 0,
+            issues_focus: IssuesFocus::default(),
         };
         app.reload_issues(paths)?;
         app.reload_worktrees(paths);
@@ -971,6 +984,21 @@ impl App {
         if len > 0 {
             self.selected = len - 1;
         }
+        self.reset_dep_selection();
+        self.message = None;
+    }
+
+    /// half-page up in issues list.
+    pub fn half_page_up(&mut self) {
+        self.selected = self.selected.saturating_sub(10);
+        self.reset_dep_selection();
+        self.message = None;
+    }
+
+    /// half-page down in issues list.
+    pub fn half_page_down(&mut self) {
+        let max = self.visible_issues().len().saturating_sub(1);
+        self.selected = (self.selected + 10).min(max);
         self.reset_dep_selection();
         self.message = None;
     }
