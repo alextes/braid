@@ -1183,8 +1183,9 @@ fn draw_issue_list(f: &mut Frame, area: Rect, app: &mut App) {
 
     // render scrollbar if there are more items than fit in view
     if visible_len > view_height {
-        let mut scrollbar_state =
-            ScrollbarState::new(visible_len.saturating_sub(view_height)).position(app.offset);
+        let mut scrollbar_state = ScrollbarState::new(visible_len)
+            .viewport_content_length(view_height)
+            .position(app.offset);
         let scrollbar = Scrollbar::new(ScrollbarOrientation::VerticalRight)
             .begin_symbol(None)
             .end_symbol(None)
