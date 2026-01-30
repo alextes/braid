@@ -40,11 +40,10 @@ pub struct BranchGraphInfo {
     pub ahead_of_main: usize,
     /// is this main/master
     pub is_main: bool,
-    /// fork point SHA (merge-base with main), kept for potential future use
-    #[allow(dead_code)]
+    /// fork point SHA (merge-base with main)
     pub fork_point_sha: Option<String>,
-    /// commits on main since this branch forked
-    pub main_commits_since_fork: Option<usize>,
+    /// visual position in main's displayed commits (0 = oldest shown, None = before shown commits)
+    pub fork_position: Option<usize>,
 }
 
 /// Git graph data for visualization.
@@ -359,7 +358,7 @@ impl App {
             ahead_of_main: 0,
             is_main: true,
             fork_point_sha: None,
-            main_commits_since_fork: None,
+            fork_position: None,
         }];
 
         // get info for each non-main worktree
@@ -380,20 +379,38 @@ impl App {
             // find fork point (merge-base with main)
             let fork_point_sha = crate::git::merge_base(&wt.path, &main_branch, "HEAD").ok();
 
-            // count commits on main since fork point
-            let main_commits_since_fork = fork_point_sha.as_ref().and_then(|fork_sha| {
-                crate::git::commit_count(&main_wt.path, fork_sha, &main_branch).ok()
-            });
-
             branches.push(BranchGraphInfo {
                 name: branch.clone(),
                 commits,
                 ahead_of_main: ahead,
                 is_main: false,
                 fork_point_sha,
-                main_commits_since_fork,
+                fork_position: None, // calculated below
             });
         }
+
+        // calculate fork positions for feature branches
+        // fork_position is the index into main's displayed commits where the branch forked
+        // (0 = oldest shown commit, higher = more recent)
+        // clone main_commits to avoid borrow checker issues
+        let main_commit_shas: Vec<String> =
+            branches[0].commits.iter().map(|c| c.sha.clone()).collect();
+        for branch in branches.iter_mut().skip(1) {
+            if let Some(ref fork_sha) = branch.fork_point_sha {
+                // find which main commit matches the fork point
+                // commits are ordered newest first, so we reverse to get oldest-first indexing
+                branch.fork_position = main_commit_shas
+                    .iter()
+                    .rev()
+                    .position(|sha| sha.starts_with(fork_sha) || fork_sha.starts_with(sha));
+            }
+        }
+
+        // sort feature branches by fork position (older forks first, i.e., lower position)
+        // branches with no fork position (forked before shown commits) come first
+        let main_branch_info = branches.remove(0);
+        branches.sort_by_key(|b| b.fork_position.unwrap_or(0));
+        branches.insert(0, main_branch_info);
 
         self.git_graph = Some(GitGraph {
             branches,

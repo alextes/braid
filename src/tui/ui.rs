@@ -934,25 +934,24 @@ fn draw_git_graph(f: &mut Frame, area: Rect, app: &App) {
     // find main branch info
     let main_branch = graph.branches.iter().find(|b| b.is_main);
 
-    // collect feature branches sorted by fork distance (older forks first)
-    let mut feature_branches: Vec<_> = graph.branches.iter().filter(|b| !b.is_main).collect();
-    feature_branches.sort_by_key(|b| std::cmp::Reverse(b.main_commits_since_fork.unwrap_or(0)));
+    // collect feature branches (already sorted by fork position in load_git_graph)
+    let feature_branches: Vec<_> = graph.branches.iter().filter(|b| !b.is_main).collect();
+
+    // constants for layout
+    let name_width = 12usize;
+    let suffix = " ← HEAD";
+    let chars_per_commit = 3usize; // "●" + "──" between commits
 
     // render main branch line first
-    if let Some(main_info) = main_branch {
-        let name_width = 12;
+    let _num_dots = if let Some(main_info) = main_branch {
         let name_str = format!("{} ({})", main_info.name, graph.main_total_commits);
         let name_display = format!("{:<width$}", name_str, width = name_width);
 
         // calculate how many commit positions we can show
-        // leave room for name + " ← HEAD"
-        let suffix = " ← HEAD";
         let available_for_dots = max_width.saturating_sub(name_width + suffix.len());
 
         // show up to 8 commits, or fewer if space is limited
         let commits_to_show = main_info.commits.len().min(8);
-        // each commit dot is "●" with "──" between (3 chars per position)
-        let chars_per_commit = 3usize;
         let num_dots = (available_for_dots / chars_per_commit)
             .min(commits_to_show)
             .max(1);
@@ -976,34 +975,40 @@ fn draw_git_graph(f: &mut Frame, area: Rect, app: &App) {
         spans.push(Span::styled(suffix, Style::default().fg(Color::DarkGray)));
 
         lines.push(Line::from(spans));
-    }
+        num_dots
+    } else {
+        1
+    };
 
-    // render feature branches with fork connectors
+    // render feature branches with fork connectors aligned to actual fork points
     for branch_info in &feature_branches {
         let mut spans: Vec<Span> = Vec::new();
 
-        // calculate fork position on main line
-        let main_since_fork = branch_info.main_commits_since_fork.unwrap_or(0);
-
-        // build prefix spacing based on fork position
-        // more commits since fork = connector further left
-        // use empty space for alignment, then the connector character
-        let fork_indicator = if main_since_fork == 0 {
-            // branch is at HEAD of main
-            "            ╰─"
-        } else if main_since_fork <= 2 {
-            // recent fork
-            "         ╰───"
-        } else if main_since_fork <= 5 {
-            // moderate fork
-            "      ╰──────"
+        // calculate visual position based on fork_position
+        // fork_position is 0-indexed from oldest shown commit
+        // if None, the fork is before any shown commits
+        let (connector_offset, use_ellipsis) = if let Some(pos) = branch_info.fork_position {
+            // position within shown commits
+            // each commit takes chars_per_commit chars, offset by name_width
+            // pos 0 = oldest (leftmost), pos (num_dots-1) = newest (rightmost)
+            let offset = name_width + (pos * chars_per_commit);
+            (offset, false)
         } else {
-            // old fork (show ellipsis)
-            "···╰─────────"
+            // fork is older than shown commits - show at far left with ellipsis
+            (0, true)
         };
 
+        // build the line with proper spacing
+        let padding = " ".repeat(connector_offset);
+        let connector = if use_ellipsis {
+            "···╰─"
+        } else {
+            "╰─"
+        };
+
+        spans.push(Span::styled(padding, Style::default()));
         spans.push(Span::styled(
-            fork_indicator,
+            connector.to_string(),
             Style::default().fg(Color::DarkGray),
         ));
 
