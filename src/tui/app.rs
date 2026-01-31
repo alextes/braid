@@ -1085,69 +1085,8 @@ impl App {
         }
     }
 
-    /// start the selected issue.
-    pub fn start_selected(&mut self, paths: &RepoPaths) -> Result<()> {
-        let Some(issue_id) = self.selected_issue_id().map(|s| s.to_string()) else {
-            self.message = Some("no issue selected".to_string());
-            return Ok(());
-        };
-
-        let _lock = LockGuard::acquire(&paths.lock_path())?;
-
-        let issue = self
-            .issues
-            .get_mut(&issue_id)
-            .ok_or_else(|| BrdError::IssueNotFound(issue_id.clone()))?;
-
-        if issue.status() == Status::Doing {
-            let owner = issue.frontmatter.owner.as_deref().unwrap_or("unknown");
-            self.message = Some(format!("already being worked on by '{}'", owner));
-            return Ok(());
-        }
-
-        issue.frontmatter.status = Status::Doing;
-        issue.frontmatter.owner = Some(self.agent_id.clone());
-        issue.mark_started();
-
-        // save issue
-        let issue_path = paths
-            .issues_dir(&self.config)
-            .join(format!("{}.md", issue_id));
-        issue.save(&issue_path)?;
-
-        self.message = Some(format!("started {}", issue_id));
-        self.reload_issues(paths)?;
-        Ok(())
-    }
-
-    /// mark the selected issue as done.
-    pub fn done_selected(&mut self, paths: &RepoPaths) -> Result<()> {
-        let Some(issue_id) = self.selected_issue_id().map(|s| s.to_string()) else {
-            self.message = Some("no issue selected".to_string());
-            return Ok(());
-        };
-
-        let _lock = LockGuard::acquire(&paths.lock_path())?;
-
-        let issue = self
-            .issues
-            .get_mut(&issue_id)
-            .ok_or_else(|| BrdError::IssueNotFound(issue_id.clone()))?;
-
-        issue.frontmatter.status = Status::Done;
-        issue.frontmatter.owner = None;
-        issue.mark_completed();
-
-        // save issue
-        let issue_path = paths
-            .issues_dir(&self.config)
-            .join(format!("{}.md", issue_id));
-        issue.save(&issue_path)?;
-
-        self.message = Some(format!("done {}", issue_id));
-        self.reload_issues(paths)?;
-        Ok(())
-    }
+    // start/done keybindings removed - too easy to trigger accidentally
+    // use CLI commands (brd start, brd done) instead
 
     /// start adding a new issue (enter title input mode).
     pub fn start_add_issue(&mut self) {

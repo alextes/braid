@@ -302,19 +302,8 @@ fn handle_key_event(app: &mut App, paths: &RepoPaths, key: KeyEvent) -> Result<b
         // actions
         KeyCode::Char('a') | KeyCode::Char('n') => app.start_add_issue(),
         KeyCode::Char('e') => app.open_in_editor(paths),
-        KeyCode::Char('s') => {
-            if let Err(e) = app.start_selected(paths) {
-                app.message = Some(format!("error: {}", e));
-            }
-        }
-        KeyCode::Char('d') => match app.view {
-            View::Agents => app.agents_half_page_down(),
-            _ => {
-                if let Err(e) = app.done_selected(paths) {
-                    app.message = Some(format!("error: {}", e));
-                }
-            }
-        },
+        // half-page scroll (agents view)
+        KeyCode::Char('d') if app.view == View::Agents => app.agents_half_page_down(),
         KeyCode::Char('r') => {
             if let Err(e) = app.reload_issues(paths) {
                 app.message = Some(format!("error: {}", e));
