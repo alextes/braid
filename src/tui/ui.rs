@@ -1272,7 +1272,7 @@ fn draw_detail(f: &mut Frame, area: Rect, app: &mut App) {
         .border_style(Style::default().fg(border_color));
 
     // build the content lines first, collecting all needed data
-    let lines = build_detail_lines(app);
+    let lines = build_detail_lines(app, app.detail_dep_selected);
 
     if lines.is_empty() {
         let text = Paragraph::new("no issue selected").block(block.clone().title(" Detail "));
@@ -1324,7 +1324,8 @@ fn draw_detail(f: &mut Frame, area: Rect, app: &mut App) {
 }
 
 /// build content lines for the detail pane, returning empty vec if no issue selected.
-fn build_detail_lines(app: &App) -> Vec<Line<'static>> {
+/// `selected_dep` enables numbered prefixes and preview for the detail pane; pass None for overlay.
+fn build_detail_lines(app: &App, selected_dep: Option<usize>) -> Vec<Line<'static>> {
     let Some(issue) = app.selected_issue() else {
         return Vec::new();
     };
@@ -1397,19 +1398,22 @@ fn build_detail_lines(app: &App) -> Vec<Line<'static>> {
 
     // deps
     if !issue.deps().is_empty() {
-        let selected_dep = app.detail_dep_selected;
         lines.push(Line::from(""));
         lines.push(Line::from(Span::styled(
             "Dependencies:",
             Style::default().fg(Color::DarkGray),
         )));
         for (idx, dep_id) in issue.deps().iter().enumerate() {
-            let is_selected = Some(idx) == selected_dep;
-            // show number for selection (1-9), or bullet for overflow
-            let prefix = if idx < 9 {
-                format!("{}", idx + 1)
+            let is_selected = selected_dep == Some(idx);
+            // show number for selection (1-9) when selection enabled, otherwise bullet
+            let prefix = if selected_dep.is_some() {
+                if idx < 9 {
+                    format!("{}", idx + 1)
+                } else {
+                    "-".to_string()
+                }
             } else {
-                "-".to_string()
+                " ".to_string()
             };
 
             let (symbol, status_text, base_color) = if let Some(dep_issue) = app.issues.get(dep_id)
@@ -1536,155 +1540,11 @@ fn draw_detail_overlay(f: &mut Frame, area: Rect, app: &App) {
         .borders(Borders::ALL)
         .border_style(Style::default().fg(Color::Yellow));
 
-    let Some(issue) = app.selected_issue() else {
+    let lines = build_detail_lines(app, None);
+    if lines.is_empty() {
         let text = Paragraph::new("no issue selected").block(block);
         f.render_widget(text, overlay_area);
         return;
-    };
-
-    let derived = app.derived_state(issue);
-
-    let mut lines: Vec<Line> = vec![
-        Line::from(vec![
-            Span::styled("ID:       ", Style::default().fg(Color::DarkGray)),
-            Span::raw(issue.id()),
-        ]),
-        Line::from(vec![
-            Span::styled("Title:    ", Style::default().fg(Color::DarkGray)),
-            Span::raw(issue.title()),
-        ]),
-        Line::from(vec![
-            Span::styled("Priority: ", Style::default().fg(Color::DarkGray)),
-            Span::raw(issue.priority().to_string()),
-        ]),
-        Line::from(vec![
-            Span::styled("Status:   ", Style::default().fg(Color::DarkGray)),
-            Span::styled(
-                issue.status().to_string(),
-                match issue.status() {
-                    crate::issue::Status::Done => Style::default().fg(Color::Green),
-                    crate::issue::Status::Doing => Style::default().fg(Color::Yellow),
-                    crate::issue::Status::Open => Style::default(),
-                    crate::issue::Status::Skip => Style::default().fg(Color::DarkGray),
-                },
-            ),
-        ]),
-    ];
-
-    if let Some(owner) = &issue.frontmatter.owner {
-        lines.push(Line::from(vec![
-            Span::styled("Owner:    ", Style::default().fg(Color::DarkGray)),
-            Span::raw(owner.as_str()),
-        ]));
-    }
-
-    // tags
-    if !issue.frontmatter.tags.is_empty() {
-        let tags = issue
-            .frontmatter
-            .tags
-            .iter()
-            .map(|t| format!("#{}", t))
-            .collect::<Vec<_>>()
-            .join(" ");
-        lines.push(Line::from(vec![
-            Span::styled("Tags:     ", Style::default().fg(Color::DarkGray)),
-            Span::styled(tags, Style::default().fg(Color::Cyan)),
-        ]));
-    }
-
-    // state
-    let state_text = if derived.is_ready {
-        Span::styled("READY", Style::default().fg(Color::Green))
-    } else if derived.is_blocked {
-        Span::styled("BLOCKED", Style::default().fg(Color::Red))
-    } else {
-        Span::raw("")
-    };
-    if !state_text.content.is_empty() {
-        lines.push(Line::from(vec![
-            Span::styled("State:    ", Style::default().fg(Color::DarkGray)),
-            state_text,
-        ]));
-    }
-
-    // deps
-    if !issue.deps().is_empty() {
-        lines.push(Line::from(""));
-        lines.push(Line::from(Span::styled(
-            "Dependencies:",
-            Style::default().fg(Color::DarkGray),
-        )));
-        for dep_id in issue.deps() {
-            let (symbol, status_text, base_color) = if let Some(dep_issue) = app.issues.get(dep_id)
-            {
-                match dep_issue.status() {
-                    Status::Done => ("✓", "done", Color::Green),
-                    Status::Skip => ("⊘", "skip", Color::DarkGray),
-                    Status::Doing => ("→", "doing", Color::Yellow),
-                    Status::Open => ("○", "open", Color::White),
-                }
-            } else {
-                ("?", "missing", Color::Red)
-            };
-
-            lines.push(Line::from(Span::styled(
-                format!("  {} {} ({})", symbol, dep_id, status_text),
-                Style::default().fg(base_color),
-            )));
-        }
-    }
-
-    // dependents (reverse deps - issues that depend on this one)
-    let dependents = get_dependents(issue.id(), &app.issues);
-    if !dependents.is_empty() {
-        lines.push(Line::from(""));
-        lines.push(Line::from(Span::styled(
-            "Dependents:",
-            Style::default().fg(Color::DarkGray),
-        )));
-        for dep_id in &dependents {
-            let (symbol, status_text, base_color) = if let Some(dep_issue) = app.issues.get(dep_id)
-            {
-                match dep_issue.status() {
-                    Status::Done => ("✓", "done", Color::Green),
-                    Status::Skip => ("⊘", "skip", Color::DarkGray),
-                    Status::Doing => ("→", "doing", Color::Yellow),
-                    Status::Open => ("○", "open", Color::White),
-                }
-            } else {
-                ("?", "missing", Color::Red)
-            };
-
-            lines.push(Line::from(Span::styled(
-                format!("  {} {} ({})", symbol, dep_id, status_text),
-                Style::default().fg(base_color),
-            )));
-        }
-    }
-
-    // acceptance
-    if !issue.frontmatter.acceptance.is_empty() {
-        lines.push(Line::from(""));
-        lines.push(Line::from(Span::styled(
-            "Acceptance:",
-            Style::default().fg(Color::DarkGray),
-        )));
-        for ac in &issue.frontmatter.acceptance {
-            lines.push(Line::from(format!("  - {}", ac)));
-        }
-    }
-
-    // body
-    if !issue.body.is_empty() {
-        lines.push(Line::from(""));
-        lines.push(Line::from(Span::styled(
-            "Description:",
-            Style::default().fg(Color::DarkGray),
-        )));
-        for line in issue.body.lines() {
-            lines.push(Line::from(format!("  {}", line)));
-        }
     }
 
     let text = Text::from(lines);
