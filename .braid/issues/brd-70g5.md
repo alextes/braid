@@ -1,5 +1,5 @@
 ---
-schema_version: 8
+schema_version: 9
 id: brd-70g5
 title: 'design: rename brd dep to use blocking language'
 priority: P2

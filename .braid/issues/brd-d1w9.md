@@ -1,5 +1,5 @@
 ---
-schema_version: 8
+schema_version: 9
 id: brd-d1w9
 title: ephemeral agent workflow
 priority: P2

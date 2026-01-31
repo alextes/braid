@@ -3,13 +3,15 @@ schema_version: 9
 id: brd-88u8
 title: 'refactor(tui): extract shared detail rendering function'
 priority: P2
-status: open
+status: done
 deps: []
 tags:
 - tui
 - refactor
 owner: null
 created_at: 2026-01-27T23:29:39.402268Z
+started_at: 2026-01-31T20:18:33.2381Z
+completed_at: 2026-01-31T20:21:00.297899Z
 ---
 
 ## problem

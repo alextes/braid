@@ -3,12 +3,13 @@ schema_version: 9
 id: brd-jg52
 title: 'TUI: filter should search issue IDs, not just titles'
 priority: P2
-status: open
+status: done
 deps: []
 tags:
 - tui
 owner: null
 created_at: 2026-01-28T15:45:05.742302Z
+completed_at: 2026-01-31T20:20:12.571199Z
 ---
 
 filtering in the TUI only searches issue titles, not IDs.

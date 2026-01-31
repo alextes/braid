@@ -1,5 +1,5 @@
 ---
-schema_version: 8
+schema_version: 9
 id: brd-2ftd
 title: 'design: enhanced deps display with titles and sorting'
 priority: P2
