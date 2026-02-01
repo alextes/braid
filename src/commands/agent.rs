@@ -16,12 +16,50 @@ use super::{
     resolve_issue_id,
 };
 
+/// check if we're in a git worktree (not the main repo).
+/// compares git-dir with git-common-dir - they differ in a worktree.
+fn is_git_worktree(path: &std::path::Path) -> bool {
+    let git_dir = Command::new("git")
+        .args(["rev-parse", "--git-dir"])
+        .current_dir(path)
+        .output()
+        .ok()
+        .filter(|o| o.status.success())
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string());
+
+    let git_common_dir = Command::new("git")
+        .args(["rev-parse", "--git-common-dir"])
+        .current_dir(path)
+        .output()
+        .ok()
+        .filter(|o| o.status.success())
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string());
+
+    match (git_dir, git_common_dir) {
+        (Some(dir), Some(common)) => dir != common,
+        _ => false,
+    }
+}
+
 pub fn cmd_agent_init(cli: &Cli, paths: &RepoPaths, name: &str, base: Option<&str>) -> Result<()> {
     // refuse if already in an agent worktree
+    // check both: agent.toml exists AND we're in a git worktree (not main)
     let agent_toml = paths.braid_dir().join("agent.toml");
+    let is_worktree = is_git_worktree(&paths.worktree_root);
+
     if agent_toml.exists() {
+        if is_worktree {
+            return Err(BrdError::Other(
+                "already in an agent worktree. run `brd agent init` from main instead.".to_string(),
+            ));
+        } else {
+            // stale agent.toml on main - remove it and continue
+            std::fs::remove_file(&agent_toml).ok();
+        }
+    } else if is_worktree {
+        // in a worktree but no agent.toml - still shouldn't init from here
         return Err(BrdError::Other(
-            "already in an agent worktree. run `brd agent init` from main instead.".to_string(),
+            "cannot run `brd agent init` from a worktree. run from main instead.".to_string(),
         ));
     }
 
@@ -854,6 +892,29 @@ mod tests {
     }
 
     #[test]
+    fn test_agent_init_cleans_up_stale_agent_toml() {
+        let _lock = AGENT_INIT_TEST_LOCK.lock().unwrap();
+        let (_dir, repo_path, paths, base_branch) = create_repo();
+
+        let home_dir = tempdir().unwrap();
+        let _env = EnvGuard::set("HOME", home_dir.path().to_str().unwrap());
+
+        // create a stale agent.toml on main (not in a worktree)
+        let braid_dir = repo_path.join(".braid");
+        std::fs::create_dir_all(&braid_dir).unwrap();
+        let agent_toml = braid_dir.join("agent.toml");
+        std::fs::write(&agent_toml, "agent_id = \"stale\"\n").unwrap();
+        assert!(agent_toml.exists(), "setup: agent.toml should exist");
+
+        // agent init should clean it up and succeed
+        let cli = test_cli();
+        cmd_agent_init(&cli, &paths, "new-agent", Some(&base_branch)).unwrap();
+
+        // stale file should be gone
+        assert!(!agent_toml.exists(), "stale agent.toml should be removed");
+    }
+
+    #[test]
     fn test_agent_init_rejects_from_existing_worktree() {
         let _lock = AGENT_INIT_TEST_LOCK.lock().unwrap();
         let (_dir, repo_path, paths, base_branch) = create_repo();
@@ -861,16 +922,31 @@ mod tests {
         let home_dir = tempdir().unwrap();
         let _env = EnvGuard::set("HOME", home_dir.path().to_str().unwrap());
 
-        // simulate being in an agent worktree by creating agent.toml
-        let braid_dir = repo_path.join(".braid");
-        std::fs::create_dir_all(&braid_dir).unwrap();
-        std::fs::write(braid_dir.join("agent.toml"), "agent_id = \"existing\"\n").unwrap();
-
+        // create a real agent worktree first
         let cli = test_cli();
-        let err = cmd_agent_init(&cli, &paths, "new-agent", Some(&base_branch)).unwrap_err();
+        cmd_agent_init(&cli, &paths, "first-agent", Some(&base_branch)).unwrap();
+
+        // get the worktree path
+        let worktree_path = home_dir
+            .path()
+            .join(".braid")
+            .join("worktrees")
+            .join("repo")
+            .join("first-agent");
+
+        // create paths for the worktree
+        let worktree_paths = RepoPaths {
+            worktree_root: worktree_path.clone(),
+            git_common_dir: repo_path.join(".git"),
+            brd_common_dir: repo_path.join(".git/brd"),
+        };
+
+        // trying to init from within a worktree should fail
+        let err =
+            cmd_agent_init(&cli, &worktree_paths, "second-agent", Some(&base_branch)).unwrap_err();
         assert!(
-            err.to_string().contains("already in an agent worktree"),
-            "expected 'already in an agent worktree', got: {}",
+            err.to_string().contains("worktree"),
+            "expected error about worktree, got: {}",
             err
         );
     }
