@@ -1,5 +1,6 @@
 //! agent runtime commands: spawn, ps, logs, send, kill.
 
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Write};
 use std::process::{Command, Stdio};
@@ -241,13 +242,16 @@ pub fn cmd_agent_logs(
         )
     };
 
+    // track tool_use events to correlate with tool_result
+    let mut tool_map: HashMap<String, ToolInfo> = HashMap::new();
+
     for line in lines_to_show {
         if raw {
             println!("{}", line);
         } else {
             // parse and pretty-print the JSON event
             if let Ok(event) = serde_json::from_str::<serde_json::Value>(&line) {
-                print_event(&event);
+                print_event(&event, &mut tool_map);
             } else {
                 println!("{}", line);
             }
@@ -279,7 +283,7 @@ pub fn cmd_agent_logs(
                     if raw {
                         print!("{}", line);
                     } else if let Ok(event) = serde_json::from_str::<serde_json::Value>(&line) {
-                        print_event(&event);
+                        print_event(&event, &mut tool_map);
                     } else {
                         print!("{}", line);
                     }
@@ -555,8 +559,87 @@ fn format_duration(d: time::Duration) -> String {
     }
 }
 
+/// info about a tool call, used to correlate results back to their calls.
+#[derive(Debug, Clone)]
+struct ToolInfo {
+    name: String,
+    #[allow(dead_code)] // reserved for future use (e.g., --verbose mode)
+    summary: String,
+}
+
+/// extract a summary of what a tool is doing from its input.
+fn tool_summary(name: &str, input: &serde_json::Value) -> String {
+    match name {
+        "Bash" => input
+            .get("command")
+            .and_then(|c| c.as_str())
+            .map(|cmd| truncate_str(cmd, 50))
+            .unwrap_or_default(),
+        "Read" => input
+            .get("file_path")
+            .and_then(|p| p.as_str())
+            .map(short_path)
+            .unwrap_or_default(),
+        "Write" => input
+            .get("file_path")
+            .and_then(|p| p.as_str())
+            .map(short_path)
+            .unwrap_or_default(),
+        "Edit" => input
+            .get("file_path")
+            .and_then(|p| p.as_str())
+            .map(short_path)
+            .unwrap_or_default(),
+        "Glob" => input
+            .get("pattern")
+            .and_then(|p| p.as_str())
+            .map(|s| s.to_string())
+            .unwrap_or_default(),
+        "Grep" => input
+            .get("pattern")
+            .and_then(|p| p.as_str())
+            .map(|s| format!("\"{}\"", truncate_str(s, 30)))
+            .unwrap_or_default(),
+        "Task" => {
+            let subagent = input
+                .get("subagent_type")
+                .and_then(|s| s.as_str())
+                .unwrap_or("?");
+            let desc = input
+                .get("description")
+                .and_then(|d| d.as_str())
+                .map(|s| truncate_str(s, 30))
+                .unwrap_or_default();
+            format!("{}: {}", subagent, desc)
+        }
+        "TodoWrite" => "updating todos".to_string(),
+        _ => String::new(),
+    }
+}
+
+/// truncate a string to max length, adding "..." if truncated.
+fn truncate_str(s: &str, max: usize) -> String {
+    if s.len() <= max {
+        s.to_string()
+    } else {
+        format!("{}...", &s[..max.saturating_sub(3)])
+    }
+}
+
+/// shorten a file path to just filename or last two components.
+fn short_path(path: &str) -> String {
+    let parts: Vec<&str> = path.split('/').collect();
+    if parts.len() <= 2 {
+        path.to_string()
+    } else {
+        parts[parts.len() - 2..].join("/")
+    }
+}
+
 /// pretty-print a claude stream-json event.
-fn print_event(event: &serde_json::Value) {
+///
+/// `tool_map` tracks tool_use events by ID so we can correlate results.
+fn print_event(event: &serde_json::Value, tool_map: &mut HashMap<String, ToolInfo>) {
     let event_type = event
         .get("type")
         .and_then(|v| v.as_str())
@@ -568,8 +651,40 @@ fn print_event(event: &serde_json::Value) {
                 && let Some(content) = message.get("content").and_then(|c| c.as_array())
             {
                 for item in content {
-                    if let Some(text) = item.get("text").and_then(|t| t.as_str()) {
-                        println!("{}", text);
+                    let item_type = item.get("type").and_then(|t| t.as_str());
+                    match item_type {
+                        Some("text") => {
+                            if let Some(text) = item.get("text").and_then(|t| t.as_str()) {
+                                println!("{}", text);
+                            }
+                        }
+                        Some("tool_use") => {
+                            // tool_use embedded in assistant message content
+                            if let Some(name) = item.get("name").and_then(|n| n.as_str()) {
+                                let id = item.get("id").and_then(|i| i.as_str()).unwrap_or("");
+                                let input = item.get("input").unwrap_or(&serde_json::Value::Null);
+                                let summary = tool_summary(name, input);
+
+                                // store for later lookup
+                                if !id.is_empty() {
+                                    tool_map.insert(
+                                        id.to_string(),
+                                        ToolInfo {
+                                            name: name.to_string(),
+                                            summary: summary.clone(),
+                                        },
+                                    );
+                                }
+
+                                // print tool call with context
+                                if summary.is_empty() {
+                                    println!("[{}]", name);
+                                } else {
+                                    println!("[{}] {}", name, summary);
+                                }
+                            }
+                        }
+                        _ => {}
                     }
                 }
             }
@@ -582,9 +697,36 @@ fn print_event(event: &serde_json::Value) {
                 std::io::stdout().flush().ok();
             }
         }
-        "tool_use" | "tool_result" => {
+        "tool_use" => {
+            // track tool call for later correlation with result
             if let Some(name) = event.get("name").and_then(|n| n.as_str()) {
-                println!("[tool: {}]", name);
+                let id = event.get("id").and_then(|i| i.as_str()).unwrap_or("");
+                let input = event.get("input").unwrap_or(&serde_json::Value::Null);
+                let summary = tool_summary(name, input);
+
+                // store for later lookup
+                if !id.is_empty() {
+                    tool_map.insert(
+                        id.to_string(),
+                        ToolInfo {
+                            name: name.to_string(),
+                            summary: summary.clone(),
+                        },
+                    );
+                }
+
+                // print tool call with context
+                if summary.is_empty() {
+                    println!("[{}]", name);
+                } else {
+                    println!("[{}] {}", name, summary);
+                }
+            }
+        }
+        "tool_result" => {
+            // standalone tool_result events (rare, but handle them)
+            if let Some(name) = event.get("name").and_then(|n| n.as_str()) {
+                println!("[{}]", name);
             }
         }
         "error" => {
@@ -610,6 +752,10 @@ fn print_event(event: &serde_json::Value) {
             {
                 for item in content {
                     if item.get("type").and_then(|t| t.as_str()) == Some("tool_result") {
+                        let tool_use_id = item
+                            .get("tool_use_id")
+                            .and_then(|i| i.as_str())
+                            .unwrap_or("");
                         let is_error = item
                             .get("is_error")
                             .and_then(|e| e.as_bool())
@@ -619,10 +765,17 @@ fn print_event(event: &serde_json::Value) {
                             .and_then(|c| c.as_str())
                             .map(|s| s.len())
                             .unwrap_or(0);
+
+                        // look up tool name from earlier tool_use event
+                        let tool_name = tool_map
+                            .get(tool_use_id)
+                            .map(|info| info.name.as_str())
+                            .unwrap_or("?");
+
                         if is_error {
-                            println!("  ↳ error ({} bytes)", content_len);
+                            println!("  ↳ {}: error ({} bytes)", tool_name, content_len);
                         } else {
-                            println!("  ↳ result ({} bytes)", content_len);
+                            println!("  ↳ {}: ok ({} bytes)", tool_name, content_len);
                         }
                     }
                 }
@@ -677,7 +830,11 @@ mod tests {
     // =========================================================================
 
     /// format an event to a string for testing (captures what print_event would output).
-    fn format_event(event: &serde_json::Value) -> String {
+    /// this version takes a tool_map for stateful correlation.
+    fn format_event_with_map(
+        event: &serde_json::Value,
+        tool_map: &mut HashMap<String, ToolInfo>,
+    ) -> String {
         let event_type = event
             .get("type")
             .and_then(|v| v.as_str())
@@ -690,9 +847,39 @@ mod tests {
                     && let Some(content) = message.get("content").and_then(|c| c.as_array())
                 {
                     for item in content {
-                        if let Some(text) = item.get("text").and_then(|t| t.as_str()) {
-                            output.push_str(text);
-                            output.push('\n');
+                        let item_type = item.get("type").and_then(|t| t.as_str());
+                        match item_type {
+                            Some("text") => {
+                                if let Some(text) = item.get("text").and_then(|t| t.as_str()) {
+                                    output.push_str(text);
+                                    output.push('\n');
+                                }
+                            }
+                            Some("tool_use") => {
+                                if let Some(name) = item.get("name").and_then(|n| n.as_str()) {
+                                    let id = item.get("id").and_then(|i| i.as_str()).unwrap_or("");
+                                    let input =
+                                        item.get("input").unwrap_or(&serde_json::Value::Null);
+                                    let summary = tool_summary(name, input);
+
+                                    if !id.is_empty() {
+                                        tool_map.insert(
+                                            id.to_string(),
+                                            ToolInfo {
+                                                name: name.to_string(),
+                                                summary: summary.clone(),
+                                            },
+                                        );
+                                    }
+
+                                    if summary.is_empty() {
+                                        output.push_str(&format!("[{}]\n", name));
+                                    } else {
+                                        output.push_str(&format!("[{}] {}\n", name, summary));
+                                    }
+                                }
+                            }
+                            _ => {}
                         }
                     }
                 }
@@ -707,9 +894,34 @@ mod tests {
                     String::new()
                 }
             }
-            "tool_use" | "tool_result" => {
+            "tool_use" => {
                 if let Some(name) = event.get("name").and_then(|n| n.as_str()) {
-                    format!("[tool: {}]\n", name)
+                    let id = event.get("id").and_then(|i| i.as_str()).unwrap_or("");
+                    let input = event.get("input").unwrap_or(&serde_json::Value::Null);
+                    let summary = tool_summary(name, input);
+
+                    if !id.is_empty() {
+                        tool_map.insert(
+                            id.to_string(),
+                            ToolInfo {
+                                name: name.to_string(),
+                                summary: summary.clone(),
+                            },
+                        );
+                    }
+
+                    if summary.is_empty() {
+                        format!("[{}]\n", name)
+                    } else {
+                        format!("[{}] {}\n", name, summary)
+                    }
+                } else {
+                    String::new()
+                }
+            }
+            "tool_result" => {
+                if let Some(name) = event.get("name").and_then(|n| n.as_str()) {
+                    format!("[{}]\n", name)
                 } else {
                     String::new()
                 }
@@ -733,6 +945,10 @@ mod tests {
                 {
                     for item in content {
                         if item.get("type").and_then(|t| t.as_str()) == Some("tool_result") {
+                            let tool_use_id = item
+                                .get("tool_use_id")
+                                .and_then(|i| i.as_str())
+                                .unwrap_or("");
                             let is_error = item
                                 .get("is_error")
                                 .and_then(|e| e.as_bool())
@@ -742,10 +958,22 @@ mod tests {
                                 .and_then(|c| c.as_str())
                                 .map(|s| s.len())
                                 .unwrap_or(0);
+
+                            let tool_name = tool_map
+                                .get(tool_use_id)
+                                .map(|info| info.name.as_str())
+                                .unwrap_or("?");
+
                             if is_error {
-                                output.push_str(&format!("  ↳ error ({} bytes)\n", content_len));
+                                output.push_str(&format!(
+                                    "  ↳ {}: error ({} bytes)\n",
+                                    tool_name, content_len
+                                ));
                             } else {
-                                output.push_str(&format!("  ↳ result ({} bytes)\n", content_len));
+                                output.push_str(&format!(
+                                    "  ↳ {}: ok ({} bytes)\n",
+                                    tool_name, content_len
+                                ));
                             }
                         }
                     }
@@ -754,6 +982,12 @@ mod tests {
             }
             _ => format!("[{}]\n", event_type),
         }
+    }
+
+    /// simple helper for tests that don't need tool correlation.
+    fn format_event(event: &serde_json::Value) -> String {
+        let mut tool_map = HashMap::new();
+        format_event_with_map(event, &mut tool_map)
     }
 
     #[test]
@@ -798,7 +1032,40 @@ mod tests {
             "type": "tool_use",
             "name": "Bash"
         });
-        assert_eq!(format_event(&event), "[tool: Bash]\n");
+        assert_eq!(format_event(&event), "[Bash]\n");
+    }
+
+    #[test]
+    fn test_format_event_tool_use_with_summary() {
+        let event = serde_json::json!({
+            "type": "tool_use",
+            "id": "toolu_123",
+            "name": "Bash",
+            "input": {"command": "git status"}
+        });
+        assert_eq!(format_event(&event), "[Bash] git status\n");
+    }
+
+    #[test]
+    fn test_format_event_tool_use_read() {
+        let event = serde_json::json!({
+            "type": "tool_use",
+            "id": "toolu_456",
+            "name": "Read",
+            "input": {"file_path": "/Users/test/code/project/src/main.rs"}
+        });
+        assert_eq!(format_event(&event), "[Read] src/main.rs\n");
+    }
+
+    #[test]
+    fn test_format_event_tool_use_grep() {
+        let event = serde_json::json!({
+            "type": "tool_use",
+            "id": "toolu_789",
+            "name": "Grep",
+            "input": {"pattern": "fn main"}
+        });
+        assert_eq!(format_event(&event), "[Grep] \"fn main\"\n");
     }
 
     #[test]
@@ -823,14 +1090,15 @@ mod tests {
     }
 
     #[test]
-    fn test_format_event_user_tool_result() {
+    fn test_format_event_user_tool_result_unknown_tool() {
+        // when there's no prior tool_use event, tool name is "?"
         let event = serde_json::json!({
             "type": "user",
             "message": {
                 "role": "user",
                 "content": [
                     {
-                        "tool_use_id": "toolu_123",
+                        "tool_use_id": "toolu_unknown",
                         "type": "tool_result",
                         "content": "command output here",
                         "is_error": false
@@ -838,7 +1106,39 @@ mod tests {
                 ]
             }
         });
-        assert_eq!(format_event(&event), "  ↳ result (19 bytes)\n");
+        assert_eq!(format_event(&event), "  ↳ ?: ok (19 bytes)\n");
+    }
+
+    #[test]
+    fn test_format_event_user_tool_result_with_correlation() {
+        // test tool_use -> tool_result correlation
+        let mut tool_map = HashMap::new();
+        let tool_use = serde_json::json!({
+            "type": "tool_use",
+            "id": "toolu_123",
+            "name": "Bash",
+            "input": {"command": "ls"}
+        });
+        format_event_with_map(&tool_use, &mut tool_map);
+
+        let tool_result = serde_json::json!({
+            "type": "user",
+            "message": {
+                "role": "user",
+                "content": [
+                    {
+                        "tool_use_id": "toolu_123",
+                        "type": "tool_result",
+                        "content": "file1.txt\nfile2.txt",
+                        "is_error": false
+                    }
+                ]
+            }
+        });
+        assert_eq!(
+            format_event_with_map(&tool_result, &mut tool_map),
+            "  ↳ Bash: ok (19 bytes)\n"
+        );
     }
 
     #[test]
@@ -857,7 +1157,7 @@ mod tests {
                 ]
             }
         });
-        assert_eq!(format_event(&event), "  ↳ error (13 bytes)\n");
+        assert_eq!(format_event(&event), "  ↳ ?: error (13 bytes)\n");
     }
 
     #[test]
