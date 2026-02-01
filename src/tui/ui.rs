@@ -961,20 +961,37 @@ fn draw_git_graph(f: &mut Frame, area: Rect, app: &App) {
     lines.push(Line::from(main_spans));
 
     // render behind branch labels below main track at their positions
+    // show arrow pointing up to the commit and (-N) indicator
     if !graph.labels_behind.is_empty() {
-        let mut behind_str = String::new();
+        // first line: arrows pointing up to the commits
+        let mut arrow_str = String::new();
         for label in &graph.labels_behind {
-            // position label under its commit
-            // position is in oldest-first indexing (0 = leftmost)
             let offset = label.position * chars_per_commit;
-            while behind_str.len() < offset {
-                behind_str.push(' ');
+            while arrow_str.len() < offset {
+                arrow_str.push(' ');
             }
-            behind_str.push_str(&label.name);
-            behind_str.push(' ');
+            arrow_str.push('↑');
         }
         lines.push(Line::from(Span::styled(
-            behind_str,
+            arrow_str,
+            Style::default().fg(Color::Yellow),
+        )));
+
+        // second line: branch names with behind count
+        let mut label_str = String::new();
+        for label in &graph.labels_behind {
+            let offset = label.position * chars_per_commit;
+            // try to center the label under the arrow
+            let label_text = format!("{} (-{})", label.name, label.behind);
+            let label_start = offset.saturating_sub(label_text.len() / 2);
+            while label_str.len() < label_start {
+                label_str.push(' ');
+            }
+            label_str.push_str(&label_text);
+            label_str.push(' ');
+        }
+        lines.push(Line::from(Span::styled(
+            label_str,
             Style::default().fg(Color::Yellow),
         )));
     }

@@ -47,6 +47,8 @@ pub struct BranchAtCommit {
     pub name: String,
     /// position in main_track (0 = oldest shown, higher = newer)
     pub position: usize,
+    /// number of commits behind main
+    pub behind: usize,
 }
 
 /// Git graph data for visualization.
@@ -419,9 +421,14 @@ impl App {
                         })
                         .unwrap_or(0);
 
+                    // count how many commits behind main
+                    let behind =
+                        crate::git::commit_count(&wt.path, "HEAD", &main_branch_name).unwrap_or(0);
+
                     labels_behind.push(BranchAtCommit {
                         name: branch_name.clone(),
                         position,
+                        behind,
                     });
                 }
             } else {
