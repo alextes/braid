@@ -773,12 +773,14 @@ fn print_event(event: &serde_json::Value, tool_map: &mut HashMap<String, ToolInf
                             .unwrap_or("?");
 
                         if is_error {
-                            println!("  ↳ {}: error ({} bytes)", tool_name, content_len);
+                            println!("  → {}: error ({} bytes)", tool_name, content_len);
                         } else {
-                            println!("  ↳ {}: ok ({} bytes)", tool_name, content_len);
+                            println!("  → {}: ok ({} bytes)", tool_name, content_len);
                         }
                     }
                 }
+                // blank line after tool results for visual separation
+                println!();
             }
         }
         "system" => {
@@ -966,17 +968,19 @@ mod tests {
 
                             if is_error {
                                 output.push_str(&format!(
-                                    "  ↳ {}: error ({} bytes)\n",
+                                    "  → {}: error ({} bytes)\n",
                                     tool_name, content_len
                                 ));
                             } else {
                                 output.push_str(&format!(
-                                    "  ↳ {}: ok ({} bytes)\n",
+                                    "  → {}: ok ({} bytes)\n",
                                     tool_name, content_len
                                 ));
                             }
                         }
                     }
+                    // blank line after tool results
+                    output.push('\n');
                 }
                 output
             }
@@ -1106,7 +1110,7 @@ mod tests {
                 ]
             }
         });
-        assert_eq!(format_event(&event), "  ↳ ?: ok (19 bytes)\n");
+        assert_eq!(format_event(&event), "  → ?: ok (19 bytes)\n\n");
     }
 
     #[test]
@@ -1137,7 +1141,7 @@ mod tests {
         });
         assert_eq!(
             format_event_with_map(&tool_result, &mut tool_map),
-            "  ↳ Bash: ok (19 bytes)\n"
+            "  → Bash: ok (19 bytes)\n\n"
         );
     }
 
@@ -1157,7 +1161,7 @@ mod tests {
                 ]
             }
         });
-        assert_eq!(format_event(&event), "  ↳ ?: error (13 bytes)\n");
+        assert_eq!(format_event(&event), "  → ?: error (13 bytes)\n\n");
     }
 
     #[test]
