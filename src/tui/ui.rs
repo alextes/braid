@@ -917,9 +917,9 @@ fn draw_git_graph(f: &mut Frame, area: Rect, app: &App) {
         return;
     };
 
-    if graph.branches.is_empty() {
+    if graph.main_track.is_empty() {
         let text = vec![Line::from(Span::styled(
-            "(no branches)",
+            "(no commits)",
             Style::default().fg(Color::DarkGray),
         ))];
         f.render_widget(Paragraph::new(text), inner);
@@ -927,117 +927,125 @@ fn draw_git_graph(f: &mut Frame, area: Rect, app: &App) {
     }
 
     let mut lines: Vec<Line> = Vec::new();
-
-    // available width for the graph content
     let max_width = inner.width as usize;
-
-    // find main branch info
-    let main_branch = graph.branches.iter().find(|b| b.is_main);
-
-    // collect feature branches (already sorted by fork position in load_git_graph)
-    let feature_branches: Vec<_> = graph.branches.iter().filter(|b| !b.is_main).collect();
-
-    // constants for layout
-    let name_width = 12usize;
-    let suffix = " ← HEAD";
     let chars_per_commit = 3usize; // "●" + "──" between commits
 
-    // render main branch line first
-    let _num_dots = if let Some(main_info) = main_branch {
-        let name_str = format!("{} ({})", main_info.name, graph.main_total_commits);
-        let name_display = format!("{:<width$}", name_str, width = name_width);
+    // calculate how many commits we can show
+    // reserve space for labels at end
+    let labels_str = graph.labels_at_head.join(", ");
+    let suffix = format!("  {} ({}) ← HEAD", labels_str, graph.main_total);
+    let available_for_dots = max_width.saturating_sub(suffix.len());
+    let num_dots = (available_for_dots / chars_per_commit)
+        .min(graph.main_track.len())
+        .max(1);
 
-        // calculate how many commit positions we can show
-        let available_for_dots = max_width.saturating_sub(name_width + suffix.len());
+    // row 0: main track with labels
+    // ●──●──●──●──●  main, agent-one (510) ← HEAD
+    let mut main_spans: Vec<Span> = Vec::new();
+    let mut dots_str = String::new();
+    for i in 0..num_dots {
+        if i > 0 {
+            dots_str.push_str("──");
+        }
+        dots_str.push('●');
+    }
+    main_spans.push(Span::styled(dots_str, Style::default().fg(Color::White)));
+    main_spans.push(Span::styled(
+        format!("  {}", labels_str),
+        Style::default().fg(Color::Cyan),
+    ));
+    main_spans.push(Span::styled(
+        format!(" ({}) ← HEAD", graph.main_total),
+        Style::default().fg(Color::DarkGray),
+    ));
+    lines.push(Line::from(main_spans));
 
-        // show up to 8 commits, or fewer if space is limited
-        let commits_to_show = main_info.commits.len().min(8);
-        let num_dots = (available_for_dots / chars_per_commit)
-            .min(commits_to_show)
-            .max(1);
-
-        let mut spans: Vec<Span> = Vec::new();
-        spans.push(Span::styled(
-            name_display,
-            Style::default().fg(Color::White),
-        ));
-
-        // build the commit line
-        let mut dots_str = String::new();
-        for i in 0..num_dots {
-            if i > 0 {
-                dots_str.push_str("──");
+    // render behind branch labels below main track at their positions
+    if !graph.labels_behind.is_empty() {
+        let mut behind_str = String::new();
+        for label in &graph.labels_behind {
+            // position label under its commit
+            // position is in oldest-first indexing (0 = leftmost)
+            let offset = label.position * chars_per_commit;
+            while behind_str.len() < offset {
+                behind_str.push(' ');
             }
-            dots_str.push('●');
+            behind_str.push_str(&label.name);
+            behind_str.push(' ');
+        }
+        lines.push(Line::from(Span::styled(
+            behind_str,
+            Style::default().fg(Color::Yellow),
+        )));
+    }
+
+    // render diverged branches with connector lines and branch tracks
+    // branch_tracks is sorted by fork_position (older forks first)
+    for (track_idx, track) in graph.branch_tracks.iter().enumerate() {
+        // connector row: show │ for this and all later branch fork points
+        let mut connector_spans: Vec<Span> = Vec::new();
+        let mut connector_str = String::new();
+
+        // build connector line character by character
+        for pos in 0..num_dots {
+            let char_offset = pos * chars_per_commit;
+
+            // check if any branch (this one or later) forks at this position
+            let has_vertical = graph.branch_tracks[track_idx..]
+                .iter()
+                .any(|t| t.fork_position == pos);
+
+            if has_vertical {
+                // pad to position, then add vertical bar
+                while connector_str.len() < char_offset {
+                    connector_str.push(' ');
+                }
+                connector_str.push('│');
+            }
         }
 
-        spans.push(Span::styled(dots_str, Style::default().fg(Color::White)));
-        spans.push(Span::styled(suffix, Style::default().fg(Color::DarkGray)));
+        if !connector_str.trim().is_empty() {
+            connector_spans.push(Span::styled(
+                connector_str,
+                Style::default().fg(Color::DarkGray),
+            ));
+            lines.push(Line::from(connector_spans));
+        }
 
-        lines.push(Line::from(spans));
-        num_dots
-    } else {
-        1
-    };
+        // branch row: └──●──● branch-name (+N)
+        let mut branch_spans: Vec<Span> = Vec::new();
 
-    // render feature branches with fork connectors aligned to actual fork points
-    for branch_info in &feature_branches {
-        let mut spans: Vec<Span> = Vec::new();
+        // padding to fork position
+        let fork_offset = track.fork_position * chars_per_commit;
+        let padding = " ".repeat(fork_offset);
+        branch_spans.push(Span::styled(padding, Style::default()));
 
-        // calculate visual position based on fork_position
-        // fork_position is 0-indexed from oldest shown commit
-        // if None, the fork is before any shown commits
-        let (connector_offset, use_ellipsis) = if let Some(pos) = branch_info.fork_position {
-            // position within shown commits
-            // each commit takes chars_per_commit chars, offset by name_width
-            // pos 0 = oldest (leftmost), pos (num_dots-1) = newest (rightmost)
-            let offset = name_width + (pos * chars_per_commit);
-            (offset, false)
-        } else {
-            // fork is older than shown commits - show at far left with ellipsis
-            (0, true)
-        };
-
-        // build the line with proper spacing
-        let padding = " ".repeat(connector_offset);
-        let connector = if use_ellipsis {
-            "···╰─"
-        } else {
-            "╰─"
-        };
-
-        spans.push(Span::styled(padding, Style::default()));
-        spans.push(Span::styled(
-            connector.to_string(),
+        // fork connector and commits
+        let mut branch_dots = String::from("└");
+        for i in 0..track.commits.len().min(3) {
+            branch_dots.push_str("──");
+            if i < track.commits.len().min(3) {
+                branch_dots.push('●');
+            }
+        }
+        branch_spans.push(Span::styled(
+            branch_dots,
             Style::default().fg(Color::DarkGray),
         ));
 
         // branch name
-        spans.push(Span::styled(
-            format!(" {}", branch_info.name),
+        branch_spans.push(Span::styled(
+            format!(" {}", track.name),
             Style::default().fg(Color::Cyan),
         ));
 
-        // ahead count
-        let ahead_style = if branch_info.ahead_of_main == 0 {
-            Style::default().fg(Color::Green)
-        } else {
-            Style::default().fg(Color::Yellow)
-        };
-        spans.push(Span::styled(
-            format!(" (+{})", branch_info.ahead_of_main),
-            ahead_style,
+        // commit count
+        branch_spans.push(Span::styled(
+            format!(" (+{})", track.commits.len()),
+            Style::default().fg(Color::Yellow),
         ));
 
-        // latest commit SHA
-        if let Some(commit) = branch_info.commits.first() {
-            spans.push(Span::styled(
-                format!(" {}", commit.short_sha),
-                Style::default().fg(Color::DarkGray),
-            ));
-        }
-
-        lines.push(Line::from(spans));
+        lines.push(Line::from(branch_spans));
     }
 
     f.render_widget(Paragraph::new(lines), inner);

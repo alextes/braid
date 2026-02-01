@@ -29,30 +29,39 @@ pub struct WorktreeInfo {
     pub is_dirty: bool,
 }
 
-/// Info about a branch for the git graph.
+/// A diverged branch track in the git graph.
 #[derive(Debug, Clone)]
-pub struct BranchGraphInfo {
+pub struct BranchTrack {
     /// branch name
     pub name: String,
-    /// recent commits on this branch
+    /// commits on this branch (not on main)
     pub commits: Vec<crate::git::CommitInfo>,
-    /// commits ahead of main
-    pub ahead_of_main: usize,
-    /// is this main/master
-    pub is_main: bool,
-    /// fork point SHA (merge-base with main)
-    pub fork_point_sha: Option<String>,
-    /// visual position in main's displayed commits (0 = oldest shown, None = before shown commits)
-    pub fork_position: Option<usize>,
+    /// position in main_track where this branch forks (0 = oldest shown)
+    pub fork_position: usize,
+}
+
+/// A branch that is behind main (at an older commit on main's history).
+#[derive(Debug, Clone)]
+pub struct BranchAtCommit {
+    /// branch name
+    pub name: String,
+    /// position in main_track (0 = oldest shown, higher = newer)
+    pub position: usize,
 }
 
 /// Git graph data for visualization.
 #[derive(Debug, Clone, Default)]
 pub struct GitGraph {
-    /// branches to display
-    pub branches: Vec<BranchGraphInfo>,
+    /// commits on main branch (newest first internally, but displayed oldest-left)
+    pub main_track: Vec<crate::git::CommitInfo>,
     /// total commits on main branch
-    pub main_total_commits: usize,
+    pub main_total: usize,
+    /// branches that have diverged from main (have commits not on main)
+    pub branch_tracks: Vec<BranchTrack>,
+    /// branch names at main HEAD (including "main" itself)
+    pub labels_at_head: Vec<String>,
+    /// branches that are behind main (at older commits on main's history)
+    pub labels_behind: Vec<BranchAtCommit>,
 }
 
 /// Diff information for a worktree.
@@ -343,78 +352,118 @@ impl App {
             return;
         };
 
-        let main_branch = main_wt.branch.clone().unwrap_or_else(|| "main".to_string());
+        let main_branch_name = main_wt.branch.clone().unwrap_or_else(|| "main".to_string());
 
         // get total commits on main
-        let main_total = crate::git::total_commit_count(&main_wt.path, &main_branch).unwrap_or(0);
+        let main_total =
+            crate::git::total_commit_count(&main_wt.path, &main_branch_name).unwrap_or(0);
 
         // get recent commits on main (last 8)
-        let main_commits =
-            crate::git::log_commits(&main_wt.path, &main_branch, 8).unwrap_or_default();
+        let main_track =
+            crate::git::log_commits(&main_wt.path, &main_branch_name, 8).unwrap_or_default();
 
-        let mut branches = vec![BranchGraphInfo {
-            name: main_branch.clone(),
-            commits: main_commits,
-            ahead_of_main: 0,
-            is_main: true,
-            fork_point_sha: None,
-            fork_position: None,
-        }];
+        // collect SHAs for fork position lookup (main commits are newest-first)
+        let main_shas: Vec<&str> = main_track.iter().map(|c| c.sha.as_str()).collect();
 
-        // get info for each non-main worktree
+        // start labels with main branch name
+        let mut labels_at_head = vec![main_branch_name.clone()];
+        let mut branch_tracks: Vec<BranchTrack> = Vec::new();
+        let mut labels_behind: Vec<BranchAtCommit> = Vec::new();
+
+        // get main HEAD SHA for comparison
+        let main_head_sha = main_track.first().map(|c| c.sha.as_str());
+
+        // process each non-main worktree
         for wt in &self.worktrees {
-            let Some(ref branch) = wt.branch else {
+            let Some(ref branch_name) = wt.branch else {
                 continue;
             };
-            if branch == "main" || branch == "master" {
+            if branch_name == "main" || branch_name == "master" {
                 continue;
             }
 
             // count commits ahead of main
-            let ahead = crate::git::commit_count(&wt.path, &main_branch, "HEAD").unwrap_or(0);
+            let ahead = crate::git::commit_count(&wt.path, &main_branch_name, "HEAD").unwrap_or(0);
 
-            // get last 3 commits on this branch
-            let commits = crate::git::log_commits(&wt.path, "HEAD", 3).unwrap_or_default();
+            if ahead == 0 {
+                // branch has no commits ahead of main - could be at HEAD or behind
+                // get the branch tip SHA to check if it's actually at main HEAD
+                let branch_tip_sha = crate::git::log_commits(&wt.path, "HEAD", 1)
+                    .ok()
+                    .and_then(|commits| commits.into_iter().next())
+                    .map(|c| c.sha);
 
-            // find fork point (merge-base with main)
-            let fork_point_sha = crate::git::merge_base(&wt.path, &main_branch, "HEAD").ok();
+                let is_at_head = match (&branch_tip_sha, main_head_sha) {
+                    (Some(tip), Some(head)) => {
+                        tip.starts_with(head) || head.starts_with(tip.as_str())
+                    }
+                    _ => false,
+                };
 
-            branches.push(BranchGraphInfo {
-                name: branch.clone(),
-                commits,
-                ahead_of_main: ahead,
-                is_main: false,
-                fork_point_sha,
-                fork_position: None, // calculated below
-            });
-        }
+                if is_at_head {
+                    // truly at HEAD
+                    labels_at_head.push(branch_name.clone());
+                } else if let Some(tip_sha) = branch_tip_sha {
+                    // behind main - find position in main_track
+                    // main_shas is newest-first, we want oldest-first indexing for display
+                    // position 0 = oldest shown (leftmost), higher = newer (rightmost)
+                    let position = main_shas
+                        .iter()
+                        .position(|sha| sha.starts_with(&tip_sha) || tip_sha.starts_with(*sha))
+                        .map(|newest_first_pos| {
+                            // convert from newest-first to oldest-first indexing
+                            main_shas
+                                .len()
+                                .saturating_sub(1)
+                                .saturating_sub(newest_first_pos)
+                        })
+                        .unwrap_or(0);
 
-        // calculate fork positions for feature branches
-        // fork_position is the index into main's displayed commits where the branch forked
-        // (0 = oldest shown commit, higher = more recent)
-        // clone main_commits to avoid borrow checker issues
-        let main_commit_shas: Vec<String> =
-            branches[0].commits.iter().map(|c| c.sha.clone()).collect();
-        for branch in branches.iter_mut().skip(1) {
-            if let Some(ref fork_sha) = branch.fork_point_sha {
-                // find which main commit matches the fork point
-                // commits are ordered newest first, so we reverse to get oldest-first indexing
-                branch.fork_position = main_commit_shas
-                    .iter()
-                    .rev()
-                    .position(|sha| sha.starts_with(fork_sha) || fork_sha.starts_with(sha));
+                    labels_behind.push(BranchAtCommit {
+                        name: branch_name.clone(),
+                        position,
+                    });
+                }
+            } else {
+                // branch has diverged - create a track
+                // get commits unique to this branch
+                let commits =
+                    crate::git::log_commits(&wt.path, "HEAD", ahead.min(5)).unwrap_or_default();
+
+                // find fork point and its position in main
+                let fork_sha = crate::git::merge_base(&wt.path, &main_branch_name, "HEAD").ok();
+
+                // find position: main_shas is newest-first, we want oldest-first indexing
+                // so position 0 = oldest shown (rightmost in reversed list)
+                let fork_position = fork_sha
+                    .as_ref()
+                    .and_then(|fork| {
+                        main_shas
+                            .iter()
+                            .rev()
+                            .position(|sha| sha.starts_with(fork) || fork.starts_with(*sha))
+                    })
+                    .unwrap_or(0);
+
+                branch_tracks.push(BranchTrack {
+                    name: branch_name.clone(),
+                    commits,
+                    fork_position,
+                });
             }
         }
 
-        // sort feature branches by fork position (older forks first, i.e., lower position)
-        // branches with no fork position (forked before shown commits) come first
-        let main_branch_info = branches.remove(0);
-        branches.sort_by_key(|b| b.fork_position.unwrap_or(0));
-        branches.insert(0, main_branch_info);
+        // sort branch tracks by fork position (older forks = lower positions = rendered lower)
+        branch_tracks.sort_by_key(|t| t.fork_position);
+        // sort behind labels by position for consistent display
+        labels_behind.sort_by_key(|b| b.position);
 
         self.git_graph = Some(GitGraph {
-            branches,
-            main_total_commits: main_total,
+            main_track,
+            main_total,
+            branch_tracks,
+            labels_at_head,
+            labels_behind,
         });
     }
 
