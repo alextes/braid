@@ -1174,19 +1174,11 @@ fn draw_issue_list(f: &mut Frame, area: Rect, app: &mut App) {
                 .as_deref()
                 .map(|o| truncate(o, 10))
                 .unwrap_or_else(|| "-".to_string());
-            let tags = issue
-                .frontmatter
-                .tags
-                .iter()
-                .map(|t| format!("#{}", t))
-                .collect::<Vec<_>>()
-                .join(" ");
-            let title_and_tags = if tags.is_empty() {
+            let tags_width = issue_tags_width(&issue.frontmatter.tags);
+            let title_part = if tags_width == 0 {
                 truncate(issue.title(), title_width)
             } else {
-                let title_part =
-                    truncate(issue.title(), title_width.saturating_sub(tags.len() + 1));
-                format!("{} {}", title_part, tags)
+                truncate(issue.title(), title_width.saturating_sub(tags_width + 1))
             };
 
             let duration = now - issue.frontmatter.created_at;
@@ -1219,27 +1211,28 @@ fn draw_issue_list(f: &mut Frame, area: Rect, app: &mut App) {
                 None => base_style,
             };
 
-            // build line with optional red "!" prefix for blockers
-            let rest_of_line = format!(
-                "{} {} {:>4} {:<10} {}",
-                id,
-                issue.priority(),
-                age,
-                owner,
-                title_and_tags
-            );
+            let mut rest_spans = vec![Span::styled(
+                format!(
+                    "{} {} {:>4} {:<10} {}",
+                    id,
+                    issue.priority(),
+                    age,
+                    owner,
+                    title_part
+                ),
+                style,
+            )];
+            push_colored_tags(&mut rest_spans, &issue.frontmatter.tags, style);
 
             let line = if is_blocker && !is_selected {
                 // show red "!" prefix for blockers (but not when selected, as bg is yellow)
-                Line::from(vec![
-                    Span::styled("! ", Style::default().fg(Color::Red)),
-                    Span::styled(rest_of_line, style),
-                ])
+                let mut spans = vec![Span::styled("! ", Style::default().fg(Color::Red))];
+                spans.extend(rest_spans);
+                Line::from(spans)
             } else {
-                Line::from(Span::styled(
-                    format!("{}{}", status_prefix, rest_of_line),
-                    style,
-                ))
+                let mut spans = vec![Span::styled(status_prefix.to_string(), style)];
+                spans.extend(rest_spans);
+                Line::from(spans)
             };
 
             ListItem::new(line)
@@ -1280,6 +1273,34 @@ fn draw_issue_list(f: &mut Frame, area: Rect, app: &mut App) {
             height: area.height.saturating_sub(2),
         };
         f.render_stateful_widget(scrollbar, scrollbar_area, &mut scrollbar_state);
+    }
+}
+
+fn issue_tags_width(tags: &[String]) -> usize {
+    if tags.is_empty() {
+        return 0;
+    }
+    // each tag contributes "#" + tag plus one separator between tags.
+    tags.iter().map(|tag| tag.len() + 1).sum::<usize>() + tags.len() - 1
+}
+
+fn push_colored_tags(spans: &mut Vec<Span<'static>>, tags: &[String], style: Style) {
+    if tags.is_empty() {
+        return;
+    }
+
+    spans.push(Span::styled(" ", style));
+    for (i, tag) in tags.iter().enumerate() {
+        if i > 0 {
+            spans.push(Span::styled(" ", style));
+        }
+        let color = if tag == "bug" {
+            Color::Red
+        } else {
+            Color::Cyan
+        };
+        let tag_style = style.patch(Style::default().fg(color));
+        spans.push(Span::styled(format!("#{}", tag), tag_style));
     }
 }
 
