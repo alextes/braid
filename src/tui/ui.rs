@@ -1446,7 +1446,7 @@ fn build_detail_lines(app: &App, selected_dep: Option<usize>) -> Vec<Line<'stati
     if !issue.deps().is_empty() {
         lines.push(Line::from(""));
         lines.push(Line::from(Span::styled(
-            "Dependencies:",
+            "Blocked by:",
             Style::default().fg(Color::DarkGray),
         )));
         for (idx, dep_id) in issue.deps().iter().enumerate() {
@@ -1524,7 +1524,7 @@ fn build_detail_lines(app: &App, selected_dep: Option<usize>) -> Vec<Line<'stati
     if !dependents.is_empty() {
         lines.push(Line::from(""));
         lines.push(Line::from(Span::styled(
-            "Dependents:",
+            "Blocks:",
             Style::default().fg(Color::DarkGray),
         )));
         for dep_id in &dependents {
@@ -1849,7 +1849,7 @@ fn draw_input_dialog(f: &mut Frame, app: &App) {
             cursor,
         } => {
             let block = Block::default()
-                .title(" Dependencies (Space toggle, Enter create, Esc) ")
+                .title(" Blocked by (Space toggle, Enter create, Esc) ")
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(Color::Yellow));
 

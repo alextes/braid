@@ -61,7 +61,7 @@ fn format_show_output(
                 }
             })
             .collect();
-        let _ = writeln!(output, "Deps:     {}", deps_with_status.join(", "));
+        let _ = writeln!(output, "Blocked by: {}", deps_with_status.join(", "));
     }
 
     let dependents = get_dependents(issue.id(), issues);
@@ -88,7 +88,7 @@ fn format_show_output(
                 }
             })
             .collect();
-        let _ = writeln!(output, "Dependents: {}", deps_with_status.join(", "));
+        let _ = writeln!(output, "Blocks:   {}", deps_with_status.join(", "));
     }
 
     if !issue.tags().is_empty() {
@@ -151,7 +151,7 @@ fn format_context_output(issue: &Issue, issues: &HashMap<String, Issue>, no_colo
     let deps = issue.deps();
     if !deps.is_empty() {
         let _ = writeln!(output);
-        let _ = writeln!(output, "=== Dependencies ===");
+        let _ = writeln!(output, "=== Blocked by ===");
         for dep_id in deps {
             if let Some(dep_issue) = issues.get(dep_id) {
                 let _ = writeln!(output);
@@ -173,7 +173,7 @@ fn format_context_output(issue: &Issue, issues: &HashMap<String, Issue>, no_colo
     let dependents = get_dependents(issue.id(), issues);
     if !dependents.is_empty() {
         let _ = writeln!(output);
-        let _ = writeln!(output, "=== Dependents ===");
+        let _ = writeln!(output, "=== Blocks ===");
         for dep_id in &dependents {
             if let Some(dep_issue) = issues.get(dep_id) {
                 let _ = writeln!(output);
@@ -260,7 +260,7 @@ mod tests {
         assert!(output.contains("Priority: P1"));
         assert!(output.contains("Status:   open"));
         assert!(output.contains("Type:     meta"));
-        assert!(output.contains("Deps:     brd-aaaa (open), brd-missing (missing)"));
+        assert!(output.contains("Blocked by: brd-aaaa (open), brd-missing (missing)"));
         assert!(output.contains("Tags:     visual, urgent"));
         assert!(output.contains("Owner:    agent-one"));
         assert!(output.contains("Acceptance:"));
@@ -367,7 +367,7 @@ mod tests {
         let output = format_show_output(&parent, &issues, false, true);
 
         // dependents should show status in parentheses
-        assert!(output.contains("Dependents:"));
+        assert!(output.contains("Blocks:"));
         assert!(output.contains("brd-child1 (open)"));
         assert!(output.contains("brd-child2 (done)"));
     }

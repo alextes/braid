@@ -46,7 +46,7 @@ pub fn cmd_dep_add(cli: &Cli, paths: &RepoPaths, blocked_id: &str, blocker_id: &
     if cli.json {
         println!(r#"{{"ok": true}}"#);
     } else {
-        println!("{} now depends on {}", blocked_full, blocker_full);
+        println!("{} is now blocked by {}", blocked_full, blocker_full);
     }
 
     Ok(())
@@ -73,7 +73,7 @@ pub fn cmd_dep_rm(cli: &Cli, paths: &RepoPaths, blocked_id: &str, blocker_id: &s
     if cli.json {
         println!(r#"{{"ok": true}}"#);
     } else {
-        println!("{} no longer depends on {}", blocked_full, blocker_full);
+        println!("{} is no longer blocked by {}", blocked_full, blocker_full);
     }
 
     Ok(())
