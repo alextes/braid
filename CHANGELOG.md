@@ -7,11 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0]
+
 ### Added
-- **scheduled issues**: `--scheduled-for` flag on `brd add` to schedule issues for future dates
-- `brd ls --scheduled` to view future-scheduled issues
-- `brd set <id> scheduled-for <date>` to modify or clear scheduling
-- date parsing supports ISO dates (`2025-02-15`), relative formats (`+7d`, `+2w`, `+1mo`), and `tomorrow`
+- **scheduled issues**: `--scheduled-for` flag on `brd add` to schedule issues for future dates, `brd ls --scheduled` to view them, `brd set <id> scheduled-for <date>` to modify
+- **terminal UI overhaul**: scrollable detail pane, scrollbar in issues view, dependency visualization and filtering, git graph in dashboard, velocity sparkline, cycle/lead time metrics, details pane toggle, focus-based detail pane interaction, 1-9 for dependency selection
+- **agents view in TUI**: worktree listing with file change summaries, unified diff view, configurable diff renderer with runtime toggle, agent session management, vim-style panel navigation, half-page scroll
+- `brd path <id>` command to print issue file path
+- `brd create` alias for `brd add` command
+- `brd reopen` command to reopen done/skip issues
+- `brd agent clean` command to remove stale worktrees
+- `brd agent attach` command for interactive session resumption
+- `brd agent logs --follow` for tailing agent logs
+- `brd agent send --verbose` flag
+- agent logs show tool context and improved formatting
+- graceful fallback when `gh` CLI is not installed
+- auto-inject braid instructions into AGENTS.md on `brd init`
+- detect non-interactive terminals and refuse interactive commands
+- dim done/skip dependencies in `brd show` output
+
+### Changed
+- dep output and display labels now use blocking language: "Blocked by:" / "Blocks:" instead of "Deps:" / "Dependents:"
+- `brd set` rejects status changes, points to `brd start`/`brd done`/`brd skip`/`brd reopen`
+- agent session IDs are now random instead of sequential
+- diff renderers simplified to native and git-pager only
+
+### Fixed
+- TUI: color issue tags in issues list
+- TUI: git graph branch detection and fork connector alignment
+- TUI: dashboard stacked bars use full width
+- TUI: scrollbar state configuration
+- TUI: preserve dep selector index on reload
+- TUI: removed conflicting s/d keybindings
+- TUI: subtle grey for blocked issues, aligned help text styling
+- agent: properly detect worktrees in init, refuse init from existing worktree
+- agent: redirect send output to log file, show tool result summaries in logs
+
+### Refactored
+- extract shared detail rendering function in TUI
+- simplify issue list status display in TUI
 
 ## [0.8.0]
 
@@ -204,7 +238,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - TUI for browsing issues
 - JSON output support
 
-[Unreleased]: https://github.com/alextes/braid/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/alextes/braid/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/alextes/braid/compare/v0.8.0...v0.9.0
+[0.8.0]: https://github.com/alextes/braid/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/alextes/braid/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/alextes/braid/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/alextes/braid/compare/v0.4.1...v0.5.0

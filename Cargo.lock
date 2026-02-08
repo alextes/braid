@@ -145,7 +145,7 @@ dependencies = [
 
 [[package]]
 name = "braid"
-version = "0.8.0"
+version = "0.9.0"
 dependencies = [
  "ansi-to-tui",
  "anyhow",
