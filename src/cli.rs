@@ -170,6 +170,12 @@ pub enum Command {
         id: String,
     },
 
+    /// print file path of an issue
+    Path {
+        /// issue ID (full or partial)
+        id: String,
+    },
+
     /// delete an issue
     Rm {
         /// issue ID

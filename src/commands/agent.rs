@@ -477,7 +477,7 @@ pub fn cmd_agent_pr(cli: &Cli, paths: &RepoPaths) -> Result<()> {
 // ============================================================================
 
 /// current version of the agents block
-pub const AGENTS_BLOCK_VERSION: u32 = 7;
+pub const AGENTS_BLOCK_VERSION: u32 = 8;
 
 const BLOCK_START: &str = "<!-- braid:agents:start";
 const BLOCK_END: &str = "<!-- braid:agents:end -->";
@@ -506,6 +506,7 @@ useful commands:
 - `brd show <id>` — view issue details (shows deps and dependents)
 - `brd show <id> --context` — view issue with full content of related issues
 - `brd config` — show current workflow configuration
+- `brd path <id>` — print the absolute file path of an issue (for hand-editing)
 
 **tip:** before starting work, use `brd show <id> --context` to see the issue plus all its dependencies and dependents in one view.
 
