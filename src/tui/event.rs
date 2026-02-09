@@ -43,12 +43,23 @@ fn handle_key_event(app: &mut App, paths: &RepoPaths, key: KeyEvent) -> Result<b
 
     // handle detail overlay mode
     if app.show_detail_overlay {
-        if key.code == KeyCode::Esc
-            || key.code == KeyCode::Char('q')
-            || key.code == KeyCode::Enter
-            || key.code == KeyCode::Tab
-        {
-            app.hide_detail_overlay();
+        match key.code {
+            KeyCode::Esc | KeyCode::Char('q') | KeyCode::Enter | KeyCode::Tab => {
+                app.hide_detail_overlay();
+            }
+            KeyCode::Down | KeyCode::Char('j') => {
+                app.detail_scroll_down(1, usize::MAX);
+            }
+            KeyCode::Up | KeyCode::Char('k') => {
+                app.detail_scroll_up(1);
+            }
+            KeyCode::Char('d') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                app.detail_scroll_down(10, usize::MAX);
+            }
+            KeyCode::Char('u') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                app.detail_scroll_up(10);
+            }
+            _ => {}
         }
         return Ok(false);
     }

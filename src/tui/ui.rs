@@ -1326,7 +1326,13 @@ fn draw_detail(f: &mut Frame, area: Rect, app: &mut App) {
         return;
     }
 
-    let content_height = lines.len();
+    let text = Text::from(lines);
+    let paragraph = Paragraph::new(text)
+        .block(block.clone())
+        .wrap(Wrap { trim: false });
+
+    // use wrapped line count so scroll accounts for word-wrapped lines
+    let content_height = paragraph.line_count(area.width);
     let max_scroll = content_height.saturating_sub(inner_height);
 
     // clamp scroll to valid range
@@ -1341,10 +1347,8 @@ fn draw_detail(f: &mut Frame, area: Rect, app: &mut App) {
         " Detail ".to_string()
     };
 
-    let text = Text::from(lines);
-    let paragraph = Paragraph::new(text)
+    let paragraph = paragraph
         .block(block.clone().title(title))
-        .wrap(Wrap { trim: false })
         .scroll((app.detail_scroll as u16, 0));
     f.render_widget(paragraph, area);
 
@@ -1574,9 +1578,10 @@ fn build_detail_lines(app: &App, selected_dep: Option<usize>) -> Vec<Line<'stati
     lines
 }
 
-fn draw_detail_overlay(f: &mut Frame, area: Rect, app: &App) {
+fn draw_detail_overlay(f: &mut Frame, area: Rect, app: &mut App) {
     // use most of the screen for the overlay
     let overlay_area = centered_rect(80, area.height.saturating_sub(4), area);
+    let inner_height = overlay_area.height.saturating_sub(2) as usize;
 
     // clear the area behind the overlay
     f.render_widget(Clear, overlay_area);
@@ -1595,6 +1600,16 @@ fn draw_detail_overlay(f: &mut Frame, area: Rect, app: &App) {
 
     let text = Text::from(lines);
     let paragraph = Paragraph::new(text).block(block).wrap(Wrap { trim: false });
+
+    // use wrapped line count so scroll accounts for word-wrapped lines
+    let content_height = paragraph.line_count(overlay_area.width);
+    let max_scroll = content_height.saturating_sub(inner_height);
+
+    if app.detail_scroll > max_scroll {
+        app.detail_scroll = max_scroll;
+    }
+
+    let paragraph = paragraph.scroll((app.detail_scroll as u16, 0));
     f.render_widget(paragraph, overlay_area);
 }
 
