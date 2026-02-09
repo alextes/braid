@@ -42,7 +42,7 @@ pub enum Command {
     Init(InitArgs),
 
     /// add a new issue
-    #[command(alias = "create")]
+    #[command(aliases = ["create", "new"])]
     Add(AddArgs),
 
     /// list issues
