@@ -14,6 +14,76 @@ use crate::repo::RepoPaths;
 
 use super::{issue_to_json, load_all_issues, resolve_issue_id};
 
+/// status symbol matching TUI conventions.
+fn status_symbol(status: &Status) -> &'static str {
+    match status {
+        Status::Open => "○",
+        Status::Doing => "→",
+        Status::Done => "✓",
+        Status::Skip => "⊘",
+    }
+}
+
+/// whether a status counts as resolved (sorts to the bottom).
+fn is_resolved(status: &Status) -> bool {
+    matches!(status, Status::Done | Status::Skip)
+}
+
+/// truncate a string to at most `max` chars, appending "…" if truncated.
+fn truncate_title(title: &str, max: usize) -> String {
+    if title.chars().count() <= max {
+        title.to_string()
+    } else {
+        let mut s: String = title.chars().take(max - 1).collect();
+        s.push('…');
+        s
+    }
+}
+
+/// sort dep IDs so open/doing come first, done/skip last.
+fn sort_deps_open_first(ids: &[String], issues: &HashMap<String, Issue>) -> Vec<String> {
+    let mut sorted = ids.to_vec();
+    sorted.sort_by_key(|id| {
+        issues
+            .get(id)
+            .map(|i| is_resolved(&i.status()) as u8)
+            .unwrap_or(0)
+    });
+    sorted
+}
+
+/// format a list of dep/dependent IDs as multi-line with symbols and titles.
+fn format_dep_lines(
+    ids: &[String],
+    issues: &HashMap<String, Issue>,
+    no_color: bool,
+) -> Vec<String> {
+    let sorted = sort_deps_open_first(ids, issues);
+    sorted
+        .iter()
+        .map(|dep_id| {
+            if let Some(dep) = issues.get(dep_id) {
+                let status = dep.status();
+                let sym = status_symbol(&status);
+                let title = truncate_title(dep.title(), 60);
+                let line = format!("  {} {} ({})  {}", sym, dep_id, status, title);
+                if !no_color && is_resolved(&status) {
+                    format!(
+                        "{}{}{}",
+                        SetAttribute(Attribute::Dim),
+                        line,
+                        SetAttribute(Attribute::Reset)
+                    )
+                } else {
+                    line
+                }
+            } else {
+                format!("  ? {} (missing)", dep_id)
+            }
+        })
+        .collect()
+}
+
 fn format_show_output(
     issue: &Issue,
     issues: &HashMap<String, Issue>,
@@ -38,57 +108,18 @@ fn format_show_output(
     }
 
     if !issue.deps().is_empty() {
-        let deps_with_status: Vec<String> = issue
-            .deps()
-            .iter()
-            .map(|dep_id| {
-                if let Some(dep) = issues.get(dep_id) {
-                    let status = dep.status();
-                    let is_resolved = matches!(status, Status::Done | Status::Skip);
-                    if !no_color && is_resolved {
-                        format!(
-                            "{}{} ({}){}",
-                            SetAttribute(Attribute::Dim),
-                            dep_id,
-                            status,
-                            SetAttribute(Attribute::Reset)
-                        )
-                    } else {
-                        format!("{} ({})", dep_id, status)
-                    }
-                } else {
-                    format!("{} (missing)", dep_id)
-                }
-            })
-            .collect();
-        let _ = writeln!(output, "Blocked by: {}", deps_with_status.join(", "));
+        let _ = writeln!(output, "Blocked by:");
+        for line in format_dep_lines(issue.deps(), issues, no_color) {
+            let _ = writeln!(output, "{}", line);
+        }
     }
 
     let dependents = get_dependents(issue.id(), issues);
     if !dependents.is_empty() {
-        let deps_with_status: Vec<String> = dependents
-            .iter()
-            .map(|dep_id| {
-                if let Some(dep) = issues.get(dep_id) {
-                    let status = dep.status();
-                    let is_resolved = matches!(status, Status::Done | Status::Skip);
-                    if !no_color && is_resolved {
-                        format!(
-                            "{}{} ({}){}",
-                            SetAttribute(Attribute::Dim),
-                            dep_id,
-                            status,
-                            SetAttribute(Attribute::Reset)
-                        )
-                    } else {
-                        format!("{} ({})", dep_id, status)
-                    }
-                } else {
-                    format!("{} (missing)", dep_id)
-                }
-            })
-            .collect();
-        let _ = writeln!(output, "Blocks:   {}", deps_with_status.join(", "));
+        let _ = writeln!(output, "Blocks:");
+        for line in format_dep_lines(&dependents, issues, no_color) {
+            let _ = writeln!(output, "{}", line);
+        }
     }
 
     if !issue.tags().is_empty() {
@@ -260,7 +291,9 @@ mod tests {
         assert!(output.contains("Priority: P1"));
         assert!(output.contains("Status:   open"));
         assert!(output.contains("Type:     meta"));
-        assert!(output.contains("Blocked by: brd-aaaa (open), brd-missing (missing)"));
+        assert!(output.contains("Blocked by:"));
+        assert!(output.contains("  ○ brd-aaaa (open)  dep issue"));
+        assert!(output.contains("  ? brd-missing (missing)"));
         assert!(output.contains("Tags:     visual, urgent"));
         assert!(output.contains("Owner:    agent-one"));
         assert!(output.contains("Acceptance:"));
@@ -366,9 +399,13 @@ mod tests {
 
         let output = format_show_output(&parent, &issues, false, true);
 
-        // dependents should show status in parentheses
+        // dependents should show status symbol, id, status, and title — sorted open first
         assert!(output.contains("Blocks:"));
-        assert!(output.contains("brd-child1 (open)"));
-        assert!(output.contains("brd-child2 (done)"));
+        assert!(output.contains("  ○ brd-child1 (open)  open child"));
+        assert!(output.contains("  ✓ brd-child2 (done)  done child"));
+        // open should appear before done
+        let open_pos = output.find("brd-child1").unwrap();
+        let done_pos = output.find("brd-child2").unwrap();
+        assert!(open_pos < done_pos);
     }
 }

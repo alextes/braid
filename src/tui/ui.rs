@@ -1446,19 +1446,31 @@ fn build_detail_lines(app: &App, selected_dep: Option<usize>) -> Vec<Line<'stati
         ]));
     }
 
-    // deps
+    // deps — sorted open/doing first, with titles inline
     if !issue.deps().is_empty() {
         lines.push(Line::from(""));
         lines.push(Line::from(Span::styled(
             "Blocked by:",
             Style::default().fg(Color::DarkGray),
         )));
-        for (idx, dep_id) in issue.deps().iter().enumerate() {
-            let is_selected = selected_dep == Some(idx);
+
+        // build sorted indices: open/doing first, done/skip last
+        let deps = issue.deps();
+        let mut dep_indices: Vec<usize> = (0..deps.len()).collect();
+        dep_indices.sort_by_key(|&i| {
+            app.issues
+                .get(&deps[i])
+                .map(|iss| matches!(iss.status(), Status::Done | Status::Skip) as u8)
+                .unwrap_or(0)
+        });
+
+        for (display_idx, &orig_idx) in dep_indices.iter().enumerate() {
+            let dep_id = &deps[orig_idx];
+            let is_selected = selected_dep == Some(display_idx);
             // show number for selection (1-9) when selection enabled, otherwise bullet
             let prefix = if selected_dep.is_some() {
-                if idx < 9 {
-                    format!("{}", idx + 1)
+                if display_idx < 9 {
+                    format!("{}", display_idx + 1)
                 } else {
                     "-".to_string()
                 }
@@ -1466,30 +1478,47 @@ fn build_detail_lines(app: &App, selected_dep: Option<usize>) -> Vec<Line<'stati
                 " ".to_string()
             };
 
-            let (symbol, status_text, base_color) = if let Some(dep_issue) = app.issues.get(dep_id)
-            {
-                match dep_issue.status() {
-                    Status::Done => ("✓", "done", Color::Green),
-                    Status::Skip => ("⊘", "skip", Color::DarkGray),
-                    Status::Doing => ("→", "doing", Color::Yellow),
-                    Status::Open => ("○", "open", Color::White),
-                }
-            } else {
-                ("?", "missing", Color::Red)
-            };
+            let (symbol, status_text, base_color, title) =
+                if let Some(dep_issue) = app.issues.get(dep_id) {
+                    let t = dep_issue.title();
+                    let truncated = if t.chars().count() > 60 {
+                        let mut s: String = t.chars().take(59).collect();
+                        s.push('…');
+                        s
+                    } else {
+                        t.to_string()
+                    };
+                    match dep_issue.status() {
+                        Status::Done => ("✓", "done", Color::Green, truncated),
+                        Status::Skip => ("⊘", "skip", Color::DarkGray, truncated),
+                        Status::Doing => ("→", "doing", Color::Yellow, truncated),
+                        Status::Open => ("○", "open", Color::White, truncated),
+                    }
+                } else {
+                    ("?", "missing", Color::Red, String::new())
+                };
 
             let mut style = Style::default().fg(base_color);
             if is_selected {
                 style = style.add_modifier(Modifier::BOLD);
             }
 
-            lines.push(Line::from(Span::styled(
-                format!("{} {} {} ({})", prefix, symbol, dep_id, status_text),
-                style,
-            )));
+            let text = if title.is_empty() {
+                format!("{} {} {} ({})", prefix, symbol, dep_id, status_text)
+            } else {
+                format!(
+                    "{} {} {} ({})  {}",
+                    prefix, symbol, dep_id, status_text, title
+                )
+            };
+
+            lines.push(Line::from(Span::styled(text, style)));
         }
 
-        if let Some(dep_id) = selected_dep.and_then(|idx| issue.deps().get(idx)) {
+        if let Some(dep_id) = selected_dep
+            .and_then(|idx| dep_indices.get(idx))
+            .and_then(|&orig_idx| issue.deps().get(orig_idx))
+        {
             lines.push(Line::from(""));
             lines.push(Line::from(Span::styled(
                 "dependency preview:",
@@ -1523,7 +1552,7 @@ fn build_detail_lines(app: &App, selected_dep: Option<usize>) -> Vec<Line<'stati
         }
     }
 
-    // dependents (reverse deps - issues that depend on this one)
+    // dependents (reverse deps - issues that depend on this one) — sorted open/doing first
     let dependents = get_dependents(issue.id(), &app.issues);
     if !dependents.is_empty() {
         lines.push(Line::from(""));
@@ -1531,21 +1560,44 @@ fn build_detail_lines(app: &App, selected_dep: Option<usize>) -> Vec<Line<'stati
             "Blocks:",
             Style::default().fg(Color::DarkGray),
         )));
-        for dep_id in &dependents {
-            let (symbol, status_text, base_color) = if let Some(dep_issue) = app.issues.get(dep_id)
-            {
-                match dep_issue.status() {
-                    Status::Done => ("✓", "done", Color::Green),
-                    Status::Skip => ("⊘", "skip", Color::DarkGray),
-                    Status::Doing => ("→", "doing", Color::Yellow),
-                    Status::Open => ("○", "open", Color::White),
-                }
+
+        let mut sorted_dependents = dependents.clone();
+        sorted_dependents.sort_by_key(|id| {
+            app.issues
+                .get(id)
+                .map(|iss| matches!(iss.status(), Status::Done | Status::Skip) as u8)
+                .unwrap_or(0)
+        });
+
+        for dep_id in &sorted_dependents {
+            let (symbol, status_text, base_color, title) =
+                if let Some(dep_issue) = app.issues.get(dep_id) {
+                    let t = dep_issue.title();
+                    let truncated = if t.chars().count() > 60 {
+                        let mut s: String = t.chars().take(59).collect();
+                        s.push('…');
+                        s
+                    } else {
+                        t.to_string()
+                    };
+                    match dep_issue.status() {
+                        Status::Done => ("✓", "done", Color::Green, truncated),
+                        Status::Skip => ("⊘", "skip", Color::DarkGray, truncated),
+                        Status::Doing => ("→", "doing", Color::Yellow, truncated),
+                        Status::Open => ("○", "open", Color::White, truncated),
+                    }
+                } else {
+                    ("?", "missing", Color::Red, String::new())
+                };
+
+            let text = if title.is_empty() {
+                format!("  {} {} ({})", symbol, dep_id, status_text)
             } else {
-                ("?", "missing", Color::Red)
+                format!("  {} {} ({})  {}", symbol, dep_id, status_text, title)
             };
 
             lines.push(Line::from(Span::styled(
-                format!("  {} {} ({})", symbol, dep_id, status_text),
+                text,
                 Style::default().fg(base_color),
             )));
         }
