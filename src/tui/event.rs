@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyModifiers};
 
-use super::app::{App, InputMode, IssuesFocus, View};
+use super::app::{App, DetailSection, InputMode, IssuesFocus, View};
 use crate::error::Result;
 use crate::repo::RepoPaths;
 
@@ -302,12 +302,27 @@ fn handle_key_event(app: &mut App, paths: &RepoPaths, key: KeyEvent) -> Result<b
             app.agents_focus = crate::tui::app::AgentsFocus::Files;
         }
 
-        // 1-9 selects dependency by number (issues view, detail focused)
+        // [ and ] switch detail section (issues view, detail focused)
+        KeyCode::Char('[')
+            if app.view == View::Issues && app.issues_focus == IssuesFocus::Details =>
+        {
+            app.detail_section = DetailSection::Deps;
+        }
+        KeyCode::Char(']')
+            if app.view == View::Issues && app.issues_focus == IssuesFocus::Details =>
+        {
+            app.detail_section = DetailSection::Dependents;
+        }
+
+        // 1-9 selects dep or dependent by number (issues view, detail focused)
         KeyCode::Char(c @ '1'..='9')
             if app.view == View::Issues && app.issues_focus == IssuesFocus::Details =>
         {
             let idx = (c as usize) - ('1' as usize);
-            app.select_dep_by_index(idx);
+            match app.detail_section {
+                DetailSection::Deps => app.select_dep_by_index(idx),
+                DetailSection::Dependents => app.select_dependent_by_index(idx),
+            }
         }
 
         // actions
@@ -333,8 +348,11 @@ fn handle_key_event(app: &mut App, paths: &RepoPaths, key: KeyEvent) -> Result<b
                     }
                 }
                 IssuesFocus::Details => {
-                    // when details pane is focused, open selected dependency
-                    app.open_selected_dependency();
+                    // when details pane is focused, open selected dep or dependent
+                    match app.detail_section {
+                        DetailSection::Deps => app.open_selected_dependency(),
+                        DetailSection::Dependents => app.open_selected_dependent(),
+                    }
                 }
             },
             _ => {}
@@ -919,5 +937,84 @@ mod tests {
         handle_key_event(&mut app, &env.paths, key(KeyCode::Char('j'))).expect("j failed");
         assert!(app.show_detail_overlay);
         assert_eq!(app.selected, initial_selected);
+    }
+
+    #[test]
+    fn test_section_switching_with_brackets() {
+        let env = TestEnv::new();
+        env.add_issue("brd-dep1", "dep one", Priority::P2, Status::Open);
+        env.add_issue_with_deps(
+            "brd-main",
+            "main issue",
+            Priority::P1,
+            Status::Open,
+            vec!["brd-dep1".to_string()],
+        );
+
+        let mut app = env.app();
+        assert_eq!(app.selected_issue_id(), Some("brd-main"));
+
+        // switch focus to detail pane
+        handle_key_event(&mut app, &env.paths, key(KeyCode::Tab)).expect("tab failed");
+        assert_eq!(app.issues_focus, IssuesFocus::Details);
+
+        // default section is Deps
+        assert_eq!(app.detail_section, crate::tui::app::DetailSection::Deps);
+
+        // ] switches to Dependents
+        handle_key_event(&mut app, &env.paths, key(KeyCode::Char(']'))).expect("] failed");
+        assert_eq!(
+            app.detail_section,
+            crate::tui::app::DetailSection::Dependents
+        );
+
+        // [ switches back to Deps
+        handle_key_event(&mut app, &env.paths, key(KeyCode::Char('['))).expect("[ failed");
+        assert_eq!(app.detail_section, crate::tui::app::DetailSection::Deps);
+    }
+
+    #[test]
+    fn test_dependent_selection_and_open() {
+        let env = TestEnv::new();
+        // brd-dep1 depends on brd-main, so brd-main blocks brd-dep1
+        env.add_issue("brd-main", "main issue", Priority::P1, Status::Open);
+        env.add_issue_with_deps(
+            "brd-dep1",
+            "dependent one",
+            Priority::P2,
+            Status::Open,
+            vec!["brd-main".to_string()],
+        );
+        env.add_issue_with_deps(
+            "brd-dep2",
+            "dependent two",
+            Priority::P3,
+            Status::Open,
+            vec!["brd-main".to_string()],
+        );
+
+        let mut app = env.app();
+        assert_eq!(app.selected_issue_id(), Some("brd-main"));
+
+        // switch focus to detail pane
+        handle_key_event(&mut app, &env.paths, key(KeyCode::Tab)).expect("tab failed");
+        assert_eq!(app.issues_focus, IssuesFocus::Details);
+
+        // switch to dependents section
+        handle_key_event(&mut app, &env.paths, key(KeyCode::Char(']'))).expect("] failed");
+        assert_eq!(
+            app.detail_section,
+            crate::tui::app::DetailSection::Dependents
+        );
+
+        // select dependent 2 by pressing '2'
+        handle_key_event(&mut app, &env.paths, key(KeyCode::Char('2')))
+            .expect("select dependent failed");
+        assert_eq!(app.detail_dependent_selected, Some(1));
+
+        // press Enter to jump to the dependent
+        handle_key_event(&mut app, &env.paths, key(KeyCode::Enter)).expect("open dependent failed");
+        // should have jumped to one of the dependents
+        assert_ne!(app.selected_issue_id(), Some("brd-main"));
     }
 }

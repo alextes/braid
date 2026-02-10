@@ -16,7 +16,7 @@ use crate::graph::{compute_derived, get_dependents};
 use crate::issue::{Priority, Status};
 use crate::session::SessionStatus;
 
-use super::app::{App, InputMode, IssuesFocus, View};
+use super::app::{App, DetailSection, InputMode, IssuesFocus, View};
 use super::diff_panel::{DiffPanel, centered_overlay};
 
 /// draw the entire UI.
@@ -1318,7 +1318,12 @@ fn draw_detail(f: &mut Frame, area: Rect, app: &mut App) {
         .border_style(Style::default().fg(border_color));
 
     // build the content lines first, collecting all needed data
-    let lines = build_detail_lines(app, app.detail_dep_selected);
+    let lines = build_detail_lines(
+        app,
+        app.detail_dep_selected,
+        app.detail_section,
+        app.detail_dependent_selected,
+    );
 
     if lines.is_empty() {
         let text = Paragraph::new("no issue selected").block(block.clone().title(" Detail "));
@@ -1375,7 +1380,14 @@ fn draw_detail(f: &mut Frame, area: Rect, app: &mut App) {
 
 /// build content lines for the detail pane, returning empty vec if no issue selected.
 /// `selected_dep` enables numbered prefixes and preview for the detail pane; pass None for overlay.
-fn build_detail_lines(app: &App, selected_dep: Option<usize>) -> Vec<Line<'static>> {
+/// `detail_section` controls which section (deps/dependents) shows numbered items.
+/// `selected_dependent` tracks selected dependent index.
+fn build_detail_lines(
+    app: &App,
+    selected_dep: Option<usize>,
+    detail_section: DetailSection,
+    selected_dependent: Option<usize>,
+) -> Vec<Line<'static>> {
     let Some(issue) = app.selected_issue() else {
         return Vec::new();
     };
@@ -1464,11 +1476,12 @@ fn build_detail_lines(app: &App, selected_dep: Option<usize>) -> Vec<Line<'stati
                 .unwrap_or(0)
         });
 
+        let deps_active = selected_dep.is_some() && detail_section == DetailSection::Deps;
         for (display_idx, &orig_idx) in dep_indices.iter().enumerate() {
             let dep_id = &deps[orig_idx];
-            let is_selected = selected_dep == Some(display_idx);
-            // show number for selection (1-9) when selection enabled, otherwise bullet
-            let prefix = if selected_dep.is_some() {
+            let is_selected = deps_active && selected_dep == Some(display_idx);
+            // show number for selection (1-9) when this section is active, otherwise bullet
+            let prefix = if deps_active {
                 if display_idx < 9 {
                     format!("{}", display_idx + 1)
                 } else {
@@ -1515,7 +1528,9 @@ fn build_detail_lines(app: &App, selected_dep: Option<usize>) -> Vec<Line<'stati
             lines.push(Line::from(Span::styled(text, style)));
         }
 
-        if let Some(dep_id) = selected_dep
+        if let Some(dep_id) = deps_active
+            .then_some(selected_dep)
+            .flatten()
             .and_then(|idx| dep_indices.get(idx))
             .and_then(|&orig_idx| issue.deps().get(orig_idx))
         {
@@ -1569,7 +1584,20 @@ fn build_detail_lines(app: &App, selected_dep: Option<usize>) -> Vec<Line<'stati
                 .unwrap_or(0)
         });
 
-        for dep_id in &sorted_dependents {
+        let dependents_active =
+            selected_dependent.is_some() && detail_section == DetailSection::Dependents;
+        for (display_idx, dep_id) in sorted_dependents.iter().enumerate() {
+            let is_selected = dependents_active && selected_dependent == Some(display_idx);
+            let prefix = if dependents_active {
+                if display_idx < 9 {
+                    format!("{}", display_idx + 1)
+                } else {
+                    "-".to_string()
+                }
+            } else {
+                " ".to_string()
+            };
+
             let (symbol, status_text, base_color, title) =
                 if let Some(dep_issue) = app.issues.get(dep_id) {
                     let t = dep_issue.title();
@@ -1590,16 +1618,59 @@ fn build_detail_lines(app: &App, selected_dep: Option<usize>) -> Vec<Line<'stati
                     ("?", "missing", Color::Red, String::new())
                 };
 
+            let mut style = Style::default().fg(base_color);
+            if is_selected {
+                style = style.add_modifier(Modifier::BOLD);
+            }
+
             let text = if title.is_empty() {
-                format!("  {} {} ({})", symbol, dep_id, status_text)
+                format!("{} {} {} ({})", prefix, symbol, dep_id, status_text)
             } else {
-                format!("  {} {} ({})  {}", symbol, dep_id, status_text, title)
+                format!(
+                    "{} {} {} ({})  {}",
+                    prefix, symbol, dep_id, status_text, title
+                )
             };
 
+            lines.push(Line::from(Span::styled(text, style)));
+        }
+
+        // dependent preview (mirrors dependency preview)
+        if let Some(dep_id) = dependents_active
+            .then_some(selected_dependent)
+            .flatten()
+            .and_then(|idx| sorted_dependents.get(idx))
+        {
+            lines.push(Line::from(""));
             lines.push(Line::from(Span::styled(
-                text,
-                Style::default().fg(base_color),
+                "dependent preview:",
+                Style::default().fg(Color::DarkGray),
             )));
+            if let Some(dep_issue) = app.issues.get(dep_id) {
+                let status_style = match dep_issue.status() {
+                    crate::issue::Status::Done => Style::default().fg(Color::Green),
+                    crate::issue::Status::Doing => Style::default().fg(Color::Yellow),
+                    crate::issue::Status::Open => Style::default(),
+                    crate::issue::Status::Skip => Style::default().fg(Color::DarkGray),
+                };
+                lines.push(Line::from(vec![
+                    Span::styled("  id:       ", Style::default().fg(Color::DarkGray)),
+                    Span::raw(dep_issue.id().to_string()),
+                ]));
+                lines.push(Line::from(vec![
+                    Span::styled("  title:    ", Style::default().fg(Color::DarkGray)),
+                    Span::raw(dep_issue.title().to_string()),
+                ]));
+                lines.push(Line::from(vec![
+                    Span::styled("  status:   ", Style::default().fg(Color::DarkGray)),
+                    Span::styled(dep_issue.status().to_string(), status_style),
+                ]));
+            } else {
+                lines.push(Line::from(Span::styled(
+                    "  missing dependent issue",
+                    Style::default().fg(Color::Red),
+                )));
+            }
         }
     }
 
@@ -1643,7 +1714,7 @@ fn draw_detail_overlay(f: &mut Frame, area: Rect, app: &mut App) {
         .borders(Borders::ALL)
         .border_style(Style::default().fg(Color::Yellow));
 
-    let lines = build_detail_lines(app, None);
+    let lines = build_detail_lines(app, None, DetailSection::Deps, None);
     if lines.is_empty() {
         let text = Paragraph::new("no issue selected").block(block);
         f.render_widget(text, overlay_area);
@@ -1691,10 +1762,12 @@ fn draw_help(f: &mut Frame, area: Rect) {
         )),
         Line::from("  ↑ / k      scroll detail content"),
         Line::from("  ↓ / j      scroll detail content"),
-        Line::from("  1-9        select dependency by number"),
+        Line::from("  1-9        select dep/dependent by number"),
+        Line::from("  [          switch to deps section"),
+        Line::from("  ]          switch to dependents section"),
         Line::from("  Ctrl+u/d   half-page scroll detail"),
         Line::from("  Tab / Esc  return focus to list"),
-        Line::from("  Enter      jump to selected dependency"),
+        Line::from("  Enter      jump to selected dep/dependent"),
         Line::from(""),
         Line::from(Span::styled(
             "actions",

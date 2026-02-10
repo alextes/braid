@@ -109,6 +109,16 @@ pub enum IssuesFocus {
     Details,
 }
 
+/// which section is active in the detail pane.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum DetailSection {
+    /// "Blocked by:" (dependencies)
+    #[default]
+    Deps,
+    /// "Blocks:" (dependents)
+    Dependents,
+}
+
 /// input mode for creating/editing issues.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum InputMode {
@@ -164,6 +174,10 @@ pub struct App {
     pub config: Config,
     /// selected dependency index in detail pane
     pub detail_dep_selected: Option<usize>,
+    /// which section is active in the detail pane (deps or dependents)
+    pub detail_section: DetailSection,
+    /// selected dependent index in detail pane
+    pub detail_dependent_selected: Option<usize>,
     /// filter query
     pub filter_query: String,
     /// status filter (empty means show all)
@@ -249,6 +263,8 @@ impl App {
             input_mode: InputMode::Normal,
             config,
             detail_dep_selected: None,
+            detail_section: DetailSection::default(),
+            detail_dependent_selected: None,
             filter_query: String::new(),
             status_filter: HashSet::new(),
             editor_file: None,
@@ -1141,6 +1157,58 @@ impl App {
         }
     }
 
+    /// select dependent by index (0-based).
+    pub fn select_dependent_by_index(&mut self, idx: usize) {
+        let Some(issue) = self.selected_issue() else {
+            return;
+        };
+        let dependents = crate::graph::get_dependents(issue.id(), &self.issues);
+        if idx < dependents.len() {
+            self.detail_dependent_selected = Some(idx);
+            self.message = None;
+        }
+    }
+
+    /// open the selected dependent in the list view.
+    pub fn open_selected_dependent(&mut self) {
+        let dependent_id = {
+            let Some(issue) = self.selected_issue() else {
+                self.message = Some("no issue selected".to_string());
+                return;
+            };
+            let dependents = crate::graph::get_dependents(issue.id(), &self.issues);
+            if dependents.is_empty() {
+                self.message = Some("no dependents".to_string());
+                return;
+            }
+            let Some(dep_idx) = self.detail_dependent_selected else {
+                self.message = Some("no dependent selected".to_string());
+                return;
+            };
+
+            // sort dependents the same way as rendering: open/doing first
+            let mut sorted = dependents;
+            sorted.sort_by_key(|id| {
+                self.issues
+                    .get(id)
+                    .map(|iss| matches!(iss.status(), Status::Done | Status::Skip) as u8)
+                    .unwrap_or(0)
+            });
+
+            let Some(id) = sorted.get(dep_idx) else {
+                self.message = Some("dependent not found".to_string());
+                return;
+            };
+            id.to_string()
+        };
+
+        if self.select_issue_by_id(&dependent_id) {
+            self.message = None;
+        } else {
+            self.message = Some("dependent issue missing".to_string());
+        }
+    }
+
     // start/done keybindings removed - too easy to trigger accidentally
     // use CLI commands (brd start, brd done) instead
 
@@ -1288,6 +1356,27 @@ impl App {
         } else {
             self.detail_dep_selected = Some(0);
         }
+
+        // reset dependent selection
+        let dependents_len = self
+            .selected_issue()
+            .map(|issue| crate::graph::get_dependents(issue.id(), &self.issues).len())
+            .unwrap_or(0);
+        if dependents_len == 0 {
+            self.detail_dependent_selected = None;
+        } else {
+            self.detail_dependent_selected = Some(0);
+        }
+
+        // reset section: prefer deps if available, otherwise dependents
+        if deps_len > 0 {
+            self.detail_section = DetailSection::Deps;
+        } else if dependents_len > 0 {
+            self.detail_section = DetailSection::Dependents;
+        } else {
+            self.detail_section = DetailSection::Deps;
+        }
+
         // also reset detail scroll when changing issue
         self.detail_scroll = 0;
     }
@@ -1306,6 +1395,31 @@ impl App {
             }
         } else {
             self.detail_dep_selected = Some(0);
+        }
+
+        // clamp dependent selection
+        let dependents_len = self
+            .selected_issue()
+            .map(|issue| crate::graph::get_dependents(issue.id(), &self.issues).len())
+            .unwrap_or(0);
+        if dependents_len == 0 {
+            self.detail_dependent_selected = None;
+        } else if let Some(idx) = self.detail_dependent_selected {
+            if idx >= dependents_len {
+                self.detail_dependent_selected = Some(dependents_len - 1);
+            }
+        } else {
+            self.detail_dependent_selected = Some(0);
+        }
+
+        // if the active section has no items, switch to the other section
+        if self.detail_section == DetailSection::Deps && deps_len == 0 && dependents_len > 0 {
+            self.detail_section = DetailSection::Dependents;
+        } else if self.detail_section == DetailSection::Dependents
+            && dependents_len == 0
+            && deps_len > 0
+        {
+            self.detail_section = DetailSection::Deps;
         }
     }
 
@@ -1989,6 +2103,38 @@ mod tests {
     }
 
     #[test]
+    fn test_reload_preserves_dependent_selection() {
+        let env = TestEnv::new();
+        env.add_issue("brd-main", "main issue", Priority::P1, Status::Open);
+        env.add_issue_with_deps(
+            "brd-dep1",
+            "dependent one",
+            Priority::P2,
+            Status::Open,
+            vec!["brd-main"],
+        );
+        env.add_issue_with_deps(
+            "brd-dep2",
+            "dependent two",
+            Priority::P3,
+            Status::Open,
+            vec!["brd-main"],
+        );
+
+        let mut app = env.app();
+        assert_eq!(app.selected_issue_id(), Some("brd-main"));
+        assert_eq!(app.detail_dependent_selected, Some(0));
+
+        // select dependent index 1
+        app.select_dependent_by_index(1);
+        assert_eq!(app.detail_dependent_selected, Some(1));
+
+        // reload issues - should preserve dependent selection
+        app.reload_issues(&env.paths).expect("reload failed");
+        assert_eq!(app.detail_dependent_selected, Some(1));
+    }
+
+    #[test]
     fn test_reload_clamps_dep_selection_when_deps_removed() {
         let env = TestEnv::new();
         env.add_issue("brd-dep1", "dep one", Priority::P2, Status::Open);
@@ -2017,5 +2163,64 @@ mod tests {
         // reload - should clamp to max valid index (0)
         app.reload_issues(&env.paths).expect("reload failed");
         assert_eq!(app.detail_dep_selected, Some(0));
+    }
+
+    #[test]
+    fn test_reload_clamps_dependent_selection_when_dependents_removed() {
+        let env = TestEnv::new();
+        env.add_issue("brd-main", "main issue", Priority::P1, Status::Open);
+        env.add_issue_with_deps(
+            "brd-dep1",
+            "dependent one",
+            Priority::P2,
+            Status::Open,
+            vec!["brd-main"],
+        );
+        env.add_issue_with_deps(
+            "brd-dep2",
+            "dependent two",
+            Priority::P3,
+            Status::Open,
+            vec!["brd-main"],
+        );
+
+        let mut app = env.app();
+        assert_eq!(app.selected_issue_id(), Some("brd-main"));
+
+        // select dependent index 1
+        app.select_dependent_by_index(1);
+        assert_eq!(app.detail_dependent_selected, Some(1));
+
+        // remove one dependent by removing its dep on brd-main
+        let issue_path = env.paths.issues_dir(&env.config).join("brd-dep2.md");
+        let mut issue = app.issues.get("brd-dep2").unwrap().clone();
+        issue.frontmatter.deps = vec![];
+        issue.save(&issue_path).expect("failed to save");
+
+        // reload - should clamp to max valid index (0)
+        app.reload_issues(&env.paths).expect("reload failed");
+        assert_eq!(app.detail_dependent_selected, Some(0));
+    }
+
+    #[test]
+    fn test_reset_dep_selection_sets_section_to_dependents_when_no_deps() {
+        let env = TestEnv::new();
+        // brd-main has no deps but is depended on by brd-dep1
+        env.add_issue("brd-main", "main issue", Priority::P1, Status::Open);
+        env.add_issue_with_deps(
+            "brd-dep1",
+            "dependent",
+            Priority::P2,
+            Status::Open,
+            vec!["brd-main"],
+        );
+
+        let app = env.app();
+        assert_eq!(app.selected_issue_id(), Some("brd-main"));
+
+        // no deps, so section should default to Dependents
+        assert_eq!(app.detail_section, DetailSection::Dependents);
+        assert_eq!(app.detail_dep_selected, None);
+        assert_eq!(app.detail_dependent_selected, Some(0));
     }
 }
