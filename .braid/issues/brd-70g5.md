@@ -3,13 +3,14 @@ schema_version: 9
 id: brd-70g5
 title: 'design: rename brd dep to use blocking language'
 priority: P2
-status: open
+status: done
 type: design
 deps: []
 tags:
 - ux
 owner: null
 created_at: 2026-01-18T20:42:58.628755Z
+completed_at: 2026-02-07T19:14:56.558824Z
 ---
 
 The codebase shifted from "dependency" to "blocking/blocked" language because it's clearer:
