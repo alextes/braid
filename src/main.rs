@@ -119,7 +119,7 @@ fn run(cli: &Cli) -> Result<()> {
             force,
             result,
             no_push,
-        } => cmd_done(cli, &paths, id, *force, result, *no_push),
+        } => cmd_done(cli, &paths, id.as_deref(), *force, result, *no_push),
         Command::Skip { id } => cmd_skip(cli, &paths, id),
         Command::Reopen { id } => cmd_reopen(cli, &paths, id),
         Command::Path { id } => cmd_path(cli, &paths, id),

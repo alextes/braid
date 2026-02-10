@@ -6,7 +6,7 @@ use crate::error::{BrdError, Result};
 use crate::graph::would_create_cycle;
 use crate::issue::{Issue, IssueType, Status};
 use crate::lock::LockGuard;
-use crate::repo::RepoPaths;
+use crate::repo::{self, RepoPaths};
 
 use super::start::{commit_and_push_issues_branch_with_action, commit_and_push_main_with_action};
 use super::{issue_to_json, load_all_issues, resolve_issue_id};
@@ -15,7 +15,7 @@ use std::collections::{HashMap, HashSet};
 pub fn cmd_done(
     cli: &Cli,
     paths: &RepoPaths,
-    id: &str,
+    id: Option<&str>,
     force: bool,
     result_ids: &[String],
     no_push: bool,
@@ -24,7 +24,35 @@ pub fn cmd_done(
     let _lock = LockGuard::acquire(&paths.lock_path())?;
 
     let mut issues = load_all_issues(paths, &config)?;
-    let full_id = resolve_issue_id(id, &issues)?;
+    let full_id = match id {
+        Some(partial) => resolve_issue_id(partial, &issues)?,
+        None => {
+            let agent_id = repo::get_agent_id(&paths.worktree_root);
+            let doing: Vec<_> = issues
+                .values()
+                .filter(|i| {
+                    i.status() == Status::Doing && i.frontmatter.owner.as_deref() == Some(&agent_id)
+                })
+                .collect();
+
+            match doing.len() {
+                0 => {
+                    return Err(BrdError::Other(
+                        "no issue in progress. specify an issue ID or run `brd start` first"
+                            .to_string(),
+                    ));
+                }
+                1 => doing[0].id().to_string(),
+                _ => {
+                    let ids: Vec<_> = doing.iter().map(|i| i.id()).collect();
+                    return Err(BrdError::Other(format!(
+                        "multiple issues in progress: {}. specify which to complete",
+                        ids.join(", ")
+                    )));
+                }
+            }
+        }
+    };
     let mut changed_ids = HashSet::new();
 
     // check if this is a design issue
@@ -127,7 +155,7 @@ pub fn cmd_done(
     {
         let issue = issues
             .get_mut(&full_id)
-            .ok_or_else(|| BrdError::IssueNotFound(id.to_string()))?;
+            .ok_or_else(|| BrdError::IssueNotFound(full_id.clone()))?;
 
         issue.frontmatter.status = Status::Done;
         issue.frontmatter.owner = None;
@@ -210,7 +238,7 @@ mod tests {
             .owner("tester")
             .create();
 
-        cmd_done(&test_cli(), &repo.paths, "brd-aaaa", false, &[], true).unwrap();
+        cmd_done(&test_cli(), &repo.paths, Some("brd-aaaa"), false, &[], true).unwrap();
 
         let issues = load_all_issues(&repo.paths, &repo.config).unwrap();
         let issue = issues.get("brd-aaaa").unwrap();
@@ -221,7 +249,15 @@ mod tests {
     #[test]
     fn test_done_issue_not_found() {
         let repo = TestRepo::builder().build();
-        let err = cmd_done(&test_cli(), &repo.paths, "brd-missing", false, &[], true).unwrap_err();
+        let err = cmd_done(
+            &test_cli(),
+            &repo.paths,
+            Some("brd-missing"),
+            false,
+            &[],
+            true,
+        )
+        .unwrap_err();
         assert!(matches!(err, BrdError::IssueNotFound(_)));
     }
 
@@ -231,7 +267,7 @@ mod tests {
         repo.issue("brd-aaaa").create();
         repo.issue("brd-aaab").create();
 
-        let err = cmd_done(&test_cli(), &repo.paths, "aaa", false, &[], true).unwrap_err();
+        let err = cmd_done(&test_cli(), &repo.paths, Some("aaa"), false, &[], true).unwrap_err();
         assert!(matches!(err, BrdError::AmbiguousId(_, _)));
     }
 
@@ -242,7 +278,15 @@ mod tests {
             .issue_type(IssueType::Design)
             .create();
 
-        let err = cmd_done(&test_cli(), &repo.paths, "brd-design", false, &[], true).unwrap_err();
+        let err = cmd_done(
+            &test_cli(),
+            &repo.paths,
+            Some("brd-design"),
+            false,
+            &[],
+            true,
+        )
+        .unwrap_err();
         assert!(err.to_string().contains("design issues require --result"));
     }
 
@@ -253,7 +297,15 @@ mod tests {
             .issue_type(IssueType::Design)
             .create();
 
-        cmd_done(&test_cli(), &repo.paths, "brd-design", true, &[], true).unwrap();
+        cmd_done(
+            &test_cli(),
+            &repo.paths,
+            Some("brd-design"),
+            true,
+            &[],
+            true,
+        )
+        .unwrap();
 
         let issues = load_all_issues(&repo.paths, &repo.config).unwrap();
         assert_eq!(issues.get("brd-design").unwrap().status(), Status::Done);
@@ -270,7 +322,7 @@ mod tests {
         cmd_done(
             &test_cli(),
             &repo.paths,
-            "brd-design",
+            Some("brd-design"),
             false,
             &["brd-impl".to_string()],
             true,
@@ -291,7 +343,7 @@ mod tests {
         let err = cmd_done(
             &test_cli(),
             &repo.paths,
-            "brd-design",
+            Some("brd-design"),
             false,
             &["brd-missing".to_string()],
             true,
@@ -312,7 +364,7 @@ mod tests {
         cmd_done(
             &test_cli(),
             &repo.paths,
-            "brd-design",
+            Some("brd-design"),
             false,
             &["brd-impl".to_string()],
             true,
@@ -339,7 +391,7 @@ mod tests {
         cmd_done(
             &test_cli(),
             &repo.paths,
-            "brd-design",
+            Some("brd-design"),
             false,
             &["brd-impl".to_string()],
             true,
@@ -367,7 +419,7 @@ mod tests {
         cmd_done(
             &test_cli(),
             &repo.paths,
-            "brd-design",
+            Some("brd-design"),
             false,
             &["brd-impl1".to_string(), "brd-impl2".to_string()],
             true,
@@ -409,7 +461,7 @@ mod tests {
         cmd_done(
             &test_cli(),
             &repo.paths,
-            "brd-design",
+            Some("brd-design"),
             false,
             &["brd-impl1".to_string(), "brd-impl2".to_string()],
             true,
@@ -452,7 +504,7 @@ mod tests {
         let err = cmd_done(
             &test_cli(),
             &repo.paths,
-            "brd-design",
+            Some("brd-design"),
             false,
             &["brd-impl".to_string()],
             true,

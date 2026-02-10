@@ -143,8 +143,8 @@ pub enum Command {
 
     /// mark an issue as done
     Done {
-        /// issue ID
-        id: String,
+        /// issue ID (defaults to current "doing" issue if omitted)
+        id: Option<String>,
 
         /// force completion even if not claimed by you, or close design issue without results
         #[arg(long)]
