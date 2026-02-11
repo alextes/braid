@@ -1144,8 +1144,8 @@ fn draw_issue_list(f: &mut Frame, area: Rect, app: &mut App) {
         .border_style(border_style);
 
     // calculate available width for title
-    // area - borders(2) - status_prefix(2) - id(8) - priority(2) - age(4) - owner(10) - spaces(4)
-    let title_width = area.width.saturating_sub(32) as usize;
+    // area - borders(2) - status_prefix(2) - type_badge(2) - id(8) - priority(2) - age(4) - owner(10) - spaces(4)
+    let title_width = area.width.saturating_sub(34) as usize;
     let view_height = block.inner(area).height as usize;
     let now = OffsetDateTime::now_utc();
 
@@ -1211,17 +1211,29 @@ fn draw_issue_list(f: &mut Frame, area: Rect, app: &mut App) {
                 None => base_style,
             };
 
-            let mut rest_spans = vec![Span::styled(
-                format!(
-                    "{} {} {:>4} {:<10} {}",
-                    id,
-                    issue.priority(),
-                    age,
-                    owner,
-                    title_part
+            let type_badge = match issue.issue_type() {
+                Some(crate::issue::IssueType::Design) => {
+                    Span::styled("D ", Style::default().fg(Color::Magenta))
+                }
+                Some(crate::issue::IssueType::Meta) => {
+                    Span::styled("M ", Style::default().fg(Color::Blue))
+                }
+                None => Span::raw("  "),
+            };
+            let mut rest_spans = vec![
+                type_badge,
+                Span::styled(
+                    format!(
+                        "{} {} {:>4} {:<10} {}",
+                        id,
+                        issue.priority(),
+                        age,
+                        owner,
+                        title_part
+                    ),
+                    style,
                 ),
-                style,
-            )];
+            ];
             push_colored_tags(&mut rest_spans, &issue.frontmatter.tags, style);
 
             let line = if is_blocker && !is_selected {
@@ -1420,6 +1432,17 @@ fn build_detail_lines(
             ),
         ]),
     ];
+
+    if let Some(issue_type) = issue.issue_type() {
+        let (label, color) = match issue_type {
+            crate::issue::IssueType::Design => ("design", Color::Magenta),
+            crate::issue::IssueType::Meta => ("meta", Color::Blue),
+        };
+        lines.push(Line::from(vec![
+            Span::styled("Type:     ", Style::default().fg(Color::DarkGray)),
+            Span::styled(label, Style::default().fg(color)),
+        ]));
+    }
 
     if let Some(owner) = &issue.frontmatter.owner {
         lines.push(Line::from(vec![
