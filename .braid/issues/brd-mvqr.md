@@ -3,13 +3,14 @@ schema_version: 9
 id: brd-mvqr
 title: 'design: scrollable detail pane in TUI'
 priority: P2
-status: open
+status: done
 type: design
 deps: []
 tags:
 - tui
 owner: null
 created_at: 2026-01-29T11:38:38.14388Z
+completed_at: 2026-02-10T11:22:06.022069Z
 ---
 
 ## problem
