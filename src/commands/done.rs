@@ -70,6 +70,25 @@ pub fn cmd_done(
         ));
     }
 
+    // meta issues require all children to be done/skip, or --force
+    let is_meta = issues
+        .get(&full_id)
+        .map(|i| i.issue_type() == Some(IssueType::Meta))
+        .unwrap_or(false);
+
+    if is_meta && !force {
+        let derived = crate::graph::compute_derived(issues.get(&full_id).unwrap(), &issues);
+        if !derived.open_deps.is_empty() {
+            let total = issues.get(&full_id).unwrap().deps().len();
+            let done = total - derived.open_deps.len();
+            return Err(BrdError::Other(format!(
+                "meta issue has open children ({}/{})\n\
+                 use --force to close anyway",
+                done, total
+            )));
+        }
+    }
+
     // resolve and validate result issue IDs
     let mut resolved_results = Vec::new();
     let mut seen_results = HashSet::new();
@@ -490,6 +509,52 @@ mod tests {
             !external.deps().contains(&"brd-design".to_string()),
             "external should not depend on design anymore"
         );
+    }
+
+    #[test]
+    fn test_done_meta_rejects_open_children() {
+        let repo = TestRepo::builder().build();
+        repo.issue("brd-meta")
+            .issue_type(IssueType::Meta)
+            .deps(&["brd-child1", "brd-child2"])
+            .create();
+        repo.issue("brd-child1").create();
+        repo.issue("brd-child2").status(Status::Done).create();
+
+        let err =
+            cmd_done(&test_cli(), &repo.paths, Some("brd-meta"), false, &[], true).unwrap_err();
+        assert!(err.to_string().contains("open children"));
+    }
+
+    #[test]
+    fn test_done_meta_with_force() {
+        let repo = TestRepo::builder().build();
+        repo.issue("brd-meta")
+            .issue_type(IssueType::Meta)
+            .deps(&["brd-child1"])
+            .create();
+        repo.issue("brd-child1").create();
+
+        cmd_done(&test_cli(), &repo.paths, Some("brd-meta"), true, &[], true).unwrap();
+
+        let issues = load_all_issues(&repo.paths, &repo.config).unwrap();
+        assert_eq!(issues.get("brd-meta").unwrap().status(), Status::Done);
+    }
+
+    #[test]
+    fn test_done_meta_all_children_done() {
+        let repo = TestRepo::builder().build();
+        repo.issue("brd-meta")
+            .issue_type(IssueType::Meta)
+            .deps(&["brd-child1", "brd-child2"])
+            .create();
+        repo.issue("brd-child1").status(Status::Done).create();
+        repo.issue("brd-child2").status(Status::Done).create();
+
+        cmd_done(&test_cli(), &repo.paths, Some("brd-meta"), false, &[], true).unwrap();
+
+        let issues = load_all_issues(&repo.paths, &repo.config).unwrap();
+        assert_eq!(issues.get("brd-meta").unwrap().status(), Status::Done);
     }
 
     #[test]
