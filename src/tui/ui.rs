@@ -1848,10 +1848,12 @@ fn truncate(s: &str, max_len: usize) -> String {
     if max_len == 1 {
         return "…".to_string();
     }
-    if s.len() <= max_len {
+    if s.chars().count() <= max_len {
         s.to_string()
     } else {
-        format!("{}…", &s[..max_len - 1])
+        let mut truncated: String = s.chars().take(max_len - 1).collect();
+        truncated.push('…');
+        truncated
     }
 }
 
@@ -2199,4 +2201,52 @@ fn centered_rect(percent_x: u16, height: u16, r: Rect) -> Rect {
             Constraint::Percentage((100 - percent_x) / 2),
         ])
         .split(popup_layout[1])[1]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::truncate;
+
+    #[test]
+    fn ascii_within_limit() {
+        assert_eq!(truncate("hello", 10), "hello");
+    }
+
+    #[test]
+    fn ascii_at_limit() {
+        assert_eq!(truncate("hello", 5), "hello");
+    }
+
+    #[test]
+    fn ascii_over_limit() {
+        assert_eq!(truncate("hello world", 5), "hell…");
+    }
+
+    #[test]
+    fn multibyte_em_dash() {
+        // '—' is 3 bytes in UTF-8; slicing at byte boundaries must not panic
+        let s = "add support for query — live";
+        assert_eq!(truncate(s, 26), "add support for query — l…");
+    }
+
+    #[test]
+    fn multibyte_emoji() {
+        let s = "🎉 party time";
+        assert_eq!(truncate(s, 5), "🎉 pa…");
+    }
+
+    #[test]
+    fn max_len_zero() {
+        assert_eq!(truncate("hello", 0), "");
+    }
+
+    #[test]
+    fn max_len_one() {
+        assert_eq!(truncate("hello", 1), "…");
+    }
+
+    #[test]
+    fn empty_string() {
+        assert_eq!(truncate("", 5), "");
+    }
 }
