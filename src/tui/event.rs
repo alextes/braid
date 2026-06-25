@@ -96,13 +96,11 @@ fn handle_key_event(app: &mut App, paths: &RepoPaths, key: KeyEvent) -> Result<b
                         };
                     }
                 }
-                KeyCode::Down | KeyCode::Char('j') => {
-                    if *selected < 3 {
-                        app.input_mode = InputMode::Priority {
-                            title: title.clone(),
-                            selected: selected + 1,
-                        };
-                    }
+                KeyCode::Down | KeyCode::Char('j') if *selected < 3 => {
+                    app.input_mode = InputMode::Priority {
+                        title: title.clone(),
+                        selected: selected + 1,
+                    };
                 }
                 _ => {}
             }
@@ -125,15 +123,13 @@ fn handle_key_event(app: &mut App, paths: &RepoPaths, key: KeyEvent) -> Result<b
                         };
                     }
                 }
-                KeyCode::Down | KeyCode::Char('j') => {
-                    if *selected < 2 {
-                        // 3 options: (none), design, meta
-                        app.input_mode = InputMode::Type {
-                            title: title.clone(),
-                            priority: *priority,
-                            selected: selected + 1,
-                        };
-                    }
+                KeyCode::Down | KeyCode::Char('j') if *selected < 2 => {
+                    // 3 options: (none), design, meta
+                    app.input_mode = InputMode::Type {
+                        title: title.clone(),
+                        priority: *priority,
+                        selected: selected + 1,
+                    };
                 }
                 _ => {}
             }
@@ -167,16 +163,14 @@ fn handle_key_event(app: &mut App, paths: &RepoPaths, key: KeyEvent) -> Result<b
                         };
                     }
                 }
-                KeyCode::Down | KeyCode::Char('j') => {
-                    if *cursor < max_cursor {
-                        app.input_mode = InputMode::Deps {
-                            title: title.clone(),
-                            priority: *priority,
-                            type_idx: *type_idx,
-                            selected_deps: selected_deps.clone(),
-                            cursor: cursor + 1,
-                        };
-                    }
+                KeyCode::Down | KeyCode::Char('j') if *cursor < max_cursor => {
+                    app.input_mode = InputMode::Deps {
+                        title: title.clone(),
+                        priority: *priority,
+                        type_idx: *type_idx,
+                        selected_deps: selected_deps.clone(),
+                        cursor: cursor + 1,
+                    };
                 }
                 _ => {}
             }
