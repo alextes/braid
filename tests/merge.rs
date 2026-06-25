@@ -32,6 +32,10 @@ impl MergeEnv {
         run_git_in(&self.path(), args)
     }
 
+    fn git_in(&self, path: &Path, args: &[&str]) -> Output {
+        run_git_in(path, args)
+    }
+
     fn git_ok(&self, args: &[&str]) -> Output {
         let output = self.git(args);
         assert!(
@@ -43,8 +47,24 @@ impl MergeEnv {
         output
     }
 
+    fn git_ok_in(&self, path: &Path, args: &[&str]) -> Output {
+        let output = self.git_in(path, args);
+        assert!(
+            output.status.success(),
+            "git {:?} failed: {}",
+            args,
+            stderr(&output)
+        );
+        output
+    }
+
     fn git_stdout(&self, args: &[&str]) -> String {
         let output = self.git_ok(args);
+        String::from_utf8_lossy(&output.stdout).trim().to_string()
+    }
+
+    fn git_stdout_in(&self, path: &Path, args: &[&str]) -> String {
+        let output = self.git_ok_in(path, args);
         String::from_utf8_lossy(&output.stdout).trim().to_string()
     }
 
@@ -60,9 +80,13 @@ impl MergeEnv {
     }
 
     fn brd(&self, args: &[&str]) -> Output {
+        self.brd_in(&self.path(), args)
+    }
+
+    fn brd_in(&self, path: &Path, args: &[&str]) -> Output {
         Command::new(env!("CARGO_BIN_EXE_brd"))
             .args(args)
-            .current_dir(self.path())
+            .current_dir(path)
             .output()
             .expect("failed to run brd")
     }
@@ -72,8 +96,12 @@ impl MergeEnv {
     }
 
     fn commit_all(&self, message: &str) {
-        self.git_ok(&["add", "-A"]);
-        self.git_ok(&["commit", "-m", message]);
+        self.commit_all_in(&self.path(), message);
+    }
+
+    fn commit_all_in(&self, path: &Path, message: &str) {
+        self.git_ok_in(path, &["add", "-A"]);
+        self.git_ok_in(path, &["commit", "-m", message]);
     }
 
     fn init_repo(&self) {
@@ -162,6 +190,67 @@ fn test_merge_success_flow() {
 
     let head = env.git_stdout(&["rev-parse", "HEAD"]);
     let origin_main = env.git_stdout(&["rev-parse", "origin/main"]);
+    assert_eq!(head, origin_main);
+
+    let remote_main = env.git_remote_stdout(&["rev-parse", "main"]);
+    assert_eq!(origin_main, remote_main);
+}
+
+#[test]
+fn test_merge_from_plain_linked_worktree() {
+    let env = MergeEnv::new();
+    let worktree = tempfile::tempdir().expect("failed to create worktree dir");
+    let worktree_path = worktree.path().join("plain-agent");
+    let worktree_str = worktree_path.to_str().expect("worktree path is not utf-8");
+
+    env.git_ok(&[
+        "worktree",
+        "add",
+        "-b",
+        "plain-agent",
+        worktree_str,
+        "origin/main",
+    ]);
+    assert!(!worktree_path.join(".braid/agent.toml").exists());
+
+    fs::write(worktree_path.join("work.txt"), "agent work\n").expect("failed to write work file");
+    env.commit_all_in(&worktree_path, "agent work");
+
+    let output = env.brd_in(&worktree_path, &["agent", "merge"]);
+    assert!(output.status.success(), "merge failed: {}", stderr(&output));
+
+    let branch = env.git_stdout_in(&worktree_path, &["rev-parse", "--abbrev-ref", "HEAD"]);
+    assert_eq!(branch, "plain-agent");
+
+    let head = env.git_stdout_in(&worktree_path, &["rev-parse", "HEAD"]);
+    let origin_main = env.git_stdout_in(&worktree_path, &["rev-parse", "origin/main"]);
+    assert_eq!(head, origin_main);
+
+    let remote_main = env.git_remote_stdout(&["rev-parse", "main"]);
+    assert_eq!(origin_main, remote_main);
+}
+
+#[test]
+fn test_merge_from_detached_worktree() {
+    let env = MergeEnv::new();
+    let worktree = tempfile::tempdir().expect("failed to create worktree dir");
+    let worktree_path = worktree.path().join("detached-agent");
+    let worktree_str = worktree_path.to_str().expect("worktree path is not utf-8");
+
+    env.git_ok(&["worktree", "add", "--detach", worktree_str, "origin/main"]);
+    assert!(!worktree_path.join(".braid/agent.toml").exists());
+
+    fs::write(worktree_path.join("work.txt"), "agent work\n").expect("failed to write work file");
+    env.commit_all_in(&worktree_path, "detached agent work");
+
+    let output = env.brd_in(&worktree_path, &["agent", "merge"]);
+    assert!(output.status.success(), "merge failed: {}", stderr(&output));
+
+    let branch = env.git_stdout_in(&worktree_path, &["rev-parse", "--abbrev-ref", "HEAD"]);
+    assert_eq!(branch, "HEAD");
+
+    let head = env.git_stdout_in(&worktree_path, &["rev-parse", "HEAD"]);
+    let origin_main = env.git_stdout_in(&worktree_path, &["rev-parse", "origin/main"]);
     assert_eq!(head, origin_main);
 
     let remote_main = env.git_remote_stdout(&["rev-parse", "main"]);
