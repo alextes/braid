@@ -6,20 +6,7 @@ use crate::error::{BrdError, Result};
 use crate::git;
 use crate::repo::RepoPaths;
 
-/// check if we're in an agent worktree (has .braid/agent.toml).
-fn is_agent_worktree(paths: &RepoPaths) -> bool {
-    paths.worktree_root.join(".braid/agent.toml").exists()
-}
-
 pub fn cmd_merge(cli: &Cli, paths: &RepoPaths) -> Result<()> {
-    // step 0: check we're in an agent worktree
-    if !is_agent_worktree(paths) {
-        return Err(BrdError::Other(
-            "not in an agent worktree - brd agent merge only works from agent worktrees"
-                .to_string(),
-        ));
-    }
-
     // step 1: check for clean working tree
     if !git::is_clean(&paths.worktree_root)? {
         return Err(BrdError::Other(
@@ -44,8 +31,18 @@ pub fn cmd_merge(cli: &Cli, paths: &RepoPaths) -> Result<()> {
         return Ok(());
     }
 
+    let (display_ref, push_ref) = if branch == "HEAD" {
+        let short_head = git::output(&["rev-parse", "--short", "HEAD"], &paths.worktree_root)?;
+        (
+            format!("detached HEAD {}", short_head),
+            "HEAD:main".to_string(),
+        )
+    } else {
+        (branch.clone(), format!("{}:main", branch))
+    };
+
     if !cli.json {
-        println!("merging {} to main...", branch);
+        println!("merging {} to main...", display_ref);
     }
 
     // step 2: fetch origin main
@@ -75,7 +72,6 @@ pub fn cmd_merge(cli: &Cli, paths: &RepoPaths) -> Result<()> {
     if !cli.json {
         println!("  pushing to main...");
     }
-    let push_ref = format!("{}:main", branch);
     let push_output = git::run_full(&["push", "origin", &push_ref], &paths.worktree_root)?;
     if !push_output.status.success() {
         let stderr = String::from_utf8_lossy(&push_output.stderr);
@@ -109,11 +105,12 @@ pub fn cmd_merge(cli: &Cli, paths: &RepoPaths) -> Result<()> {
         let json = serde_json::json!({
             "ok": true,
             "branch": branch,
+            "source": display_ref,
             "action": "merged",
         });
         println!("{}", serde_json::to_string_pretty(&json).unwrap());
     } else {
-        println!("merged {} to main", branch);
+        println!("merged {} to main", display_ref);
         if manual_sync {
             println!();
             println!("hint: run `brd sync` to push any pending issue changes");
@@ -165,6 +162,8 @@ mod tests {
             "schema_version = 6\nid_prefix = \"tst\"\nid_len = 4\n",
         )
         .unwrap();
+        git_ok(repo_path, &["add", ".braid/config.toml"]);
+        git_ok(repo_path, &["commit", "-m", "init braid"]);
 
         let paths = RepoPaths {
             worktree_root: repo_path.to_path_buf(),
@@ -187,44 +186,10 @@ mod tests {
     }
 
     #[test]
-    fn test_is_agent_worktree_true() {
-        let (dir, paths) = create_repo();
-        let braid_dir = dir.path().join(".braid");
-        std::fs::write(braid_dir.join("agent.toml"), "agent_id = \"test\"\n").unwrap();
-
-        assert!(is_agent_worktree(&paths));
-    }
-
-    #[test]
-    fn test_is_agent_worktree_false() {
-        let (_dir, paths) = create_repo();
-        // No agent.toml created
-        assert!(!is_agent_worktree(&paths));
-    }
-
-    #[test]
-    fn test_merge_rejects_non_agent_worktree() {
-        let (_dir, paths) = create_repo();
-        let cli = make_cli();
-
-        // No agent.toml, should reject
-        let err = cmd_merge(&cli, &paths).unwrap_err();
-        assert!(err.to_string().contains("not in an agent worktree"));
-    }
-
-    #[test]
     fn test_merge_rejects_dirty_worktree() {
         let (dir, paths) = create_repo();
         let cli = make_cli();
 
-        // Create agent.toml
-        std::fs::write(
-            dir.path().join(".braid/agent.toml"),
-            "agent_id = \"test\"\n",
-        )
-        .unwrap();
-
-        // Create uncommitted changes
         std::fs::write(dir.path().join("dirty.txt"), "dirty\n").unwrap();
 
         let err = cmd_merge(&cli, &paths).unwrap_err();
@@ -233,19 +198,9 @@ mod tests {
 
     #[test]
     fn test_merge_on_main_branch() {
-        let (dir, paths) = create_repo();
+        let (_dir, paths) = create_repo();
         let cli = make_cli();
 
-        // Create agent.toml and commit it
-        std::fs::write(
-            dir.path().join(".braid/agent.toml"),
-            "agent_id = \"test\"\n",
-        )
-        .unwrap();
-        git_ok(dir.path(), &["add", "."]);
-        git_ok(dir.path(), &["commit", "-m", "add agent.toml"]);
-
-        // We're on main branch, should return Ok but print message
         let result = cmd_merge(&cli, &paths);
         assert!(result.is_ok(), "expected Ok, got: {:?}", result);
     }

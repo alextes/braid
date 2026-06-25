@@ -1,5 +1,6 @@
 //! agent session management for tracking spawned claude agents.
 
+use std::cmp::Reverse;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -210,7 +211,7 @@ pub fn load_all_sessions(sessions_dir: &Path) -> Result<Vec<Session>> {
     }
 
     // sort by started_at, newest first
-    sessions.sort_by(|a, b| b.started_at.cmp(&a.started_at));
+    sessions.sort_by_key(|session| Reverse(session.started_at));
 
     Ok(sessions)
 }
